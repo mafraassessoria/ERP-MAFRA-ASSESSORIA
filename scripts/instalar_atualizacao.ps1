@@ -44,7 +44,7 @@ try {
     if ($c -match ' ') { throw 'O caminho da pasta do sistema tem espacos; mova para C:\emissor_nfse.' }
     $sshCmd = "ssh -i $c -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$k"
     if (-not (Test-Path (Join-Path $pasta '.git'))) { & $git init -q -b main }
-    & $git -c safe.directory=* config core.sshCommand $sshCmd
+    & $git -c safe.directory=* config --replace-all core.sshCommand $sshCmd
     $remotos = @(& $git -c safe.directory=* remote)
     if ($remotos -contains 'origin') { & $git -c safe.directory=* remote set-url origin "git@github.com:$Repositorio.git" }
     else { & $git -c safe.directory=* remote add origin "git@github.com:$Repositorio.git" }
