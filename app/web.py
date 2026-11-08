@@ -45,6 +45,29 @@ class SemPermissao(Exception):
     pass
 
 
+def versao_sistema() -> str:
+    """Versão instalada (commit do GitHub), lida do .git sem precisar do programa git."""
+    from .config import BASE_DIR
+    g = BASE_DIR / ".git"
+    try:
+        head = (g / "HEAD").read_text().strip()
+        if head.startswith("ref:"):
+            ref = head[4:].strip()
+            arq = g / ref
+            if arq.exists():
+                return arq.read_text().strip()[:7]
+            for linha in (g / "packed-refs").read_text().splitlines():
+                if linha.endswith(" " + ref):
+                    return linha[:7]
+            return ""
+        return head[:7]
+    except OSError:
+        return ""
+
+
+templates.env.globals["versao_sistema"] = versao_sistema
+
+
 def flash(request: Request, msg: str, tipo: str = "ok") -> None:
     request.session.setdefault("_flash", []).append([tipo, msg])
 

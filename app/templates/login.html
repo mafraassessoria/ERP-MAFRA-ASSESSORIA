@@ -7,5 +7,6 @@
   <label>Usuário <input name="login" autofocus required autocomplete="username"></label>
   <label>Senha <input name="senha" type="password" required autocomplete="current-password"></label>
   <button>Entrar</button>
+  {% set v = versao_sistema() %}{% if v %}<p class="sutil" style="text-align:center;margin-top:1rem">versão {{ v }}</p>{% endif %}
 </form>
 {% endblock %}
