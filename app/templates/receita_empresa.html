@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_receita_resultado.html" import valor %}
+{% block titulo %}Receita Federal · {{ p.razao_social }}{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+{% include "_cabecalho_empresa.html" %}
+
+{% if sit.modo == 'desligado' %}
+<div class="cartao aviso">O módulo Receita Federal está <b>desligado</b>.
+  {% if usuario.perfil == 'ADMIN' %}Ative em <a href="/configuracoes#receita">Configurações → Receita Federal</a> (comece pelo modo Demonstração).{% else %}Peça ao administrador para ativar.{% endif %}</div>
+{% else %}
+<p class="sutil">Modo: <b>{{ 'Demonstração (dados fictícios do Serpro)' if sit.modo == 'demonstracao' else 'Produção' }}</b>
+  {% if sit.modo == 'producao' %}· gasto no mês R$ {{ '%.2f'|format(sit.gasto)|replace('.', ',') }} de R$ {{ '%.2f'|format(sit.limite)|replace('.', ',') }}{% endif %}
+  · as consultas repetidas no mesmo dia abrem o resultado já guardado, sem novo custo.</p>
+
+{% if monitor %}
+<section class="cartao">
+  <h2>Acompanhamento (Monitor e-CAC)</h2>
+  <div class="mon-partes">{% for x in monitor %}<span class="etiqueta {{ x.st[1] }}" title="{{ x.m.resumo }} · {{ x.m.atualizado_em|datahora }}">{{ x.nome }}{% if x.m.referencia %} {{ x.m.referencia }}{% endif %}: {{ x.st[0] }}</span>{% endfor %}</div>
+</section>
+{% endif %}
+<div class="rf-grade">
+{% for grupo, servs in grupos %}
+  <section class="cartao rf-grupo">
+    <h2>{{ grupo }}</h2>
+    {% for s in servs %}
+    <form method="post" action="/prestadores/{{ p.id }}/receita/{{ s.codigo }}" class="rf-servico">
+      <div class="rf-nome"><b>{{ s.nome }}</b>
+        {% if sit.modo == 'producao' %}<small class="sutil">≈ R$ {{ '%.2f'|format(custos[s.codigo])|replace('.', ',') }}</small>{% endif %}
+        {% if s.descricao %}<small class="sutil">{{ s.descricao }}</small>{% endif %}</div>
+      <div class="rf-campos">
+      {% for c in s.campos %}
+        {% if c.tipo == 'opcoes' %}
+          <label>{{ c.rotulo }} <select name="{{ c.nome }}">{% for k, r in c.opcoes.items() %}<option value="{{ k }}" {{ 'selected' if k == c.valor_padrao() }}>{{ r }}</option>{% endfor %}</select></label>
+        {% elif c.tipo == 'periodo' %}
+          <label>{{ c.rotulo }} <input type="month" name="{{ c.nome }}" value="{{ c.valor_padrao() }}" required></label>
+        {% elif c.tipo == 'ano' %}
+          <label>{{ c.rotulo }} <input type="number" name="{{ c.nome }}" value="{{ c.valor_padrao() }}" min="2000" max="2100" required></label>
+        {% elif c.tipo == 'data' %}
+          <label>{{ c.rotulo }} <input type="date" name="{{ c.nome }}" value="{{ c.valor_padrao() }}" required></label>
+        {% else %}
+          <label>{{ c.rotulo }} <input name="{{ c.nome }}" value="{{ c.valor_padrao() }}" required {% if c.ajuda %}title="{{ c.ajuda }}"{% endif %}></label>
+        {% endif %}
+      {% endfor %}
+        <button class="secundario">Consultar</button>
+      </div>
+    </form>
+    {% endfor %}
+  </section>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if aberta %}
+<section class="cartao" id="resultado">
+  {% set s = POR_CODIGO.get(aberta.servico) %}
+  <div class="linha-titulo">
+    <h2>{{ s.nome if s else aberta.servico }} <small class="sutil">{{ aberta.data_hora|datahora }} · {{ aberta.usuario }}{% if aberta.modo == 'demonstracao' %} · demonstração{% endif %}</small></h2>
+    {% if s and sit.modo != 'desligado' %}
+    <form method="post" action="/prestadores/{{ p.id }}/receita/{{ aberta.servico }}">
+      {% for k, v in (aberta.parametros|from_json).items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      <input type="hidden" name="repetir" value="1"><button class="secundario">Consultar de novo</button>
+    </form>{% endif %}
+  </div>
+  {% if aberta.mensagens %}<p class="{{ '' if aberta.ok else 'etiqueta erro' }}">{{ aberta.mensagens }}</p>{% endif %}
+  {% if aberta.lista_arquivos %}<p>{% for a in aberta.lista_arquivos %}
+    <a class="botao" href="/receita/consultas/{{ aberta.id }}/arquivo/{{ loop.index0 }}" target="_blank">Abrir PDF {{ loop.index if aberta.lista_arquivos|length > 1 }}</a>
+    <a class="botao secundario" href="/receita/consultas/{{ aberta.id }}/arquivo/{{ loop.index0 }}?download=1">Baixar</a>{% endfor %}</p>{% endif %}
+  {% if dados_abertos is not none %}<div class="rf-resultado">{{ valor(dados_abertos) }}</div>{% elif aberta.ok and not aberta.lista_arquivos %}<p class="sutil">Sem dados devolvidos.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="cartao">
+  <h2>Histórico de consultas</h2>
+  {% if historico %}
+  <table class="tabela compacta">
+    <thead><tr><th>Data</th><th>Consulta</th><th>Parâmetros</th><th>Resultado</th><th>PDF</th><th>Custo</th><th>Usuário</th></tr></thead>
+    <tbody>{% for c in historico %}{% set s = POR_CODIGO.get(c.servico) %}
+      <tr class="{{ 'selecionada' if aberta and aberta.id == c.id }}">
+        <td><a href="/prestadores/{{ p.id }}/receita?ver={{ c.id }}#resultado">{{ c.data_hora|datahora }}</a></td>
+        <td>{{ s.nome if s else c.servico }}{% if c.modo == 'demonstracao' %} <span class="etiqueta">demo</span>{% endif %}{% if c.lote %} <span class="etiqueta">lote</span>{% endif %}</td>
+        <td>{{ (c.parametros|from_json).values()|select|join(' · ') }}</td>
+        <td>{% if c.ok %}<span class="etiqueta ok">ok</span>{% else %}<span class="etiqueta erro" title="{{ c.mensagens }}">erro</span>{% endif %}</td>
+        <td>{% if c.lista_arquivos %}<a href="/receita/consultas/{{ c.id }}/arquivo/0" target="_blank">PDF</a>{% endif %}</td>
+        <td>{{ c.custo|moeda if c.custo else '—' }}</td><td>{{ c.usuario }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="sutil">Nenhuma consulta ainda.</p>{% endif %}
+</section>
+{% endblock %}

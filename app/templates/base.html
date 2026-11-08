@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}Início{% endblock %} · ERP MAFRA ASSESSORIA</title>
+<link rel="stylesheet" href="/static/estilo.css">
+{% block head %}{% endblock %}
+<script src="/static/consulta.js" defer></script>
+<script src="/static/combo.js"></script>
+  <script src="/static/exportar.js"></script>
+  <script src="/static/ordenar.js" defer></script>
+</head>
+<body>
+{% if usuario %}
+<header class="topo">
+  <a class="marca" href="{{ ('/prestadores/%d' % empresa_sel.id) if empresa_sel else '/' }}">
+    <span class="logo"><img src="/static/logo_nfse.png" alt="NFS-e"></span><small><b>ERP MAFRA ASSESSORIA</b><br>M &amp; R Assessoria Contábil</small></a>
+  {% set atual = request.url.path %}
+  {% if empresa_sel %}<span></span>{% else %}
+  <nav class="menu">
+    <a href="/" class="{{ 'ativo' if atual == '/' }}">Painel</a>
+    <a href="/prestadores" class="{{ 'ativo' if atual.startswith('/prestadores') or atual.startswith('/tomadores') }}">Empresas</a>
+    <a href="/notas" class="{{ 'ativo' if atual.startswith('/notas') }}">Notas</a>
+    <a href="/relatorios" class="{{ 'ativo' if atual.startswith('/relatorios') }}">Relatórios</a>
+    <a href="/certidoes" class="{{ 'ativo' if atual.startswith('/certidoes') }}">Certidões</a>
+    <a href="/monitor" class="{{ 'ativo' if atual.startswith('/monitor') or atual.startswith('/receita') }}">Monitor e-CAC</a>
+    {% if usuario.perfil == 'ADMIN' %}<a href="/usuarios" class="{{ 'ativo' if atual.startswith('/usuarios') }}">Usuários</a><a href="/configuracoes" class="{{ 'ativo' if atual.startswith('/configuracoes') }}">Configurações</a><a href="/auditoria" class="{{ 'ativo' if atual.startswith('/auditoria') }}">Auditoria</a>{% endif %}
+  </nav>{% endif %}
+  <span class="quem">{{ usuario.nome }} · <a href="/minha-senha">senha</a> · <a href="/sair">sair</a></span>
+</header>
+{% endif %}
+{% if empresa_sel %}
+<div class="barra-empresa">
+  <span class="nome">{% if empresa_sel.codigo_interno %}<b>{{ empresa_sel.codigo_interno }}</b> · {% endif %}{{ empresa_sel.razao_social }}
+    <small>{{ empresa_sel.cnpj|doc }}</small></span>
+  <nav>
+    {% if empresa_sel.usa_nfse %}<a href="/prestadores/{{ empresa_sel.id }}?aba=notas">Notas</a>
+    {% if empresa_sel.modo == 'EMISSAO' %}<a href="/prestadores/{{ empresa_sel.id }}/notas/nova">Emitir nota</a>
+    <a href="/prestadores/{{ empresa_sel.id }}/notas/lote">Emitir em lote</a>{% endif %}
+    <a href="/prestadores/{{ empresa_sel.id }}?aba=cadastros">Cadastros</a>{% endif %}
+    {% if empresa_sel.usa_cnd %}<a href="/prestadores/{{ empresa_sel.id }}/certidoes">Certidões</a>{% endif %}
+    {% if empresa_sel.usa_receita %}<a href="/prestadores/{{ empresa_sel.id }}/receita">Receita Federal</a>{% endif %}
+    <a href="/prestadores/{{ empresa_sel.id }}?aba=config">Dados</a>
+  </nav>
+  <a class="botao secundario sair-empresa" href="/prestadores/sair">Sair da empresa</a>
+</div>
+{% endif %}
+<main class="{% block main_classe %}{% endblock %}">
+  {% for tipo, msg in mensagens %}<div class="msg {{ tipo }}">{{ msg }}</div>{% endfor %}
+  {% block conteudo %}{% endblock %}
+</main>
+</body>
+</html>

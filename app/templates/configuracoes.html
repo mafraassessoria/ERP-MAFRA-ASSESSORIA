@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block titulo %}Configurações{% endblock %}
+{% block conteudo %}
+<h1>Configurações</h1>
+<form class="cartao" method="post" action="/configuracoes">
+  <fieldset><legend>E-mail de envio das notas (SMTP)</legend>
+    <div class="grade">
+      <label>Servidor SMTP <input name="smtp_host" value="{{ cfg.smtp_host }}" placeholder="smtp.gmail.com"></label>
+      <label>Porta <input name="smtp_porta" value="{{ cfg.smtp_porta or '587' }}"></label>
+      <label>Segurança
+        <select name="smtp_seguranca">{% for v in ('STARTTLS', 'SSL', 'NENHUMA') %}<option {{ 'selected' if (cfg.smtp_seguranca or 'STARTTLS') == v }}>{{ v }}</option>{% endfor %}</select></label>
+      <label>Usuário <input name="smtp_usuario" value="{{ cfg.smtp_usuario }}" autocomplete="off"></label>
+      <label>Senha {% if cfg.tem_senha %}<small>(já cadastrada — deixe em branco para manter)</small>{% endif %}
+        <input name="smtp_senha" type="password" autocomplete="new-password"></label>
+      <label>E-mail do remetente <input name="smtp_remetente_email" type="email" value="{{ cfg.smtp_remetente_email }}"></label>
+      <label>Nome do remetente <input name="smtp_remetente_nome" value="{{ cfg.smtp_remetente_nome }}" placeholder="M & R Assessoria Contábil"></label>
+      <label>Cópia oculta para (opcional) <input name="email_copia_oculta" value="{{ cfg.email_copia_oculta }}" placeholder="separe por vírgula"></label>
+    </div>
+    <p class="sutil">Gmail: servidor <b>smtp.gmail.com</b>, porta <b>587</b>, STARTTLS. Como senha, use uma <b>senha de app</b>
+      (Conta Google → Segurança → Verificação em duas etapas → Senhas de app), não a senha normal.</p>
+  </fieldset>
+
+  <fieldset><legend>Importação pelo ADN</legend>
+    <label>Empresa do escritório (procurador) — certificado usado para importar "por procuração"
+      <select name="prestador_procurador_id">
+        <option value="">— nenhuma —</option>
+        {% for p in prestadores %}<option value="{{ p.id }}" {{ 'selected' if cfg.prestador_procurador_id == p.id|string }}>{{ p.razao_social }} · {{ p.cnpj|doc }}</option>{% endfor %}
+      </select></label>
+    <p class="sutil">Para clientes que não entregam o certificado: cadastre o escritório como prestador (modo "somente importação"), envie o
+      e-CNPJ do escritório e escolha-o aqui. Cada cliente precisa conceder procuração eletrônica ao escritório para a NFS-e.</p>
+  </fieldset>
+
+  <fieldset><legend>Cópia dos XML para outra pasta</legend>
+    <label>Pasta (opcional) <input name="pasta_copia_xml" value="{{ cfg.pasta_copia_xml }}" placeholder="ex.: C:\NF-Stock"></label>
+    <p class="sutil">Cada XML de produção (emitido ou importado) também é copiado para <i>pasta\CNPJ\</i>, sem duplicar —
+      útil para alimentar outro sistema (ex.: NF-Stock, escrita fiscal).</p>
+  </fieldset>
+  <fieldset><legend>Serviços de obra (construção civil)</legend>
+    <label>Subitens da LC 116 que exigem informar a obra <input name="obra_subitens" value="{{ cfg.obra_subitens }}"></label>
+    <p class="sutil">4 dígitos separados por vírgula (ex.: 0702 = subitem 7.02). Quando o código de tributação da nota começa com
+      um destes subitens, a tela de emissão mostra o grupo <b>Informações para obra</b> e a redução da base de cálculo.</p>
+  </fieldset>
+  <button>Salvar configurações</button>
+</form>
+
+<section class="cartao" id="atualizacoes">
+  <h2>Atualizações do sistema</h2>
+  {% if atualizacao %}<p>Última: <b>{{ atualizacao.data[:16]|replace('T', ' ') }}</b> · versão {{ atualizacao.versao or '—' }} ·
+    {% if atualizacao.resultado == 'ok' %}<span class="etiqueta ok">aplicada</span>{% elif atualizacao.resultado == 'revertida' %}<span class="etiqueta erro">desfeita</span>{% else %}<span class="etiqueta erro">erro</span>{% endif %}
+    {{ atualizacao.mensagem }}</p>
+  {% else %}<p class="sutil">Atualização automática ainda não instalada (rode o INSTALAR_ATUALIZACAO_AUTOMATICA.bat uma vez).</p>{% endif %}
+  <p class="sutil">As versões novas são publicadas no GitHub e aplicadas sozinhas pelo servidor em até 5 minutos, com backup antes e
+    volta automática se o sistema não subir. Histórico em <code>logs\atualizacao.log</code>.</p>
+</section>
+
+<section class="cartao" id="importar-empresas">
+  <h2>Cadastro geral de empresas</h2>
+  <p>Importe o <code>empresas.json</code> do Bot Arquivador para trazer a pasta de cada empresa no Drive, os CNPJs adicionais e os
+    outros nomes usados para reconhecer documentos. Empresas que ainda não existem aqui são criadas <b>sem o módulo NFS-e</b>.
+    Nada é apagado e os dados fiscais das empresas existentes não mudam.</p>
+  <form method="post" action="/configuracoes/empresas/importar" enctype="multipart/form-data" class="em-linha">
+    <label>Arquivo <input type="file" name="arquivo" accept=".json" required></label>
+    <button>Importar cadastro</button>
+  </form>
+</section>
+
+<section class="cartao" id="econtador">
+  <h2>e-Contador e certidões</h2>
+  <p class="sutil">API ePlugin do e-Contador (somente leitura): liga as empresas pelo CNPJ e traz as certidões do Pack CND.
+    As certidões novas são entregues na pasta de entrada do Bot Arquivador, que as guarda na pasta Certidões de cada empresa.</p>
+  <form method="post" action="/configuracoes/econtador">
+    <div class="duas-colunas">
+      <label>Chave da API (e-Contador → Configurações → ePlugin)
+        <input name="econtador_token" type="password" autocomplete="new-password" placeholder="{{ 'guardada — preencha só para trocar' if ec.tem_token else 'cole aqui a chave' }}"></label>
+      <label>Pasta de entrada do Bot Arquivador <input name="arquivador_entrada" value="{{ ec.entrada }}"></label>
+    </div>
+    <div class="tres-colunas">
+      <label>Consulta automática
+        <select name="certidoes_dia"><option value="-1" {{ 'selected' if ec.dia == -1 }}>desligada</option>
+          {% for d in DIAS_SEMANA %}<option value="{{ loop.index0 }}" {{ 'selected' if ec.dia == loop.index0 }}>toda {{ d }}{{ '-feira' if loop.index0 < 5 }}</option>{% endfor %}</select></label>
+      <label>Horário <input name="certidoes_hora" value="{{ ec.hora }}" placeholder="17:00"></label>
+      <label class="rf-radio" style="margin-top:1.6rem"><input type="checkbox" name="certidoes_publicar" value="1" {{ 'checked' if ec.publicar }}> Entregar as novas ao Bot Arquivador automaticamente</label>
+    </div>
+    <p class="sutil">Última consulta geral: {{ ec.ultima[:16]|replace('T', ' ') if ec.ultima else 'nunca' }}{% if ec.proxima %} · próxima: {{ ec.proxima|datahora }}{% endif %}.
+      Desative a tarefa de sexta do Monitor e-Contador antes de ligar a entrega automática, para não haver duas entregas.</p>
+    <button>Salvar e-Contador</button>
+  </form>
+  <div class="em-linha" style="gap:.5rem; margin-top:.8rem">
+    <form method="post" action="/configuracoes/econtador/testar"><button class="secundario" {{ 'disabled' if not ec.tem_token }}>Testar conexão</button></form>
+    <form method="post" action="/configuracoes/econtador/sincronizar"><button class="secundario" {{ 'disabled' if not ec.tem_token }}>Sincronizar empresas</button></form>
+    <form method="post" action="/configuracoes/certidoes/marcar-arquivadas" onsubmit="return confirm('Marcar todas as certidões atuais como já arquivadas? Use uma vez, ao começar, se o Monitor e-Contador já entregou essas certidões.')"><button class="secundario">Considerar as atuais como já arquivadas</button></form>
+  </div>
+</section>
+
+<section class="cartao" id="receita">
+  <h2>Receita Federal (Integra Contador – Serpro)</h2>
+  <p class="sutil">Consultas no e-CAC das empresas pela API oficial do Serpro, usando o certificado do escritório e a procuração
+    eletrônica de cada cliente. Uso neste mês: <b>{{ serpro.chamadas }}</b> chamada(s) · <b>R$ {{ '%.2f'|format(serpro.gasto)|replace('.', ',') }}</b>
+    (limite R$ {{ serpro.limite }}).</p>
+  <form method="post" action="/configuracoes/receita">
+    <fieldset>
+      <legend>Modo</legend>
+      {% for k, rot in SERPRO_MODOS.items() %}<label class="rf-radio"><input type="radio" name="serpro_modo" value="{{ k }}" {{ 'checked' if serpro.modo == k }}> {{ rot }}</label>{% endfor %}
+      <p class="sutil"><b>Demonstração</b> usa o ambiente de testes público do Serpro: respostas fictícias, sem custo e sem contrato — serve para conhecer as telas.
+        <b>Produção</b> consulta de verdade e é cobrado por chamada.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Chaves do contrato (Loja Serpro → Área do cliente)</legend>
+      <div class="duas-colunas">
+        <label>Consumer Key <input name="serpro_ck" autocomplete="off" placeholder="{{ 'guardada — preencha só para trocar' if serpro.tem_chaves else '' }}"></label>
+        <label>Consumer Secret <input name="serpro_cs" type="password" autocomplete="new-password" placeholder="{{ 'guardada — preencha só para trocar' if serpro.tem_chaves else '' }}"></label>
+      </div>
+      <p class="sutil">Guardadas criptografadas. Certificado usado: {% if serpro.escritorio %}<b>{{ serpro.escritorio.razao_social }}</b> (o mesmo procurador da emissão){% else %}<span class="etiqueta erro">defina o escritório procurador acima</span>{% endif %}.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Preço por chamada (R$) e limite</legend>
+      <div class="tres-colunas">
+        {% for t, v in serpro.precos.items() %}<label>{{ t }} <input name="serpro_preco_{{ t }}" value="{{ v }}" inputmode="decimal"></label>{% endfor %}
+        <label>Limite de gasto mensal <input name="serpro_limite_mensal" value="{{ serpro.limite }}" inputmode="decimal"></label>
+      </div>
+      <p class="sutil">Preencha com os valores da sua faixa no contrato. O sistema soma o custo de cada chamada e bloqueia quando o limite do mês é atingido.</p>
+    </fieldset>
+    <button>Salvar Receita Federal</button>
+  </form>
+  <form method="post" action="/configuracoes/receita/testar" class="em-linha"><button class="secundario" {{ 'disabled' if serpro.modo == 'desligado' }}>Testar conexão</button></form>
+</section>
+
+<section class="cartao" id="tabelas">
+  <h2>Tabelas de serviços (códigos de tributação nacional e NBS)</h2>
+  <p>Na base: <b>{{ tab.ctribnac }}</b> código(s) de tributação ({{ tab.ctribnac_oficial }} da tabela oficial) ·
+    <b>{{ tab.nbs }}</b> NBS ({{ tab.nbs_oficial }} oficiais) · <b>{{ tab.correlacoes }}</b> correlação(ões) item × NBS
+    {% if tab.importada_em %}· última importação {{ tab.importada_em }}{% endif %}</p>
+  <form method="post" action="/configuracoes/tabelas" enctype="multipart/form-data" class="em-linha">
+    <label>Planilhas oficiais (.xlsx ou .csv) <input type="file" name="arquivos" multiple accept=".xlsx,.csv" required></label>
+    <button>Importar tabelas</button>
+  </form>
+  <p class="sutil">Baixe no Portal da NFS-e (Documentação técnica) e envie as duas:
+    <a href="https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/anexo_b-nbs2-lista_servico_nacional-snnfse.xlsx" target="_blank" rel="noopener">Anexo B – Lista de serviços nacional e NBS</a> e
+    <a href="https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc/anexoviii-correlacaoitemnbsindopcclasstrib_ibscbs_v1-00-00.xlsx" target="_blank" rel="noopener">Anexo VIII – Correlação item × NBS</a>.
+    Quando o governo publicar versão nova, importe de novo: os códigos são atualizados, nada é apagado.</p>
+</section>
+
+<form class="cartao em-linha" method="post" action="/configuracoes/teste-email">
+  <label>Enviar e-mail de teste para <input name="para" type="email" required></label>
+  <button class="secundario" {{ '' if cfg.smtp_host else 'disabled' }}>Enviar teste</button>
+</form>
+{% endblock %}

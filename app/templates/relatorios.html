@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Relatórios{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <h1>Relatório por competência</h1>
+  <form method="post" action="/importar-todos" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Importando... aguarde';">
+    <button class="secundario">Importar notas do ADN (todas as empresas)</button>
+  </form>
+</div>
+<form class="busca filtros" method="get">
+  <input type="month" name="competencia" value="{{ comp }}">
+  <select name="prestador_id">
+    <option value="0">Todas as empresas</option>
+    {% for p in prestadores %}<option value="{{ p.id }}" {{ 'selected' if f.prestador_id == p.id }}>{{ p.razao_social }}</option>{% endfor %}
+  </select>
+  <button>Atualizar</button>
+</form>
+{% set qs = 'competencia=%s&prestador_id=%d' % (comp, f.prestador_id) %}
+<p><a class="botao secundario" href="/relatorios/notas.csv?{{ qs }}">Baixar planilha (CSV)</a>
+   <a class="botao secundario" href="/relatorios/xml.zip?{{ qs }}">Baixar XML (ZIP)</a></p>
+
+<table>
+  <tr><th rowspan="2">Empresa</th><th colspan="4" style="text-align:center">Serviços prestados</th><th colspan="2" style="text-align:center">Canceladas</th><th colspan="3" style="text-align:center">Serviços tomados</th><th rowspan="2">Última importação</th></tr>
+  <tr><th>Qtd</th><th>Valor</th><th>ISS</th><th>ISS retido</th><th>Qtd</th><th>Valor</th><th>Qtd</th><th>Valor</th><th>ISS retido</th></tr>
+  {% for p, r in linhas %}
+  {% set c = controles.get(p.id) %}
+  <tr>
+    <td><a href="/notas?prestador_id={{ p.id }}&competencia={{ comp }}">{{ p.razao_social }}</a><br><small class="sutil">{{ p.cnpj|doc }}</small></td>
+    <td>{{ r.emitidas }}</td><td class="num">{{ r.valor_emitido|moeda }}</td><td class="num">{{ r.iss_emitido|moeda }}</td><td class="num">{{ r.iss_retido_prest|moeda }}</td>
+    <td>{{ r.canceladas }}</td><td class="num">{{ r.valor_cancelado|moeda }}</td>
+    <td>{{ r.tomadas }}</td><td class="num">{{ r.valor_tomado|moeda }}</td><td class="num">{{ r.iss_retido_tomado|moeda }}</td>
+    <td><small>{{ c.ultima_consulta|datahora if c else '—' }}</small></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="11" class="sutil">Nenhuma nota autorizada ou cancelada nesta competência.</td></tr>
+  {% endfor %}
+  {% if linhas|length > 1 %}
+  <tr class="total"><td>Total</td><td>{{ total.emitidas }}</td><td class="num">{{ total.valor_emitido|moeda }}</td><td class="num">{{ total.iss_emitido|moeda }}</td><td class="num">{{ total.iss_retido_prest|moeda }}</td>
+    <td>{{ total.canceladas }}</td><td class="num">{{ total.valor_cancelado|moeda }}</td><td>{{ total.tomadas }}</td><td class="num">{{ total.valor_tomado|moeda }}</td><td class="num">{{ total.iss_retido_tomado|moeda }}</td><td></td></tr>
+  {% endif %}
+</table>
+<p class="sutil">Considera a competência da nota. Valores das notas importadas vêm do XML oficial. ISS retido = notas com retenção pelo tomador.</p>
+{% endblock %}

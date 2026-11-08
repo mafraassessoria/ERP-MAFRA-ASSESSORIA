@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block titulo %}Certidões · {{ p.razao_social }}{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+{% include "_cabecalho_empresa.html" %}
+{% include "_certidoes_execucao.html" %}
+<div class="linha-titulo">
+  <p class="sutil">Certidões do Pack CND (e-Contador){% if not p.usa_econtador %} — <b>o módulo e-Contador está desligado para esta empresa</b>{% endif %}.
+    {% if p.pasta_drive %}Pasta no Drive: {{ p.pasta_drive }}{% else %}Sem pasta do Drive cadastrada.{% endif %}</p>
+  <form method="post" action="/certidoes/consultar" class="em-linha"><input type="hidden" name="prestador_id" value="{{ p.id }}">
+    <button {{ 'disabled' if execucao.rodando or not tem_token or not p.usa_econtador }}>Consultar esta empresa</button></form>
+</div>
+<section class="cartao">
+  {% set mostrar_empresa = False %}{% set volta = '/prestadores/%d/certidoes' % p.id %}
+  {% include "_certidoes_tabela.html" %}
+</section>
+{% endblock %}

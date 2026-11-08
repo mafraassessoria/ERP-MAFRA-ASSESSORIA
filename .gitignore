@@ -1,0 +1,12 @@
+# Fica só no servidor: dados, chaves, backups, logs e ambiente Python
+dados/
+backups/
+logs/
+.venv/
+.deploy/
+__pycache__/
+*.pyc
+*.pfx
+*.p12
+*.key
+.env

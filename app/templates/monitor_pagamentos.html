@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Pagamentos · Monitor e-CAC{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo"><h1>Pagamentos encontrados na Receita</h1><a class="botao secundario" href="/monitor">Voltar ao painel</a></div>
+<form class="busca filtros" method="get">
+  <label>Mês do pagamento <input type="month" name="mes" value="{{ mes }}"></label>
+  <input name="q" value="{{ q }}" placeholder="Empresa ou código">
+  <label class="check"><input type="checkbox" name="atraso" value="1" {{ 'checked' if atraso }}> só pagos em atraso</label>
+  <button>Filtrar</button>
+  <span class="sutil" style="margin-left:auto">{{ lista|length }} pagamento(s) · R$ {{ total|moeda }} · {{ n_atraso }} em atraso</span>
+</form>
+<section class="cartao">
+<table class="compacta">
+  <thead><tr><th>Empresa</th><th>Tipo</th><th>Receita</th><th>Período</th><th>Vencimento</th><th>Pago em</th><th class="num">Valor</th><th>Documento</th></tr></thead>
+  <tbody>{% for x in lista %}
+    <tr><td><a href="/prestadores/{{ x.prestador_id }}/receita">{% if x.prestador.codigo_interno %}<b>{{ x.prestador.codigo_interno }}</b> · {% endif %}{{ x.prestador.razao_social }}</a></td>
+      <td>{{ x.tipo }}</td><td>{{ x.codigo_receita }}</td><td>{{ x.periodo_apuracao.strftime('%m/%Y') if x.periodo_apuracao else '—' }}</td>
+      <td>{{ x.vencimento|data if x.vencimento else '—' }}</td>
+      <td>{{ x.data_arrecadacao|data if x.data_arrecadacao else '—' }}{% if x.em_atraso %} <span class="etiqueta erro">atraso</span>{% endif %}</td>
+      <td class="num">{{ x.valor|moeda }}</td><td><small>{{ x.numero_documento }}</small></td></tr>
+  {% else %}<tr><td colspan="8" class="sutil">Nenhum pagamento neste mês. Rode a rotina Pagamentos no painel.</td></tr>{% endfor %}</tbody>
+</table>
+</section>
+{% endblock %}

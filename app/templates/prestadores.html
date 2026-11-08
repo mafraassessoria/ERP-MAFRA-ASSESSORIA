@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block titulo %}Empresas{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <h1>Empresas</h1>
+  <div class="acoes">
+    {% if usuario.perfil == 'ADMIN' %}<a class="botao secundario" href="/configuracoes#importar-empresas">Importar cadastro do Bot Arquivador</a>{% endif %}
+    <a class="botao" href="/prestadores/novo">+ Nova empresa</a>
+  </div>
+</div>
+<form class="busca filtros" method="get">
+  <input name="q" value="{{ q }}" class="busca-grande" data-filtra-tabela="tab-prestadores" autofocus
+    placeholder="Digite para filtrar: nome, CNPJ ou código">
+  <select name="modulo">
+    <option value="">Todos os módulos</option>
+    {% for k, v in MODULOS_EMPRESA.items() %}<option value="{{ k }}" {{ 'selected' if modulo == k }}>Usa {{ v }}</option>{% endfor %}
+  </select>
+  <select name="modo">
+    <option value="">NFS-e: todos os modos</option>
+    <option value="EMISSAO" {{ 'selected' if modo == 'EMISSAO' }}>Emissão pelo escritório</option>
+    <option value="IMPORTACAO" {{ 'selected' if modo == 'IMPORTACAO' }}>Somente importação</option>
+  </select>
+  <select name="situacao">
+    <option value="">Ativos e inativos</option>
+    <option value="ativos" {{ 'selected' if situacao == 'ativos' }}>Só ativos</option>
+    <option value="inativos" {{ 'selected' if situacao == 'inativos' }}>Só inativos</option>
+  </select>
+  <button>Buscar</button>{% if q or modo or situacao or modulo %} <a href="/prestadores">limpar</a>{% endif %}
+  <span class="sutil" style="margin-left:auto">{{ lista|length }} empresa(s)</span>
+</form>
+
+<form method="post" action="/prestadores/lote" id="form-lote" onsubmit="return confirmarLote(this)">
+<div class="barra-lote cartao">
+  <span id="qtd-sel">Nenhuma empresa selecionada</span>
+  <select name="acao" required>
+    <option value="">Ação para as selecionadas…</option>
+    <optgroup label="Certificado e importação">
+      <option value="procuracao_sim">Usar certificado do escritório (procuração)</option>
+      <option value="procuracao_nao">Usar certificado da própria empresa</option>
+      <option value="auto_sim">Ativar importação automática</option>
+      <option value="auto_nao">Desativar importação automática</option>
+    </optgroup>
+    <optgroup label="Módulos">
+      {% for k, v in MODULOS_EMPRESA.items() %}{% set c = k[4:] %}<option value="{{ c }}_sim">Ligar {{ v }}</option><option value="{{ c }}_nao">Desligar {{ v }}</option>{% endfor %}
+      <option value="ativar">Ativar empresa</option><option value="inativar">Inativar empresa</option>
+      {% if usuario.perfil == 'ADMIN' %}<option value="excluir">Excluir empresa (só sem notas, certificados ou consultas)</option>{% endif %}
+    </optgroup>
+    <optgroup label="NFS-e">
+      <option value="modo_importacao">Modo: somente importação</option>
+      <option value="modo_emissao">Modo: emissão pelo escritório</option>
+      <option value="aderente_sim">Município aderente ao Emissor Nacional: sim</option>
+      <option value="aderente_nao">Município aderente ao Emissor Nacional: não</option>
+    </optgroup>
+  </select>
+  <button>Aplicar</button>
+</div>
+<table class="notas ordenavel" id="tab-prestadores">
+  <colgroup><col style="width:42px"><col style="width:70px"><col><col style="width:170px"><col style="width:150px"><col style="width:200px"><col style="width:150px"><col style="width:140px"></colgroup>
+  <tr><th><input type="checkbox" id="todos" title="Selecionar todos"></th><th>Cód.</th><th>Razão social</th><th>CNPJ</th><th>Regime</th><th>Módulos</th><th>Certificado</th><th>Certificado usado</th></tr>
+  {% for p in lista %}
+  {% set c = p.certificado_ativo %}
+  <tr class="{{ '' if p.ativo else 'inativo' }}">
+    <td><input type="checkbox" name="ids" value="{{ p.id }}" class="sel"></td>
+    <td class="linha" data-valor="{{ p.codigo_interno }}">{{ p.codigo_interno }}</td>
+    <td class="linha" title="{{ p.razao_social }}"><a href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a></td>
+    <td class="linha">{{ p.cnpj|doc }}</td>
+    <td class="linha" title="{{ REGIMES[p.regime] }}">{{ REGIMES_CURTO[p.regime] }}</td>
+    <td class="linha" title="{{ p.modulos|join(', ') }}">{% if p.usa_nfse %}{{ 'Emissão' if p.modo == 'EMISSAO' else 'Importação' }}{% else %}<span class="sutil">sem NFS-e</span>{% endif %}
+      {% if p.usa_receita %}<span class="etiqueta mini">RF</span>{% endif %}{% if p.usa_econtador %}<span class="etiqueta mini">eC</span>{% endif %}{% if p.usa_cnd %}<span class="etiqueta mini">CND</span>{% endif %}</td>
+    {% if not p.usa_nfse %}<td class="linha sutil">—</td><td class="linha sutil">—</td>{% else %}
+    <td class="linha">{% if not c %}<span class="etiqueta {{ 'erro' if not p.importar_por_procuracao else '' }}">sem certificado</span>
+        {% elif c.dias_para_vencer < 0 %}<span class="etiqueta erro">vencido</span>
+        {% elif c.dias_para_vencer < 30 %}<span class="etiqueta aviso">vence em {{ c.dias_para_vencer }} d</span>
+        {% else %}até {{ c.validade_fim|data }}{% endif %}</td>
+    <td class="linha">{% if not p.importar_automaticamente %}<span class="sutil">desativada</span>
+        {% elif p.importar_por_procuracao %}<span class="etiqueta producao">procuração</span>
+        {% else %}cert. próprio{% endif %}</td>{% endif %}
+  </tr>
+  {% else %}
+  <tr><td colspan="8" class="sutil">Nenhuma empresa cadastrada.</td></tr>
+  {% endfor %}
+</table>
+</form>
+<script>
+  const sels = () => [...document.querySelectorAll('.sel')];
+  function atualizar() {
+    const n = sels().filter(c => c.checked).length;
+    document.getElementById('qtd-sel').textContent = n ? n + ' empresa(s) selecionada(s)' : 'Nenhuma empresa selecionada';
+  }
+  document.getElementById('todos').addEventListener('change', e => { sels().forEach(c => c.checked = e.target.checked); atualizar(); });
+  sels().forEach(c => c.addEventListener('change', atualizar));
+  function confirmarLote(f) {
+    const n = sels().filter(c => c.checked).length;
+    if (!n) { alert('Selecione pelo menos uma empresa.'); return false; }
+    const acao = f.acao.options[f.acao.selectedIndex].text;
+    if (f.acao.value === 'excluir')
+      return confirm('EXCLUIR ' + n + ' empresa(s) do sistema?\n\nSó são excluídas as que não têm notas, certificados nem consultas; as outras ficam (use Inativar). As excluídas não voltam em uma nova importação do Bot Arquivador.');
+    return confirm('Aplicar "' + acao + '" em ' + n + ' empresa(s)?');
+  }
+</script>
+{% endblock %}

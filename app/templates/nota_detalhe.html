@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block titulo %}Nota {{ n.numero_nfse or n.id }}{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <div>
+    <h1>{% if n.numero_nfse %}NFS-e nº {{ n.numero_nfse }}{% else %}Nota (rascunho #{{ n.id }}){% endif %}
+      <span class="etiqueta situacao-{{ n.situacao|lower }}">{{ SITUACOES_NOTA[n.situacao] }}</span></h1>
+    <p class="sutil"><a href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a> · {{ p.cnpj|doc }} ·
+</p>
+  </div>
+  <div class="acoes">
+    {% if n.papel == 'PRESTADO' and n.situacao in ('AUTORIZADA', 'CANCELADA') %}
+    <form method="post" action="/notas/{{ n.id }}/clonar"><button class="secundario" title="Cria um rascunho igual a esta nota">Clonar nota</button></form>
+    {% endif %}
+    {% if n.caminho_pdf or n.caminho_xml %}<a class="botao" href="/notas/{{ n.id }}/arquivo/pdf" target="_blank">DANFSe (PDF)</a>{% endif %}
+    {% if n.caminho_xml %}<a class="botao secundario" href="/notas/{{ n.id }}/arquivo/xml">XML</a>{% endif %}
+    {% if n.caminho_evento_xml %}<a class="botao secundario" href="/notas/{{ n.id }}/arquivo/cancelamento">XML cancelamento</a>{% endif %}
+  </div>
+</div>
+
+{% if n.mensagem_retorno and n.situacao != 'AUTORIZADA' %}
+<div class="msg {{ 'erro' if n.situacao in ('REJEITADA', 'PROCESSANDO', 'RASCUNHO') else '' }}" style="white-space:pre-line">{{ n.mensagem_retorno }}</div>
+{% endif %}
+
+<div class="duas-colunas">
+  <section class="cartao">
+    <h2>Dados da nota</h2>
+    <dl>
+      <dt>Papel</dt><dd>{{ PAPEIS_NOTA[n.papel] }}{% if n.origem == 'IMPORTADA' %} · importada do ADN{% endif %}</dd>
+      {% if n.emitente_nome or n.emitente_documento %}<dt>Prestador</dt><dd>{{ n.emitente_nome }} · {{ n.emitente_documento|doc }}</dd>{% endif %}
+      <dt>Tomador</dt><dd>{{ n.tomador_nome }}{% if n.tomador_documento %} · {{ n.tomador_documento|doc }}{% endif %}</dd>
+      <dt>Competência</dt><dd>{{ n.competencia|data }}</dd>
+      <dt>Valor do serviço</dt><dd><b>R$ {{ n.valor_servicos|moeda }}</b></dd>
+      {% if n.valor_liquido != n.valor_servicos %}<dt>Valor líquido</dt><dd><b>R$ {{ n.valor_liquido|moeda }}</b>
+        <span class="sutil">(serviço{% if n.desconto_incondicionado or n.desconto_condicionado %} − descontos{% endif %}{% if n.iss_retido %} − ISS retido R$ {{ n.iss_retido|moeda }}{% endif %}{% if n.ret_irrf or n.ret_csll or n.ret_inss %} − retenções federais{% endif %})</span></dd>{% endif %}
+      {% if n.situacao in ('AUTORIZADA', 'CANCELADA') %}<dt>ISS</dt><dd>R$ {{ n.valor_iss|moeda }}</dd>{% endif %}
+      {% if n.intermediario %}<dt>Intermediário</dt><dd>{{ n.intermediario.nome }} · {{ n.intermediario.documento|doc }}{% if n.valor_recebido_intermediario %} · recebeu R$ {{ n.valor_recebido_intermediario|moeda }}{% endif %}</dd>{% endif %}
+      {% if n.desconto_incondicionado or n.desconto_condicionado %}<dt>Descontos</dt><dd>incondicionado R$ {{ n.desconto_incondicionado|moeda }} · condicionado R$ {{ n.desconto_condicionado|moeda }}</dd>{% endif %}
+      <dt>Código tributação</dt><dd>{{ desc_servico }}{% if n.codigo_tributacao_municipal %} · municipal {{ n.codigo_tributacao_municipal }}{% endif %}</dd>
+      {% if n.codigo_nbs %}<dt>NBS</dt><dd>{{ n.codigo_nbs }}</dd>{% endif %}
+      <dt>ISS</dt><dd>{{ TRIB[n.tributacao_issqn or 1] }}{% if n.tributacao_issqn == 2 and n.tipo_imunidade is not none %} ({{ TIPOS_IMUNIDADE[n.tipo_imunidade] }}){% endif %} · {{ RET[n.tipo_retencao_iss or 1] }}</dd>
+      <dt>Local da prestação</dt><dd>{{ local_rotulo }}</dd>
+      {% if n.obra %}<dt>Obra</dt><dd>{{ n.obra.rotulo }}{% if n.obra.inscricao_imobiliaria %} · Insc. imob. {{ n.obra.inscricao_imobiliaria }}{% endif %}</dd>{% endif %}
+      {% if n.ded_tipo %}<dt>Dedução / redução</dt><dd>{% if n.ded_tipo == 'PERCENTUAL' %}{{ n.ded_valor|moeda }}%{% else %}R$ {{ n.ded_valor|moeda }}{% endif %}</dd>{% endif %}
+      {% if n.aliquota_iss and n.tipo_retencao_iss in (2, 3) %}<dt>Alíquota ISS</dt><dd>{{ n.aliquota_iss|moeda }}%</dd>{% endif %}
+      {% if n.ret_inss or n.ret_irrf or n.ret_csll %}<dt>Retenções federais</dt><dd>INSS R$ {{ n.ret_inss|moeda }} · IRRF R$ {{ n.ret_irrf|moeda }} · CSLL R$ {{ n.ret_csll|moeda }}</dd>{% endif %}
+      {% if n.tipo_ret_piscofins %}<dt>PIS/COFINS/CSLL</dt><dd>{{ TIPOS_RET_PISCOFINS[n.tipo_ret_piscofins] }}</dd>{% endif %}
+      {% if n.tot_trib_tipo in ('VALOR', 'PERCENTUAL') %}<dt>Tributos aproximados</dt><dd>{% set suf = '%' if n.tot_trib_tipo == 'PERCENTUAL' else '' %}{% set pre = '' if suf else 'R$ ' %}federal {{ pre }}{{ n.tot_trib_fed|moeda }}{{ suf }} · estadual {{ pre }}{{ n.tot_trib_est|moeda }}{{ suf }} · municipal {{ pre }}{{ n.tot_trib_mun|moeda }}{{ suf }}</dd>{% endif %}
+      <dt>Descrição</dt><dd style="white-space:pre-line">{{ n.descricao_servico }}</dd>
+      {% if n.info_complementares %}<dt>Inf. complementares</dt><dd>{{ n.info_complementares }}</dd>{% endif %}
+    </dl>
+  </section>
+  <section class="cartao">
+    <h2>Controle</h2>
+    <dl>
+      <dt>DPS</dt><dd>{% if n.numero_dps %}série {{ n.serie_dps }} nº {{ n.numero_dps }}{% else %}—{% endif %}</dd>
+      {% if n.chave_acesso %}<dt>Chave de acesso</dt><dd style="word-break:break-all"><small>{{ n.chave_acesso }}</small></dd>{% endif %}
+      {% if n.data_emissao %}<dt>Autorizada em</dt><dd>{{ n.data_emissao|datahora }}</dd>{% endif %}
+      <dt>Criada por</dt><dd>{{ n.criada_por }} em {{ n.criado_em|datahora }}</dd>
+      {% if n.emitida_por %}<dt>Transmitida por</dt><dd>{{ n.emitida_por }}</dd>{% endif %}
+      {% if n.situacao == 'CANCELADA' %}<dt>Cancelada</dt><dd>{{ n.cancelada_em|datahora }} por {{ n.cancelada_por }}<br>{{ n.motivo_cancelamento }}</dd>{% endif %}
+      {% if n.situacao == 'AUTORIZADA' and n.mensagem_retorno %}<dt>Retorno</dt><dd>{{ n.mensagem_retorno }}</dd>{% endif %}
+    </dl>
+    {% if n.caminho_xml %}
+      <form method="post" action="/notas/{{ n.id }}/gerar-pdf"><button class="secundario">Refazer DANFSe (PDF)</button></form>
+    {% endif %}
+  </section>
+</div>
+
+{% if n.situacao in ('RASCUNHO', 'REJEITADA', 'PROCESSANDO') %}
+<section class="cartao">
+  <h2>Transmitir à Sefin Nacional</h2>
+  {% if pendencias %}
+    <div class="msg erro">Antes de transmitir, corrija:<ul>{% for x in pendencias %}<li>{{ x }}</li>{% endfor %}</ul></div>
+  {% endif %}
+  {% if n.situacao == 'PROCESSANDO' %}
+    <p>A última transmissão não teve resposta conclusiva. Transmitir de novo é seguro: o sistema confere antes se a DPS já foi autorizada.</p>
+  {% endif %}
+  <form method="post" action="/notas/{{ n.id }}/transmitir" onsubmit="if (!confirm('Transmitir esta nota para a Sefin Nacional? Ela terá validade fiscal.')) return false; this.querySelector('button').disabled=true; this.querySelector('button').textContent='Transmitindo... aguarde';">
+    <div class="acoes">
+      <button {{ 'disabled' if pendencias }}>{{ 'Transmitir novamente' if n.situacao == 'PROCESSANDO' else 'Transmitir' }}</button>
+      {% if n.situacao in ('RASCUNHO', 'REJEITADA') %}<a href="/notas/{{ n.id }}/editar">Editar</a>{% endif %}
+    </div>
+  </form>
+  {% if n.situacao in ('RASCUNHO', 'REJEITADA') %}
+  <form method="post" action="/notas/{{ n.id }}/excluir" onsubmit="return confirm('Excluir esta nota?')" style="margin-top:.8rem"><button class="link">excluir</button></form>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if n.situacao in ('AUTORIZADA', 'CANCELADA') and n.papel == 'PRESTADO' %}
+<section class="cartao">
+  <h2>Enviar por e-mail</h2>
+  {% if n.email_enviado_em %}<p class="sutil">Último envio: {{ n.email_enviado_em|datahora }} para {{ n.email_enviado_para }}</p>{% endif %}
+  {% if smtp_ok %}
+  <form method="post" action="/notas/{{ n.id }}/email" class="em-linha" style="border:0;margin:0;padding:0" onsubmit="if (!confirm('Transmitir esta nota para a Sefin Nacional? Ela terá validade fiscal.')) return false; this.querySelector('button').disabled=true;">
+    <label>Para (separe por vírgula) <input name="para" value="{{ email_sugerido }}" required></label>
+    <button>Enviar PDF + XML</button>
+  </form>
+  {% else %}<p class="sutil">E-mail ainda não configurado (Configurações, perfil administrador).</p>{% endif %}
+</section>
+{% endif %}
+
+{% if n.situacao == 'AUTORIZADA' and n.origem == 'EMITIDA' %}
+<details class="cartao">
+  <summary>Cancelar esta nota</summary>
+  <form method="post" action="/notas/{{ n.id }}/cancelar" onsubmit="return confirm('Confirma o CANCELAMENTO desta NFS-e na Sefin? Não pode ser desfeito.')">
+    <div class="grade">
+      <label>Motivo <select name="motivo">{% for k, v in MOTIVOS.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+      <label class="larga">Justificativa (15 a 200 caracteres) <input name="justificativa" minlength="15" maxlength="200" required></label>
+    </div>
+    <button class="perigo">Cancelar NFS-e</button>
+  </form>
+</details>
+{% endif %}
+{% endblock %}

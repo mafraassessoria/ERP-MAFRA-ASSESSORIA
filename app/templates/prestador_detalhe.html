@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block titulo %}{{ p.razao_social }}{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+{% include "_cabecalho_empresa.html" %}
+
+{% if aba == 'notas' %}
+{% set p_fixo = p %}
+{% include "_filtros_notas.html" %}
+<div class="linha-titulo">
+  <p class="sutil resumo-lista">{{ lista|length }} nota(s){% if lista|length >= 300 %} — exibindo as 300 mais recentes{% endif %}
+    · Total prestado autorizado: <b>R$ {{ total|moeda }}</b></p>
+  {% if lista %}<div class="export-filtro"><span class="tipos-export" title="O que vai no ZIP"><label><input type="checkbox" class="exp-pdf" checked> PDF</label><label><input type="checkbox" class="exp-xml" checked> XML</label></span><a class="botao secundario exportar-zip" href="/notas/exportar.zip?prestador_id={{ p.id }}&{{ qs }}">Exportar todas do filtro (ZIP)</a></div>{% endif %}
+</div>
+{% set mostrar_prestador = False %}{% set permitir_clonar = p.emite_nfse %}{% set selecionavel = True %}
+{% set volta_sel = '/prestadores/%d?aba=notas%s' % (p.id, ('&' ~ qs) if qs else '') %}
+{% include "_tabela_notas.html" %}
+
+{% elif aba == 'cadastros' %}
+<section class="cartao" id="tomadores">
+  <div class="linha-titulo"><h2>Tomadores</h2><a class="botao" href="/prestadores/{{ p.id }}/tomadores/novo">+ Novo tomador</a></div>
+  <p class="sutil">Tomadores das notas importadas do ADN são cadastrados automaticamente.</p>
+  <table class="ordenavel">
+    <tr><th>Nome</th><th>CPF/CNPJ</th><th>Município</th><th>E-mail</th><th class="num">Obras</th></tr>
+    {% for t in tomadores %}
+    <tr class="{{ '' if t.ativo else 'inativo' }}"><td><a href="/tomadores/{{ t.id }}/editar">{{ t.nome }}</a></td><td>{{ t.documento|doc }}</td>
+        <td>{% if t.municipio %}{{ t.municipio }}{% if t.uf %}/{{ t.uf }}{% endif %}{% elif t.codigo_municipio_ibge %}{{ t.codigo_municipio_ibge|municipio }}{% endif %}</td><td>{{ t.email }}</td>
+        <td class="num">{{ obras_por_tomador.get(t.id, '') }}</td></tr>
+    {% else %}<tr><td colspan="5" class="sutil">Nenhum tomador cadastrado.</td></tr>{% endfor %}
+  </table>
+</section>
+
+<section class="cartao" id="codigos">
+  <h2>Códigos de serviço da empresa</h2>
+  <p class="sutil">Só os códigos marcados aqui aparecem na emissão. Os códigos das notas importadas entram sozinhos.
+    {% if not tabela_oficial %}<br><b>Tabela oficial ainda não importada</b> (Configurações → Tabelas de serviços): a busca por descrição fica limitada aos códigos já usados.{% endif %}</p>
+  <div class="duas-colunas">
+    <div>
+      <h3>Código de tributação nacional (LC 116)</h3>
+      <table>
+        <tr><th style="width:110px">Código</th><th>Descrição</th><th style="width:70px"></th></tr>
+        {% for c in cod_ctribnac %}
+        <tr><td>{{ c.codigo }}</td><td>{{ c.descricao or '—' }}{% if c.obra %} <span class="etiqueta mini">OBRA</span>{% endif %}</td>
+          <td><form method="post" action="/codigos-empresa/{{ c.id }}/excluir"><button class="link">remover</button></form></td></tr>
+        {% else %}<tr><td colspan="3" class="sutil">Nenhum código.</td></tr>{% endfor %}
+      </table>
+      <form method="post" action="/prestadores/{{ p.id }}/codigos" class="form-codigo">
+        <input type="hidden" name="tipo" value="CTRIBNAC">
+        <input type="hidden" name="descricao">
+        <label>Incluir código <input type="hidden" name="codigo" class="combo-api" data-api="/api/ctribnac" data-desc="descricao"
+          data-placeholder="Digite parte da descrição ou do código (ex.: contab, 1719)"></label>
+        <button>Incluir</button>
+      </form>
+    </div>
+    <div>
+      <h3>Item da NBS</h3>
+      <table>
+        <tr><th style="width:120px">NBS</th><th>Descrição</th><th style="width:70px"></th></tr>
+        {% for c in cod_nbs %}
+        <tr><td>{{ c.codigo }}</td><td>{{ c.descricao or '—' }}</td>
+          <td><form method="post" action="/codigos-empresa/{{ c.id }}/excluir"><button class="link">remover</button></form></td></tr>
+        {% else %}<tr><td colspan="3" class="sutil">Nenhum código.</td></tr>{% endfor %}
+      </table>
+      <form method="post" action="/prestadores/{{ p.id }}/codigos" class="form-codigo">
+        <input type="hidden" name="tipo" value="NBS">
+        <input type="hidden" name="descricao">
+        <label>Incluir NBS <input type="hidden" name="codigo" class="combo-api" data-api="/api/nbs" data-desc="descricao"
+          data-placeholder="Digite parte da descrição ou do código (9 dígitos)"></label>
+        <button>Incluir</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="cartao" id="intermediarios">
+  <div class="linha-titulo"><h2>Intermediários</h2><a class="botao secundario" href="/prestadores/{{ p.id }}/intermediarios/novo">+ Novo intermediário</a></div>
+  <table>
+    <tr><th>Nome</th><th>CPF/CNPJ</th><th>Município</th><th>E-mail</th></tr>
+    {% for i in intermediarios %}
+    <tr class="{{ '' if i.ativo else 'inativo' }}"><td><a href="/intermediarios/{{ i.id }}/editar">{{ i.nome }}</a></td><td>{{ i.documento|doc }}</td>
+      <td>{{ i.municipio }}{% if i.uf %}/{{ i.uf }}{% endif %}</td><td>{{ i.email }}</td></tr>
+    {% else %}<tr><td colspan="4" class="sutil">Nenhum intermediário cadastrado.</td></tr>{% endfor %}
+  </table>
+</section>
+
+{% else %}
+<div class="linha-titulo">
+  <h2>Dados e configurações</h2>
+  <a class="botao secundario" href="/prestadores/{{ p.id }}/editar">Editar dados</a>
+</div>
+<div class="tres-colunas">
+  <section class="cartao">
+    <h2>Dados</h2>
+    <dl>
+      <dt>Inscrição municipal</dt><dd>{{ p.inscricao_municipal or '—' }}</dd>
+      <dt>Município</dt><dd>{{ p.municipio }}{% if p.uf %}/{{ p.uf }}{% endif %} {% if p.codigo_municipio_ibge %}(IBGE {{ p.codigo_municipio_ibge }}){% endif %}</dd>
+      <dt>Aderente ao Emissor Nacional</dt><dd>{{ 'Sim' if p.municipio_aderente else 'Não confirmado' }}</dd>
+      <dt>Autorização de uso do certificado</dt><dd>{{ 'Sim' if p.autorizacao_uso_certificado else 'Não registrada' }}</dd>
+      {% if p.modo == 'EMISSAO' %}<dt>Série DPS</dt><dd>{{ p.serie_dps }} · próximo nº {{ p.proximo_numero_dps }}</dd>
+      <dt>Simples</dt><dd>{% if p.regime in ('SIMPLES', 'SIMPLES_EXCESSO') %}{{ REG_AP_TRIB_SN[p.reg_ap_trib_sn] }} · tributos aprox. {{ p.p_tot_trib_sn|moeda }}%{% else %}—{% endif %}</dd>{% endif %}
+      <dt>Contato</dt><dd>{{ p.email or '—' }} {{ p.telefone }}</dd>
+    </dl>
+    <h3>Módulos e integrações</h3>
+    <dl>
+      <dt>Usa</dt><dd>{% for m in p.modulos %}<span class="etiqueta mini">{{ m }}</span> {% else %}<span class="sutil">nenhum módulo</span>{% endfor %}</dd>
+      <dt>Pasta no Drive</dt><dd>{{ p.pasta_drive or '—' }}</dd>
+      {% if p.cnpjs_adicionais %}<dt>Outros CNPJs/CPFs</dt><dd>{{ p.cnpjs_adicionais }}</dd>{% endif %}
+      {% if p.apelidos %}<dt>Outros nomes</dt><dd>{{ p.apelidos|replace('\n', ' · ') }}</dd>{% endif %}
+      {% if p.id_econtador %}<dt>ID no e-Contador</dt><dd>{{ p.id_econtador }}</dd>{% endif %}
+    </dl>
+  </section>
+
+  <section class="cartao">
+    <h2>Certificado A1</h2>
+    {% if p.importar_por_procuracao %}
+      <div class="msg">Esta empresa usa o <b>certificado do escritório (procuração eletrônica)</b> para emitir, cancelar e importar.
+        {% if dono_cert %}Procurador: <a href="/prestadores/{{ dono_cert.id }}">{{ dono_cert.razao_social }}</a>{% if dono_cert.certificado_ativo %}, certificado válido até {{ dono_cert.certificado_ativo.validade_fim|data }}{% endif %}.{% endif %}
+        {% if problema_cert %}<br><b>{{ problema_cert }}</b>{% endif %}
+        <br><small>O cliente precisa ter concedido procuração ao escritório no serviço de NFS-e (Portal de Serviços da Receita).</small></div>
+    {% endif %}
+    {% set c = p.certificado_ativo %}
+    {% if c %}
+      <dl>
+        <dt>Titular</dt><dd>{{ c.titular }}</dd>
+        <dt>Validade</dt><dd>{{ c.validade_inicio|data }} a {{ c.validade_fim|data }}
+          {% if c.dias_para_vencer < 0 %}<span class="etiqueta erro">vencido</span>
+          {% elif c.dias_para_vencer < 30 %}<span class="etiqueta aviso">{{ c.dias_para_vencer }} dias</span>{% endif %}</dd>
+        <dt>Emissora</dt><dd>{{ c.emissora }}</dd>
+        <dt>Enviado</dt><dd>{{ c.enviado_em|datahora }} por {{ c.enviado_por }}</dd>
+      </dl>
+    {% else %}
+      <p class="sutil">Nenhum certificado ativo.</p>
+    {% endif %}
+    <form method="post" action="/prestadores/{{ p.id }}/certificado" enctype="multipart/form-data" class="em-linha">
+      <label>Arquivo .pfx/.p12 <input type="file" name="arquivo" accept=".pfx,.p12" required></label>
+      <label>Senha <input type="password" name="senha" required autocomplete="off"></label>
+      <button>{{ 'Substituir' if c else 'Enviar' }} certificado</button>
+    </form>
+    {% if p.certificados|length > 1 %}
+      <details><summary>Certificados anteriores</summary>
+        <table>{% for x in p.certificados if not x.ativo %}
+          <tr><td>{{ x.titular }}</td><td>até {{ x.validade_fim|data }}</td>
+          <td><form method="post" action="/certificados/{{ x.id }}/excluir" onsubmit="return confirm('Excluir este certificado?')"><button class="link">excluir</button></form></td></tr>
+        {% endfor %}</table>
+      </details>
+    {% endif %}
+  </section>
+  <section class="cartao" id="importacao">
+    <div class="linha-titulo">
+      <h2>Importação pelo ADN</h2>
+      <div class="acoes">
+        <form method="post" action="/prestadores/{{ p.id }}/procuracao">
+          <input type="hidden" name="valor" value="{{ '0' if p.importar_por_procuracao else '1' }}">
+          <button class="secundario">{{ 'Usar certificado da própria empresa' if p.importar_por_procuracao else 'Usar certificado do escritório (procuração)' }}</button>
+        </form>
+        <form method="post" action="/prestadores/{{ p.id }}/importar" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Importando...';">
+          <button>Importar agora</button>
+        </form>
+      </div>
+    </div>
+    <p class="sutil">Traz as notas que a empresa emitiu (inclusive pelo portal) e as que recebeu como tomadora, além dos cancelamentos.
+      Certificado: <b>{{ 'do escritório (procuração)' if p.importar_por_procuracao else 'da própria empresa' }}</b> (vale também para emitir e cancelar) ·
+      Automática: {{ 'sim' if p.importar_automaticamente else 'não' }}</p>
+    {% if ctrl %}<p>Última consulta: {{ ctrl.ultima_consulta|datahora }} · NSU {{ ctrl.ultimo_nsu }}<br><small>{{ ctrl.ultimo_resultado }}</small></p>
+    {% else %}<p class="sutil">Nenhuma importação feita ainda.</p>{% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

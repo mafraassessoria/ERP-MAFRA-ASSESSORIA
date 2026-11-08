@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titulo %}Tomadores{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<h1>Tomadores</h1>
+<form class="busca filtros" method="get">
+  <input name="q" value="{{ q }}" placeholder="Nome, CPF/CNPJ ou prestador">
+  <button>Buscar</button>{% if q %} <a href="/tomadores">limpar</a>{% endif %}
+  <span class="sutil" style="margin-left:auto">{{ lista|length }} tomador(es)</span>
+</form>
+<p class="sutil">Os tomadores são cadastrados dentro de cada prestador (botão "+ Novo tomador" na tela do prestador).</p>
+<table class="notas ordenavel">
+  <colgroup><col><col style="width:180px"><col><col style="width:200px"><col style="width:240px"></colgroup>
+  <tr><th>Tomador</th><th>CPF/CNPJ</th><th>Prestador</th><th>Município</th><th>E-mail</th></tr>
+  {% for t in lista %}
+  <tr class="{{ '' if t.ativo else 'inativo' }}">
+    <td class="linha" title="{{ t.nome }}"><a href="/tomadores/{{ t.id }}/editar">{{ t.nome }}</a></td>
+    <td class="linha">{{ t.documento|doc }}</td>
+    <td class="linha" title="{{ t.prestador.razao_social }}"><a href="/prestadores/{{ t.prestador_id }}?aba=cadastros#tomadores">{{ t.prestador.razao_social }}</a></td>
+    <td class="linha">{{ t.municipio }}{% if t.uf %}/{{ t.uf }}{% endif %}</td>
+    <td class="linha">{{ t.email }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="sutil">Nenhum tomador cadastrado ainda.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block titulo %}Monitor e-CAC{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <div><h1>Monitor e-CAC</h1>
+    <p class="sutil">Acompanhamento automático pelo Integra Contador (modo {{ {'desligado': 'desligado', 'demonstracao': 'demonstração', 'producao': 'produção'}[modo] }}).
+      Clique num quadro para ver as empresas.</p></div>
+  <a class="botao secundario" href="/receita">Consultas avulsas e uso do mês</a>
+</div>
+{% if modo == 'desligado' %}<div class="cartao aviso">O Integra Contador está desligado. Ative em <a href="/configuracoes#receita">Configurações → Receita Federal</a>.</div>{% endif %}
+{% if execucao.rodando %}<div class="cartao aviso"><b>{{ execucao.rotina }}</b> em andamento: {{ execucao.feitas }} de {{ execucao.total }} empresa(s). <a href="">Atualizar</a></div><meta http-equiv="refresh" content="6">
+{% elif execucao.fim %}<div class="cartao">Última execução ({{ execucao.fim|datahora }}, {{ execucao.por }}): {{ execucao.resumo }}
+  {% if execucao.erros %}<details><summary>{{ execucao.erros|length }} problema(s)</summary><ul>{% for e in execucao.erros %}<li>{{ e }}</li>{% endfor %}</ul></details>{% endif %}</div>{% endif %}
+
+{% macro quadro(cod, titulo, partes) %}
+  {% set d = pn[cod] %}
+  <a class="cartao mon-quadro" href="/monitor/item/{{ cod }}">
+    <h2>{{ titulo }} {% if d.ref %}<small class="sutil">{{ d.ref }}</small>{% endif %}</h2>
+    <div class="mon-num">{{ d.total }}<small> empresa(s)</small></div>
+    <div class="mon-partes">{% for st in partes %}<span class="etiqueta {{ STATUS[st][1] }}">{{ STATUS[st][0] }}: {{ d.cont.get(st, 0) }}</span>{% endfor %}
+      {% if d.cont.get('ERRO') %}<span class="etiqueta erro">Erro: {{ d.cont.get('ERRO') }}</span>{% endif %}</div>
+  </a>
+{% endmacro %}
+<div class="mon-grade">
+  {{ quadro('SITFIS', 'Situação fiscal', ['PENDENCIA', 'REGULAR', 'INDEFINIDO']) }}
+  {{ quadro('PARCELAMENTO', 'Parcelamentos', ['COM', 'SEM']) }}
+  {{ quadro('CAIXA', 'Caixa postal', ['NOVAS', 'SEM']) }}
+  <a class="cartao mon-quadro" href="/monitor/pagamentos"><h2>Pagamentos <small class="sutil">mês atual e anterior</small></h2>
+    <div class="mon-num">{{ pn.pagamentos_mes.total }}<small> pagamento(s)</small></div>
+    <div class="mon-partes"><span class="etiqueta erro">Pagos em atraso: {{ pn.pagamentos_mes.atraso }}</span>
+      <span class="etiqueta">Total R$ {{ pn.pagamentos_mes.valor|moeda }}</span></div></a>
+</div>
+<h2>Entregas</h2>
+<div class="mon-grade">
+  {{ quadro('PGDASD', 'PGDAS-D', ['ENTREGUE', 'NAO_ENTREGUE']) }}
+  {{ quadro('DCTFWEB', 'DCTFWeb', ['ENTREGUE', 'NAO_ENTREGUE']) }}
+  {{ quadro('MIT', 'MIT', ['ENTREGUE', 'NAO_ENTREGUE']) }}
+  {{ quadro('DEFIS', 'DEFIS', ['ENTREGUE', 'NAO_ENTREGUE']) }}
+</div>
+
+<section class="cartao" id="rotinas">
+  <h2>Rotinas automáticas</h2>
+  <p class="sutil">Cada rotina consulta todas as empresas ativas com o módulo Receita Federal ligado e às quais ela se aplica.
+    O custo estimado usa os preços de Configurações (zero no modo demonstração). Desligadas até você ligar.</p>
+  <table class="compacta">
+    <thead><tr><th>Rotina</th><th>Empresas</th><th>Custo por execução</th><th>Agenda</th><th>Última</th><th></th></tr></thead>
+    <tbody>{% for x in rotinas %}
+    <tr><td><b>{{ x.r.nome }}</b><br><small class="sutil">{{ x.r.descricao }}</small></td>
+      <td>{{ x.empresas }}</td><td>R$ {{ x.custo|moeda }}</td>
+      <td>{% if usuario.perfil == 'ADMIN' %}
+        <form method="post" action="/monitor/rotinas/{{ x.r.codigo }}/agenda" class="mon-agenda">
+          <label class="rf-radio"><input type="checkbox" name="ligada" value="1" {{ 'checked' if x.ligada }}> ligada</label>
+          <select name="tipo">{% for t, n in (('S', 'semanal'), ('M', 'mensal'), ('A', 'anual')) %}<option value="{{ t }}" {{ 'selected' if x.regra[0] == t }}>{{ n }}</option>{% endfor %}</select>
+          <input name="valor" value="{{ x.regra.split(' ')[0][1:] }}" title="semanal: 0=segunda … 6=domingo · mensal: dia 1-28 · anual: MM-DD" size="5">
+          <input name="hora" value="{{ x.regra.split(' ')[1] }}" size="5"><button class="secundario mini">Salvar</button>
+        </form>{% endif %}
+        <small class="sutil">{{ x.quando }}{% if x.proxima %} · próxima {{ x.proxima|datahora }}{% else %} · desligada{% endif %}</small></td>
+      <td><small>{{ x.ultima or '—' }}</small></td>
+      <td><form method="post" action="/monitor/rotinas/{{ x.r.codigo }}/rodar"
+            onsubmit="return confirm('Rodar {{ x.r.nome }} agora para {{ x.empresas }} empresa(s)? Custo estimado: R$ {{ x.custo|moeda }}')">
+          <button class="secundario mini" {{ 'disabled' if execucao.rodando or modo == 'desligado' }}>Rodar agora</button></form></td></tr>
+    {% endfor %}</tbody>
+  </table>
+  <p class="sutil">Agenda: semanal usa 0 = segunda … 6 = domingo; mensal, dia 1 a 28; anual, MM-DD (ex.: 04-01). Se o servidor estiver
+    desligado no horário, a rotina roda quando ele ligar, no mesmo dia.</p>
+</section>
+{% endblock %}

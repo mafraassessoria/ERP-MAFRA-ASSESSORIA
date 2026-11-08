@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Sincronização com o e-Contador{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo"><h1>Sincronização com o e-Contador</h1><a class="botao secundario" href="/configuracoes#econtador">Voltar</a></div>
+<section class="cartao">
+  <p>{{ res.resumo }}.</p>
+  <p class="sutil">As empresas são ligadas pelo CNPJ. O código interno é comparado com o código da empresa no e-Contador. Nada foi criado nem apagado.</p>
+  {% if res.divergentes %}<h3>Código diferente — conferir ({{ res.divergentes|length }})</h3><ul>{% for x in res.divergentes %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  {% if res.sem_econtador %}<h3>Marcadas com e-Contador, mas não encontradas lá ({{ res.sem_econtador|length }})</h3>
+    <p class="sutil">Confira o CNPJ ou desligue o módulo e-Contador dessas empresas.</p><ul>{% for x in res.sem_econtador %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  {% if res.so_no_econtador %}<h3>Ativas no e-Contador e sem cadastro aqui ({{ res.so_no_econtador|length }})</h3><ul>{% for x in res.so_no_econtador %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  {% if res.vinculadas %}<h3>Vinculadas agora ({{ res.vinculadas|length }})</h3><ul>{% for x in res.vinculadas %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% endblock %}

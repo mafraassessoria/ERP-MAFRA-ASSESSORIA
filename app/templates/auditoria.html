@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Auditoria{% endblock %}
+{% block conteudo %}
+<h1>Auditoria <small class="sutil">(últimos 500 registros)</small></h1>
+<table class="compacta">
+  <tr><th>Data/hora</th><th>Usuário</th><th>Ação</th><th>Registro</th><th>Detalhes</th><th>IP</th></tr>
+  {% for a in lista %}
+  <tr><td>{{ a.data_hora|datahora }}</td><td>{{ a.usuario_login }}</td><td>{{ a.acao }}</td>
+      <td>{{ a.entidade }} {{ a.entidade_id or '' }}</td><td>{{ a.detalhes }}</td><td>{{ a.ip }}</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

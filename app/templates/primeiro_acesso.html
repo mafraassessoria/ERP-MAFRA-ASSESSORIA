@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Primeiro acesso{% endblock %}
+{% block conteudo %}
+<form class="cartao estreito" method="post" action="/primeiro-acesso">
+  <h1>Primeiro acesso</h1>
+  <p class="sutil">Crie o usuário administrador do sistema.</p>
+  <label>Nome <input name="nome" required></label>
+  <label>Login <input name="login" required autocomplete="username"></label>
+  <label>Senha (mín. 10 caracteres, letras e números) <input name="senha" type="password" required autocomplete="new-password"></label>
+  <label>Repita a senha <input name="senha2" type="password" required autocomplete="new-password"></label>
+  <button>Criar administrador</button>
+</form>
+{% endblock %}

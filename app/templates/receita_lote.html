@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titulo %}Lote {{ lote }} · Receita Federal{% endblock %}
+{% block head %}{% if info and info.rodando %}<meta http-equiv="refresh" content="4">{% endif %}{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo"><h1>Consulta em lote</h1><a class="botao secundario" href="/receita">Voltar</a></div>
+<section class="cartao">
+  {% if info %}
+  <p><b>{{ info.servico }}</b> · iniciado {{ info.inicio|datahora }} por {{ info.usuario }}</p>
+  {% set pct = (info.feitos / info.total * 100) if info.total else 100 %}
+  <div class="barra-progresso"><span style="width: {{ pct|round(0) }}%"></span></div>
+  <p>{{ info.feitos }} de {{ info.total }} · {{ info.ok }} com sucesso · {{ info.erros|length }} com erro
+    {% if info.rodando %}— <b>em andamento</b> (esta página atualiza sozinha){% else %}— <b>concluído</b>{% endif %}</p>
+  {% if info.erros %}<details {{ 'open' if not info.rodando }}><summary>Erros</summary><ul>{% for e in info.erros %}<li>{{ e }}</li>{% endfor %}</ul></details>{% endif %}
+  {% else %}<p class="sutil">Lote {{ lote }} (o andamento só fica na memória enquanto o servidor está ligado; abaixo, as consultas gravadas).</p>{% endif %}
+</section>
+{% if consultas %}
+<section class="cartao">
+  <h2>Resultados</h2>
+  <table class="compacta"><thead><tr><th>Empresa</th><th>Resultado</th><th>PDF</th><th>Custo</th></tr></thead><tbody>
+  {% for c in consultas %}<tr><td><a href="/prestadores/{{ c.prestador_id }}/receita?ver={{ c.id }}#resultado">{{ c.prestador.razao_social if c.prestador }}</a></td>
+    <td>{% if c.ok %}<span class="etiqueta ok">ok</span>{% else %}<span class="etiqueta erro">erro</span> <small>{{ c.mensagens[:160] }}</small>{% endif %}</td>
+    <td>{% if c.lista_arquivos %}<a href="/receita/consultas/{{ c.id }}/arquivo/0" target="_blank">PDF</a>{% endif %}</td>
+    <td>{{ c.custo|moeda if c.custo else '—' }}</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endif %}
+{% endblock %}

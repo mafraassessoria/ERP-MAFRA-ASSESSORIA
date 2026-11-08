@@ -1,0 +1,14 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0
+jinja2>=3.1
+python-multipart>=0.0.9
+itsdangerous>=2.1
+cryptography>=42
+# NFS-e Nacional: DPS, assinatura XMLDSIG, transporte mTLS, DANFSe (versão fixada — testada)
+PyNFSeNacionalGT[danfse]==1.3.1
+# Fusos horários (America/Sao_Paulo) — o Windows não traz essa tabela para o Python
+tzdata>=2024.1
+BrazilFiscalReport>=1.3.1
+openpyxl>=3.1
+pypdf>=4.0

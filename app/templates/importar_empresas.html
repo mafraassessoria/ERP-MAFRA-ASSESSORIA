@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}Importação do cadastro de empresas{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo"><h1>Importação do cadastro de empresas</h1><a class="botao" href="/prestadores">Ver empresas</a></div>
+<section class="cartao">
+  <p><b>{{ arquivo }}</b>: {{ res.resumo }}.</p>
+  {% if res.criadas %}<h3>Criadas ({{ res.criadas|length }}) — sem o módulo NFS-e</h3>
+  <ul>{% for x in res.criadas %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  {% if res.atualizadas %}<h3>Atualizadas ({{ res.atualizadas|length }})</h3>
+  <ul>{% for x in res.atualizadas %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  {% if res.ignoradas %}<h3>Não importadas — conferir ({{ res.ignoradas|length }})</h3>
+  <ul>{% for x in res.ignoradas %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  <p class="sutil">Pode importar de novo quando o cadastro do arquivador mudar: o que já está igual não é alterado.</p>
+</section>
+{% endblock %}

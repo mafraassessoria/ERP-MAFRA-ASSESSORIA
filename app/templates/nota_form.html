@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block titulo %}Nota fiscal{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <div>
+    <h1>{{ 'Editar rascunho' if n.id else 'Emitir NFS-e' }}</h1>
+    <p class="sutil">{{ p.razao_social }} · {{ p.cnpj|doc }} · {{ REGIMES[p.regime] }}
+      {% if p.importar_por_procuracao %}· <span class="etiqueta">certificado do escritório (procuração)</span>{% endif %}</p>
+  </div>
+</div>
+
+<nav class="etapas" id="etapas">
+  <button type="button" data-etapa="1"><span>1</span>Pessoas</button>
+  <button type="button" data-etapa="2"><span>2</span>Serviço</button>
+  <button type="button" data-etapa="3"><span>3</span>Valores</button>
+  <button type="button" data-etapa="4"><span>4</span>Emitir NFS-e</button>
+</nav>
+
+<form method="post" action="/prestadores/{{ p.id }}/notas/salvar" id="form-nota" novalidate>
+<input type="hidden" name="id" value="{{ n.id or '' }}">
+
+<!-- ===================== 1. PESSOAS ===================== -->
+<div class="etapa" data-etapa="1">
+  <section class="cartao">
+    <h2>Tomador do serviço</h2>
+    <div class="grade grade-2-1">
+      <label>Tomador <small class="sutil">(vazio = consumidor não identificado)</small>
+        <select name="tomador_id" id="tomador" class="combo" data-placeholder="Digite nome ou CPF/CNPJ do tomador">
+          <option value="">— Consumidor não identificado —</option>
+          {% for t in tomadores %}<option value="{{ t.id }}" data-doc="{{ t.documento|doc }}" data-email="{{ t.email }}" {{ 'selected' if n.tomador_id == t.id }}>{{ t.nome }} · {{ t.documento|doc }}</option>{% endfor %}
+        </select></label>
+      <div class="acoes-campo">
+        <a class="botao secundario" href="/prestadores/{{ p.id }}/tomadores/novo?volta={{ ('/notas/%d/editar' % n.id) if n.id else ('/prestadores/%d/notas/nova' % p.id) }}">+ Novo tomador</a>
+      </div>
+    </div>
+    <label>Data de competência * <input type="date" name="competencia" id="competencia" value="{{ n.competencia.isoformat() if n.competencia else '' }}" max="{{ hoje }}" required style="max-width:220px"></label>
+  </section>
+  <section class="cartao">
+    <h2>Intermediário <small class="sutil">(opcional)</small></h2>
+    <div class="grade grade-2-1">
+      <label>Intermediário da operação
+        <select name="intermediario_id" id="intermediario" class="combo" data-placeholder="Não há intermediário">
+          <option value="">— Não há intermediário —</option>
+          {% for i in intermediarios %}<option value="{{ i.id }}" {{ 'selected' if n.intermediario_id == i.id }}>{{ i.nome }} · {{ i.documento|doc }}</option>{% endfor %}
+        </select></label>
+      <div class="acoes-campo">
+        <a class="botao secundario" href="/prestadores/{{ p.id }}/intermediarios/novo?volta={{ ('/notas/%d/editar' % n.id) if n.id else ('/prestadores/%d/notas/nova' % p.id) }}">+ Novo intermediário</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ===================== 2. SERVIÇO ===================== -->
+<div class="etapa" data-etapa="2">
+  <section class="cartao">
+    <h2>Local da prestação do serviço</h2>
+    <div class="grade grade-2">
+      <label>País * <select disabled><option>Brasil</option></select>
+        <small class="sutil">Prestação no exterior ainda não é emitida por aqui.</small></label>
+      <label>Município * <input type="hidden" name="municipio_prestacao" id="municipio" class="combo-api obrig" data-api="/api/municipios"
+          data-rotulo="{{ local_rotulo }}" value="{{ local }}" data-placeholder="Digite o nome do município"></label>
+    </div>
+  </section>
+
+  <section class="cartao">
+    <h2>Serviço prestado</h2>
+    <label>Código de tributação nacional *
+      <select name="codigo_tributacao_nacional" id="ctribnac" class="combo obrig" data-placeholder="Digite parte da descrição ou do código">
+        <option value="">— escolha —</option>
+        {% for c in ctribnac %}<option value="{{ c.codigo }}" {{ 'selected' if n.codigo_tributacao_nacional == c.codigo }}>{{ c.rotulo }}</option>{% endfor %}
+      </select></label>
+    <details class="outro-codigo" {{ 'open' if not ctribnac }}><summary>Usar um código que a empresa ainda não usa</summary>
+      <input type="hidden" name="codigo_tributacao_nacional_outro" id="ctribnac_outro" class="combo-api" data-api="/api/ctribnac"
+        data-placeholder="Pesquise na lista nacional (ex.: contabilidade, 1719)">
+      <small class="sutil">O código escolhido aqui passa a fazer parte da lista da empresa.</small>
+    </details>
+
+    <fieldset class="sem-borda">
+      <legend>O serviço é um caso de imunidade, exportação de serviço ou não incidência do ISSQN? *</legend>
+      <label class="radio"><input type="radio" name="caso_especial" value="nao" {{ 'checked' if (n.tributacao_issqn or 1) == 1 }}> Não</label>
+      <label class="radio"><input type="radio" name="caso_especial" value="sim" {{ 'checked' if (n.tributacao_issqn or 1) != 1 }}> Sim</label>
+      <div class="grade grade-2" id="bloco-caso-especial">
+        <label>Situação *
+          <select name="tributacao_issqn" id="tributacao_issqn">
+            <option value="">— escolha —</option>
+            <option value="2" {{ 'selected' if n.tributacao_issqn == 2 }}>Imunidade</option>
+            <option value="4" {{ 'selected' if n.tributacao_issqn == 4 }}>Não incidência</option>
+            <option value="3" disabled>Exportação de serviço (ainda não disponível)</option>
+          </select></label>
+        <label id="bloco-imunidade">Tipo de imunidade *
+          <select name="tipo_imunidade">
+            <option value="">— escolha —</option>
+            {% for k, v in TIPOS_IMUNIDADE.items() %}<option value="{{ k }}" {{ 'selected' if n.tipo_imunidade == k }}>{{ v }}</option>{% endfor %}
+          </select></label>
+      </div>
+    </fieldset>
+
+    <div class="grade grade-2">
+      <label>Município de incidência do ISSQN <input id="incidencia" disabled value="{{ local_rotulo }}"></label>
+      <label>Data de competência <input id="competencia_vis" disabled></label>
+    </div>
+
+    <label>Item da NBS correspondente ao serviço
+      <select name="codigo_nbs" id="nbs" class="combo" data-placeholder="Digite parte da descrição ou do código">
+        <option value="">— não informar —</option>
+        {% for c in nbs %}<option value="{{ c.codigo }}" {{ 'selected' if n.codigo_nbs == c.codigo }}>{{ c.rotulo }}</option>{% endfor %}
+      </select></label>
+    <div id="nbs-sugestoes" class="sutil"></div>
+    <details class="outro-codigo"><summary>Usar outra NBS</summary>
+      <input type="hidden" name="codigo_nbs_outro" id="nbs_outro" class="combo-api" data-api="/api/nbs" data-placeholder="Pesquise na tabela NBS">
+    </details>
+    <label>Código de tributação municipal <small class="sutil">(só se o município exigir)</small>
+      <input name="codigo_tributacao_municipal" value="{{ n.codigo_tributacao_municipal or '' }}" maxlength="3" style="max-width:120px"></label>
+
+    <label>Descrição do serviço *
+      <textarea name="descricao" id="descricao" class="obrig" rows="8" maxlength="2000">{{ n.descricao_servico or '' }}</textarea>
+      <small class="contador sutil" data-para="descricao"></small></label>
+    <label>Informações complementares <small class="sutil">(opcional — saem no DANFSe)</small>
+      <textarea name="info_complementares" id="info" rows="3" maxlength="2000">{{ n.info_complementares or '' }}</textarea>
+      <small class="contador sutil" data-para="info"></small></label>
+  </section>
+
+  <section class="cartao" id="bloco-obra">
+    <h2>Informações para obra</h2>
+    <label class="radio"><input type="radio" name="obra_modo" value="existente" {{ 'checked' if n.obra_id or obras }}> Obra já cadastrada para o tomador</label>
+    <label class="radio"><input type="radio" name="obra_modo" value="nova" {{ 'checked' if not n.obra_id and not obras }}> Informar nova obra</label>
+    <div id="obra-existente">
+      <label>Obra *
+        <select name="obra_id" id="obra">
+          <option value="">— escolha —</option>
+          {% for o in obras %}<option value="{{ o.id }}" data-tomador="{{ o.tomador_id }}" {{ 'selected' if n.obra_id == o.id }}>{{ o.rotulo }}</option>{% endfor %}
+        </select></label>
+      <small class="sutil" id="obra-sem">Nenhuma obra cadastrada para este tomador — informe uma nova.</small>
+    </div>
+    <div id="obra-nova">
+      <p>Selecione uma das opções: *</p>
+      <label class="radio"><input type="radio" name="obra_tipo" value="CNO" checked> Código de obra (CNO)</label>
+      <label class="radio"><input type="radio" name="obra_tipo" value="CIB"> Código do Cadastro Imobiliário Brasileiro (CIB)</label>
+      <label class="radio"><input type="radio" name="obra_tipo" value="END"> Endereço no Brasil</label>
+      <label class="radio desabilitado"><input type="radio" disabled> Endereço no exterior (ainda não disponível)</label>
+      <div class="grade grade-2">
+        <label class="obra-CNO">Código da obra (CNO) * <input name="obra_cno" maxlength="30"></label>
+        <label class="obra-CIB">Código CIB * <input name="obra_cib" maxlength="8"></label>
+        <label>Inscrição imobiliária fiscal <input name="obra_insc_imob" maxlength="30"></label>
+        <label>Apelido da obra <small class="sutil">(para achar depois)</small> <input name="obra_descricao" maxlength="120" placeholder="ex.: Escola Municipal X"></label>
+      </div>
+      <div class="grade grade-4 obra-END">
+        <label>CEP * <input name="obra_cep" maxlength="9"></label>
+        <label class="larga">Logradouro * <input name="obra_logradouro"></label>
+        <label>Número <input name="obra_numero"></label>
+        <label>Complemento <input name="obra_complemento"></label>
+        <label>Bairro * <input name="obra_bairro"></label>
+        <label class="larga">Município <input type="hidden" name="obra_municipio" class="combo-api" data-api="/api/municipios" data-placeholder="Município da obra"></label>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ===================== 3. VALORES ===================== -->
+<div class="etapa" data-etapa="3">
+  <section class="cartao">
+    <h2>Valores do serviço prestado</h2>
+    <div class="grade grade-4">
+      <label>Valor do serviço (R$) * <input name="valor" id="valor" class="obrig dinheiro" value="{{ (n.valor_servicos|moeda) if n.valor_servicos else '' }}" placeholder="0,00"></label>
+      <label>Valor recebido pelo intermediário <input name="valor_recebido_intermediario" id="vreceb" class="dinheiro" value="{{ n.valor_recebido_intermediario|vazio_se_zero }}" placeholder="0,00"></label>
+      <label>Desconto incondicionado <input name="desconto_incondicionado" id="desc_incond" class="dinheiro" value="{{ n.desconto_incondicionado|vazio_se_zero }}" placeholder="0,00"></label>
+      <label>Desconto condicionado <input name="desconto_condicionado" class="dinheiro" value="{{ n.desconto_condicionado|vazio_se_zero }}" placeholder="0,00"></label>
+    </div>
+  </section>
+
+  <div class="msg">As informações de tributação municipal, exceto retenção, seguem o Simples Nacional e não podem ser alteradas.
+    Para serviços de obra, a redução da base de cálculo pode ser informada.</div>
+
+  <section class="cartao">
+    <h2>Tributação municipal</h2>
+    <div class="grade grade-2">
+      <label>Tributação do ISSQN <input disabled id="trib_vis" value="Operação tributável"></label>
+      <label>Regime especial de tributação <input disabled value="{{ REG_ESP.get(p.reg_esp_trib or 0, 'Nenhum') }}"></label>
+    </div>
+    <fieldset class="sem-borda"><legend>A exigibilidade do ISSQN está suspensa? *</legend>
+      <label class="radio"><input type="radio" checked disabled> Não</label></fieldset>
+
+    <fieldset class="sem-borda" id="bloco-retencao"><legend>Há retenção do ISSQN pelo tomador ou pelo intermediário? *</legend>
+      <label class="radio"><input type="radio" name="iss_retido" value="nao" {{ 'checked' if (n.tipo_retencao_iss or 1) == 1 }}> Não</label>
+      <label class="radio"><input type="radio" name="iss_retido" value="sim" {{ 'checked' if (n.tipo_retencao_iss or 1) != 1 }}> Sim</label>
+      <div id="bloco-retido">
+        <p>Informe por quem o imposto será retido: *</p>
+        <label class="radio"><input type="radio" name="retido_por" value="TOMADOR" {{ 'checked' if n.tipo_retencao_iss != 3 }}> Retido pelo tomador | <span id="ret-tomador" class="sutil"></span></label>
+        <label class="radio"><input type="radio" name="retido_por" value="INTERMEDIARIO" {{ 'checked' if n.tipo_retencao_iss == 3 }}> Retido pelo intermediário | <span id="ret-interm" class="sutil"></span></label>
+        <div class="msg">Para ME/EPP com ISS apurado pelo Simples Nacional, a alíquota é obrigatória quando há retenção: mínimo 1,80% e máximo 5,00%.</div>
+        <label style="max-width:240px">Alíquota do ISS (%) * <input name="aliquota_iss" id="aliquota" class="dinheiro" value="{{ n.aliquota_iss|vazio_se_zero }}" placeholder="ex.: 2,00"></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="sem-borda"><legend>O serviço está amparado por algum benefício municipal? *</legend>
+      <label class="radio"><input type="radio" checked disabled> Não</label></fieldset>
+
+    <fieldset class="sem-borda" id="bloco-deducao"><legend>Será aplicada dedução/redução à base de cálculo do ISSQN? *</legend>
+      <label class="radio"><input type="radio" name="tem_deducao" value="nao" {{ 'checked' if not n.ded_tipo }}> Não</label>
+      <label class="radio"><input type="radio" name="tem_deducao" value="sim" {{ 'checked' if n.ded_tipo }}> Sim</label>
+      <div id="bloco-ded" class="grade grade-4">
+        <label>Tipo *
+          <select name="ded_tipo" id="ded_tipo">
+            <option value="VALOR" {{ 'selected' if n.ded_tipo == 'VALOR' }}>Valor monetário (R$)</option>
+            <option value="PERCENTUAL" {{ 'selected' if n.ded_tipo == 'PERCENTUAL' }}>Valor percentual (%)</option>
+          </select></label>
+        <label>Valor * <input name="ded_valor" id="ded_valor" class="dinheiro" value="{{ n.ded_valor|vazio_se_zero }}"></label>
+      </div>
+    </fieldset>
+    <p class="sutil" id="sem-deducao">Dedução/redução da base de cálculo: só para serviços de obra.</p>
+
+    <div class="grade grade-4 calculo">
+      <label>Alíquota <input disabled id="calc_aliq"></label>
+      <label>Base de cálculo do ISSQN <input disabled id="calc_bc"></label>
+      <label>Valor do ISSQN <input disabled id="calc_iss"></label>
+    </div>
+  </section>
+
+  <section class="cartao" id="bloco-federal">
+    <h2>Tributação federal</h2>
+    <label>Tipo de retenção do PIS/COFINS/CSLL
+      <select name="tipo_ret_piscofins">
+        {% for k, v in TIPOS_RET_PISCOFINS.items() %}<option value="{{ k }}" {{ 'selected' if (n.tipo_ret_piscofins or '') == k }}>{{ v }}</option>{% endfor %}
+      </select></label>
+    <div class="grade grade-4">
+      <label>IRRF retido (R$) <input name="ret_irrf" class="dinheiro" value="{{ n.ret_irrf|vazio_se_zero }}" placeholder="0,00"></label>
+      <label>CSLL retida (R$) <input name="ret_csll" class="dinheiro" value="{{ n.ret_csll|vazio_se_zero }}" placeholder="0,00"></label>
+      <label>Contribuição previdenciária retida (R$) <input name="ret_inss" id="ret_inss" class="dinheiro" value="{{ n.ret_inss|vazio_se_zero }}" placeholder="0,00">
+        <button type="button" class="link" id="sugerir-inss">calcular 11%</button></label>
+    </div>
+  </section>
+
+  <section class="cartao desabilitado">
+    <h2>IBS / CBS</h2>
+    <p class="sutil">Grupo opcional para o Simples Nacional em 2026 — não é enviado por enquanto.</p>
+  </section>
+
+  <section class="cartao">
+    <h2>Valor aproximado dos tributos</h2>
+    <label class="radio"><input type="radio" name="tot_trib_tipo" value="SN" {{ 'checked' if (n.tot_trib_tipo or 'SN') == 'SN' }}> Alíquota do Simples Nacional</label>
+    <div class="tot-SN sub-opcao">Percentual informado no cadastro da empresa: <b>{{ p.p_tot_trib_sn|moeda }}%</b>
+      {% if not p.p_tot_trib_sn %}<span class="etiqueta erro">não informado no cadastro</span>{% endif %}</div>
+    <label class="radio"><input type="radio" name="tot_trib_tipo" value="VALOR" {{ 'checked' if n.tot_trib_tipo == 'VALOR' }}> Valores monetários (R$) desta nota</label>
+    <label class="radio"><input type="radio" name="tot_trib_tipo" value="PERCENTUAL" {{ 'checked' if n.tot_trib_tipo == 'PERCENTUAL' }}> Valores percentuais (%)</label>
+    <div class="grade grade-4 tot-campos sub-opcao">
+      <label>Federal <input name="tot_trib_fed" class="dinheiro" value="{{ n.tot_trib_fed|vazio_se_zero }}"></label>
+      <label>Estadual <input name="tot_trib_est" class="dinheiro" value="{{ n.tot_trib_est|vazio_se_zero }}"></label>
+      <label>Municipal <input name="tot_trib_mun" class="dinheiro" value="{{ n.tot_trib_mun|vazio_se_zero }}"></label>
+    </div>
+  </section>
+</div>
+
+<!-- ===================== 4. EMITIR ===================== -->
+<div class="etapa" data-etapa="4">
+  <section class="cartao">
+    <h2>Confira antes de emitir</h2>
+    <dl class="resumo" id="resumo"></dl>
+  </section>
+  <section class="cartao">
+    <div class="acoes">
+      <button name="acao" value="transmitir" class="grande">Emitir NFS-e</button>
+      <button name="acao" value="salvar" class="secundario">Salvar rascunho</button>
+    </div>
+  </section>
+</div>
+
+<div class="navegacao-etapas">
+  <button type="button" class="secundario" id="voltar">‹ Voltar</button>
+  <span class="sutil" id="falta"></span>
+  <button type="button" id="avancar">Avançar ›</button>
+</div>
+</form>
+
+<script>
+window.DADOS_NOTA = {{ dados_js|safe }};
+window.DADOS_NOTA.mensagens = {{ (mensagens|length > 0)|tojson }};
+</script>
+<script src="/static/nota_form.js"></script>
+{% endblock %}

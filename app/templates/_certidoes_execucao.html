@@ -1,0 +1,7 @@
+{% if execucao.rodando %}
+<div class="cartao aviso"><b>Consultando o Pack CND…</b> {{ execucao.feitas }} de {{ execucao.total }} empresa(s). <a href="">Atualizar</a></div>
+<meta http-equiv="refresh" content="5">
+{% elif execucao.fim %}
+<div class="cartao"><b>Última consulta nesta sessão do servidor</b> ({{ execucao.fim|datahora }}, por {{ execucao.por }}): {{ execucao.resumo or 'sem resultado' }}
+  {% if execucao.erros %}<details><summary>{{ execucao.erros|length }} problema(s)</summary><ul>{% for e in execucao.erros %}<li>{{ e }}</li>{% endfor %}</ul></details>{% endif %}</div>
+{% endif %}

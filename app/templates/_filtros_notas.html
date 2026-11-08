@@ -1,0 +1,25 @@
+{# Filtro completo das notas. Variáveis: f, prestadores (tela geral) ou p_fixo (tela da empresa) #}
+<form class="filtros-notas cartao{{ ' sem-empresa' if p_fixo }}" method="get" action="{{ ('/prestadores/%d' % p_fixo.id) if p_fixo else '/notas' }}">
+  {% if p_fixo %}<input type="hidden" name="aba" value="notas">{% else %}
+  <label class="f-prestador">Empresa
+    <select name="prestador_id" class="combo" data-placeholder="Todas — digite para filtrar">
+      <option value="0">Todas</option>
+      {% for x in prestadores %}<option value="{{ x.id }}" {{ 'selected' if f.prestador_id == x.id }}>{% if x.codigo_interno %}{{ x.codigo_interno }} · {% endif %}{{ x.razao_social }}</option>{% endfor %}
+    </select></label>{% endif %}
+  <label>Situação
+    <select name="situacao">
+      <option value="">Todas</option>
+      {% for k, v in SITUACOES_NOTA.items() %}<option value="{{ k }}" {{ 'selected' if f.situacao == k }}>{{ v }}</option>{% endfor %}
+    </select></label>
+  <label>Tipo
+    <select name="papel">
+      <option value="">Todas</option>
+      <option value="PRESTADO" {{ 'selected' if f.papel == 'PRESTADO' }}>Só prestadas</option>
+      <option value="TOMADO" {{ 'selected' if f.papel == 'TOMADO' }}>Só tomadas</option>
+    </select></label>
+  <label>Competência <input type="month" name="competencia" value="{{ f.competencia }}"></label>
+  <label>De <input type="date" name="de" value="{{ f.de }}"></label>
+  <label>Até <input type="date" name="ate" value="{{ f.ate }}"></label>
+  <label class="f-busca">Pesquisar <input name="q" value="{{ f.q }}" placeholder="Nome, CPF/CNPJ ou nº" data-filtra-tabela="tab-notas"></label>
+  <div class="f-botoes"><button>Filtrar</button><a href="{{ ('/prestadores/%d?aba=notas' % p_fixo.id) if p_fixo else '/notas' }}">limpar</a></div>
+</form>

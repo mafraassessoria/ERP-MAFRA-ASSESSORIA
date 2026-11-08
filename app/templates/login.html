@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block titulo %}Entrar{% endblock %}
+{% block conteudo %}
+<form class="cartao estreito" method="post" action="/login">
+  <h1>ERP MAFRA ASSESSORIA</h1>
+  <p class="sutil">M & R Assessoria Contábil</p>
+  <label>Usuário <input name="login" autofocus required autocomplete="username"></label>
+  <label>Senha <input name="senha" type="password" required autocomplete="current-password"></label>
+  <button>Entrar</button>
+</form>
+{% endblock %}

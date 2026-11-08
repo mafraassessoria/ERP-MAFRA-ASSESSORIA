@@ -1,0 +1,76 @@
+{# Tabela de notas. Variáveis: lista, mostrar_prestador, permitir_clonar, selecionavel (bool) #}
+{% set tem_iss = lista|selectattr('iss_retido')|list|length > 0 %}
+{% set tem_inss = lista|selectattr('ret_inss')|list|length > 0 %}
+{% set ns_num = namespace(m=8) %}{% for n in lista %}{% set t = (n.numero_nfse or ('rascunho #%d' % n.id))|length %}{% if t > ns_num.m %}{% set ns_num.m = t %}{% endif %}{% endfor %}
+<table class="notas ordenavel" id="tab-notas">
+  <colgroup>
+    {% if selecionavel %}<col style="width:42px">{% endif %}<col style="width:calc({{ [ns_num.m, 24]|min }}ch + 2.2rem)">{% if mostrar_prestador %}<col>{% endif %}<col><col style="width:150px">
+    <col style="width:135px"><col style="width:120px">{% if tem_iss %}<col style="width:115px">{% endif %}{% if tem_inss %}<col style="width:115px">{% endif %}
+    <col style="width:115px">{% if permitir_clonar %}<col style="width:80px">{% endif %}
+  </colgroup>
+  <tr>{% if selecionavel %}<th class="sem-ordem"><input type="checkbox" id="sel-todas" title="Marcar todas"></th>{% endif %}<th>Nº NFS-e</th>{% if mostrar_prestador %}<th>Prestador</th>{% endif %}<th>Tomador</th><th>Tipo</th><th>Competência</th>
+    <th class="num">Valor</th>{% if tem_iss %}<th class="num" title="ISS retido pelo tomador/intermediário">ISS retido</th>{% endif %}
+    {% if tem_inss %}<th class="num" title="Contribuição previdenciária (INSS) retida">INSS retido</th>{% endif %}
+    <th>Situação</th>{% if permitir_clonar %}<th class="sem-ordem"></th>{% endif %}</tr>
+  {% for n in lista %}
+  <tr>
+    {% if selecionavel %}<td><input type="checkbox" name="ids" value="{{ n.id }}" class="sel-nota" form="form-sel-notas"></td>{% endif %}
+    <td class="linha"><a href="/notas/{{ n.id }}">{{ n.numero_nfse or ('rascunho #%d' % n.id) }}</a></td>
+    {% if mostrar_prestador %}<td class="linha" title="{{ n.nome_prestador }} · {{ (n.emitente_documento or n.prestador.cnpj)|doc }}">{{ n.nome_prestador }}</td>{% endif %}
+    <td class="linha" title="{{ n.tomador_nome }}{% if n.tomador_documento %} · {{ n.tomador_documento|doc }}{% endif %}">{{ n.tomador_nome }}</td>
+    <td class="linha">{{ 'Prestada' if n.papel == 'PRESTADO' else 'Tomada' }}{% if n.origem == 'IMPORTADA' %} <span class="etiqueta mini" title="Importada do ADN">ADN</span>{% endif %}</td>
+    <td class="linha">{{ n.competencia|data }}</td>
+    <td class="linha num">{{ n.valor_servicos|moeda }}</td>
+    {% if tem_iss %}<td class="linha num">{{ n.iss_retido|vazio_se_zero }}</td>{% endif %}
+    {% if tem_inss %}<td class="linha num">{{ n.ret_inss|vazio_se_zero }}</td>{% endif %}
+    <td class="linha"><span class="etiqueta situacao-{{ n.situacao|lower }}">{{ SITUACOES_NOTA[n.situacao] }}</span></td>
+    {% if permitir_clonar %}<td class="linha">{% if n.papel == 'PRESTADO' and n.situacao in ('AUTORIZADA', 'CANCELADA') %}
+      <form method="post" action="/notas/{{ n.id }}/clonar" style="margin:0"><button class="link-azul" title="Criar rascunho igual a esta nota">clonar</button></form>{% endif %}</td>{% endif %}
+  </tr>
+  {% else %}
+  <tr><td colspan="13" class="sutil">Nenhuma nota encontrada.</td></tr>
+  {% endfor %}
+  {% if lista %}
+  <tr class="total">{% if selecionavel %}<td></td>{% endif %}<td>Total</td>{% if mostrar_prestador %}<td></td>{% endif %}<td></td><td></td><td></td>
+    <td class="num">{{ lista|sum(attribute='valor_servicos')|moeda }}</td>
+    {% if tem_iss %}<td class="num">{{ lista|sum(attribute='iss_retido')|moeda }}</td>{% endif %}
+    {% if tem_inss %}<td class="num">{{ lista|sum(attribute='ret_inss')|moeda }}</td>{% endif %}
+    <td></td>{% if permitir_clonar %}<td></td>{% endif %}</tr>
+  {% endif %}
+</table>
+{% if selecionavel %}
+<form method="post" action="/notas/selecionadas" id="form-sel-notas" class="barra-sel cartao" onsubmit="return confirmarSel(event)">
+  <input type="hidden" name="volta" value="{{ volta_sel }}">
+  <span id="qtd-sel-notas" class="sutil">Nenhuma nota marcada</span>
+  <span class="tipos-export"><label><input type="checkbox" name="pdf" value="1" class="exp-pdf" checked> PDF</label><label><input type="checkbox" name="xml" value="1" class="exp-xml" checked> XML</label></span>
+  <button name="acao" value="exportar" class="secundario">Exportar selecionadas</button>
+  {% if permitir_clonar %}
+  <button name="acao" value="clonar" class="secundario">Clonar selecionadas</button>
+  <button name="acao" value="transmitir">Transmitir selecionadas</button>
+  {% endif %}
+</form>
+<script>
+(function () {
+  const sels = () => [...document.querySelectorAll('.sel-nota')];
+  const todas = document.getElementById('sel-todas');
+  function conta() {
+    const n = sels().filter(c => c.checked).length;
+    document.getElementById('qtd-sel-notas').textContent = n ? n + ' nota(s) marcada(s)' : 'Nenhuma nota marcada';
+  }
+  if (todas) todas.addEventListener('change', e => { sels().filter(c => c.closest('tr').style.display !== 'none').forEach(c => c.checked = e.target.checked); conta(); });
+  sels().forEach(c => c.addEventListener('change', conta));
+  window.confirmarSel = function (ev) {
+    const n = sels().filter(c => c.checked).length;
+    if (!n) { alert('Marque pelo menos uma nota.'); return false; }
+    const acao = ev.submitter ? ev.submitter.value : '';
+    if (acao === 'exportar') {
+      const f = ev.target;
+      if (!f.querySelector('.exp-pdf').checked && !f.querySelector('.exp-xml').checked) { alert('Marque PDF, XML ou os dois.'); return false; }
+    }
+    if (acao === 'clonar') return confirm('Criar ' + n + ' rascunho(s) iguais às notas marcadas, com competência de hoje?');
+    if (acao === 'transmitir') return confirm('Transmitir ' + n + ' nota(s) para a Sefin? Só rascunhos são transmitidos.');
+    return true;
+  };
+})();
+</script>
+{% endif %}

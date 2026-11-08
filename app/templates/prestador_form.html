@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar' if p.id else 'Nova' }} empresa<script>
+(function () {
+  const c = document.getElementById('usa_nfse'), b = document.getElementById('bloco-nfse');
+  function f() { b.style.display = c.checked ? '' : 'none'; }
+  c.addEventListener('change', f); f();
+})();
+</script>
+{% endblock %}
+{% block conteudo %}
+<h1>{{ 'Editar empresa' if p.id else 'Nova empresa' }}</h1>
+<form class="cartao" method="post" action="/prestadores/salvar">
+  <input type="hidden" name="id" value="{{ p.id or '' }}">
+  <div class="aviso-consulta" style="display:none"></div>
+  <fieldset><legend>Identificação</legend>
+    <div class="grade">
+      <label>Código interno <input name="codigo_interno" value="{{ p.codigo_interno or '' }}" placeholder="nº da empresa no escritório"></label>
+      <label class="larga">CNPJ * <span class="com-botao"><input name="cnpj" data-doc value="{{ p.cnpj|doc if p.cnpj else '' }}" required>
+        <button type="button" class="secundario" onclick="buscarCNPJ(this)">Buscar dados</button></span></label>
+      <label>Inscrição municipal <input name="inscricao_municipal" value="{{ p.inscricao_municipal or '' }}"></label>
+      <label class="larga">Razão social * <input name="razao_social" value="{{ p.razao_social or '' }}" required></label>
+      <label class="larga">Nome fantasia <input name="nome_fantasia" value="{{ p.nome_fantasia or '' }}"></label>
+    </div>
+  </fieldset>
+
+  <fieldset><legend>Módulos e integrações</legend>
+    <input type="hidden" name="form_modulos" value="1">
+    <p class="sutil">Marque o que o escritório usa para esta empresa. O que estiver desmarcado não aparece na tela da empresa nem entra nas rotinas automáticas.</p>
+    <div class="modulos-empresa">
+      <label class="check"><input type="checkbox" name="usa_nfse" value="1" id="usa_nfse" {{ 'checked' if p.usa_nfse }}> <b>NFS-e</b> — emissão e/ou importação de notas</label>
+      <label class="check"><input type="checkbox" name="usa_receita" value="1" {{ 'checked' if p.usa_receita }}> <b>Receita Federal</b> — consultas pelo Integra Contador</label>
+      <label class="check"><input type="checkbox" name="usa_econtador" value="1" {{ 'checked' if p.usa_econtador }}> <b>e-Contador</b> — integração (documentos, baixas)</label>
+      <label class="check"><input type="checkbox" name="usa_cnd" value="1" {{ 'checked' if p.usa_cnd }}> <b>Certidões</b> — acompanhamento pelo Pack CND</label>
+    </div>
+    <div class="grade">
+      <label class="larga">Pasta da empresa no Drive <input name="pasta_drive" value="{{ p.pasta_drive or '' }}" placeholder="G:\Meu Drive\Empresas 01 a 10\01 - NOME"></label>
+      <label>ID no e-Contador <input name="id_econtador" value="{{ p.id_econtador or '' }}" placeholder="preenchido pela integração"></label>
+      <label class="larga">Outros CNPJs/CPFs <input name="cnpjs_adicionais" value="{{ p.cnpjs_adicionais or '' }}" placeholder="separados por vírgula"></label>
+    </div>
+    <label>Outros nomes da empresa (um por linha — usados para reconhecer documentos) <textarea name="apelidos" rows="2">{{ p.apelidos or '' }}</textarea></label>
+  </fieldset>
+
+  <div id="bloco-nfse">
+  <fieldset><legend>Tributação e uso do sistema</legend>
+    <div class="grade">
+      <label>Regime
+        <select name="regime">{% for k, v in REGIMES.items() %}<option value="{{ k }}" {{ 'selected' if p.regime == k }}>{{ v }}</option>{% endfor %}</select></label>
+      <label>Modo
+        <select name="modo">{% for k, v in MODOS.items() %}<option value="{{ k }}" {{ 'selected' if p.modo == k }}>{{ v }}</option>{% endfor %}</select></label>
+      <label>Série da DPS <input name="serie_dps" value="{{ p.serie_dps or '00001' }}" maxlength="5"></label>
+      <label>Próximo nº da DPS <input name="proximo_numero_dps" type="number" min="1" value="{{ p.proximo_numero_dps or 1 }}"></label>
+    </div>
+    <div class="grade">
+      <label>Apuração no Simples (ME/EPP)
+        <select name="reg_ap_trib_sn">{% for k, v in REG_AP_TRIB_SN.items() %}<option value="{{ k }}" {{ 'selected' if p.reg_ap_trib_sn == k }}>{{ v }}</option>{% endfor %}</select></label>
+      <label>% aprox. tributos do Simples <input name="p_tot_trib_sn" value="{{ (p.p_tot_trib_sn|moeda) if p.p_tot_trib_sn else '' }}" placeholder="ex.: 6,00"></label>
+      <label>CST PIS/COFINS <input name="cst_piscofins" value="{{ p.cst_piscofins or '08' }}" maxlength="2"></label>
+      <label>Regime especial (0 = nenhum) <input name="reg_esp_trib" value="{{ p.reg_esp_trib or 0 }}" maxlength="1"></label>
+    </div>
+    <p class="sutil">O "% aproximado de tributos do Simples" (Lei da Transparência) é obrigatório para ME/EPP (E0712) e sai na nota. Use a alíquota efetiva do mês. MEI não informa.</p>
+    <label class="check"><input type="checkbox" name="municipio_aderente" value="1" {{ 'checked' if p.municipio_aderente }}> Município confirmado como aderente ao Emissor Nacional</label>
+    <label class="check"><input type="checkbox" name="autorizacao_uso_certificado" value="1" {{ 'checked' if p.autorizacao_uso_certificado }}> Cliente autorizou formalmente o uso do certificado A1 pelo escritório</label>
+    <label class="check"><input type="checkbox" name="enviar_email_automatico" value="1" {{ 'checked' if p.enviar_email_automatico }}> Enviar a nota (PDF + XML) por e-mail ao tomador automaticamente após a autorização</label>
+  </fieldset>
+
+  <fieldset><legend>Importação de notas pelo ADN</legend>
+    <label class="check"><input type="checkbox" name="importar_automaticamente" value="1" {{ 'checked' if p.importar_automaticamente }}> Importar automaticamente (rotina diária) as notas emitidas e recebidas</label>
+    <label class="check"><input type="checkbox" name="importar_por_procuracao" value="1" {{ 'checked' if p.importar_por_procuracao }}> Usar o certificado do escritório (procuração eletrônica) para emitir, cancelar e importar, em vez do certificado da empresa</label>
+  </fieldset>
+
+  </div>
+
+  <fieldset><legend>Endereço e contato</legend>
+    <div class="grade">
+      <label>CEP <input name="cep" value="{{ p.cep or '' }}"></label>
+      <label class="larga">Logradouro <input name="logradouro" value="{{ p.logradouro or '' }}"></label>
+      <label>Número <input name="numero" value="{{ p.numero or '' }}"></label>
+      <label>Complemento <input name="complemento" value="{{ p.complemento or '' }}"></label>
+      <label>Bairro <input name="bairro" value="{{ p.bairro or '' }}"></label>
+      <label>Município <input name="municipio" value="{{ p.municipio or '' }}"></label>
+      <label>UF <input name="uf" value="{{ p.uf or '' }}" maxlength="2"></label>
+      <label>Código IBGE <input name="codigo_municipio_ibge" value="{{ p.codigo_municipio_ibge or '' }}" maxlength="7"></label>
+      <label>E-mail <input name="email" type="email" value="{{ p.email or '' }}"></label>
+      <label>Telefone <input name="telefone" value="{{ p.telefone or '' }}"></label>
+    </div>
+  </fieldset>
+
+  <label>Observações <textarea name="observacoes" rows="3">{{ p.observacoes or '' }}</textarea></label>
+  <label class="check"><input type="checkbox" name="ativo" value="1" {{ 'checked' if p.ativo }}> Ativo</label>
+  <div class="acoes"><button>Salvar</button><a href="{{ '/prestadores/%d' % p.id if p.id else '/prestadores' }}">Cancelar</a></div>
+</form>
+<script>
+(function () {
+  const c = document.getElementById('usa_nfse'), b = document.getElementById('bloco-nfse');
+  function f() { b.style.display = c.checked ? '' : 'none'; }
+  c.addEventListener('change', f); f();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block titulo %}Trocar senha{% endblock %}
+{% block conteudo %}
+<form class="cartao estreito" method="post" action="/minha-senha">
+  <h1>Trocar senha</h1>
+  <label>Senha atual <input name="atual" type="password" required autocomplete="current-password"></label>
+  <label>Nova senha <input name="nova" type="password" required autocomplete="new-password"></label>
+  <label>Repita a nova senha <input name="nova2" type="password" required autocomplete="new-password"></label>
+  <button>Salvar</button>
+</form>
+{% endblock %}

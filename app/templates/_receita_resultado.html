@@ -1,0 +1,15 @@
+{% macro valor(v, nivel=0) -%}
+{%- if v is dicionario and v|length == 1 and not (v.values()|first is dicionario) and not (v.values()|first is lista) -%}{{ valor(v.values()|first, nivel + 1) }}
+{%- elif v is dicionario -%}
+  <table class="tabela compacta rf-dict">{% for k, x in v.items() %}<tr><th>{{ k|rotulo_campo }}</th><td>{{ valor(x, nivel + 1) }}</td></tr>{% endfor %}</table>
+{%- elif v is lista -%}
+  {%- if v and v[0] is dicionario -%}
+    {%- set chaves = v[0].keys()|list -%}
+    <div class="rolagem"><table class="tabela compacta rf-lista"><thead><tr>{% for k in chaves %}<th>{{ k|rotulo_campo }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for item in v %}<tr>{% for k in chaves %}<td>{{ valor(item.get(k) if item is dicionario else '', nivel + 1) }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+  {%- elif v -%}{% for x in v %}{{ valor(x, nivel + 1) }}{% if not loop.last %}, {% endif %}{% endfor %}
+  {%- else -%}<span class="sutil">(vazio)</span>{%- endif -%}
+{%- elif v is none or v == '' -%}<span class="sutil">—</span>
+{%- elif v is sameas true -%}Sim{%- elif v is sameas false -%}Não
+{%- else -%}{{ v }}{%- endif -%}
+{%- endmacro %}

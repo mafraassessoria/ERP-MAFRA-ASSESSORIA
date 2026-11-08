@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block titulo %}Emissão em lote{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<h1>Emissão em lote por planilha</h1>
+<p class="sutil">Para quem emite as notas de todos os clientes do mês de uma vez (ex.: consultório). Cada linha da planilha vira uma nota.</p>
+
+{% if not previa %}
+<form class="cartao" method="post" action="/prestadores/{{ p.id }}/notas/lote/previa" enctype="multipart/form-data">
+  <fieldset><legend>1. Planilha</legend>
+    <p>Colunas: <b>CPF/CNPJ</b>, <b>Nome/Empresa</b> (pessoa física ou empresa), <b>Data</b> (competência), <b>Histórico</b> (descrição do serviço), <b>Valor</b> e <b>E-mail</b>.
+      A primeira linha deve ter esses títulos. <a href="/notas/lote/modelo.xlsx">Baixar modelo (.xlsx)</a></p>
+    <label>Arquivo (.xlsx ou .csv) * <input type="file" name="arquivo" accept=".xlsx,.csv" required></label>
+  </fieldset>
+  <fieldset><legend>2. Dados iguais para todas as notas</legend>
+    <div class="grade grade-2">
+      <label>Código de tributação nacional *
+        <select name="codigo_tributacao_nacional" class="combo" data-placeholder="Digite para pesquisar">
+          <option value="">— escolha —</option>
+          {% for c in ctribnac %}<option value="{{ c.codigo }}" {{ 'selected' if params.codigo_tributacao_nacional == c.codigo }}>{{ c.rotulo }}</option>{% endfor %}
+        </select>
+        <small class="sutil">Só os códigos da empresa (inclua outros em Cadastros).</small></label>
+      <label>Item da NBS
+        <select name="codigo_nbs" class="combo" data-placeholder="Digite para pesquisar">
+          <option value="">— não informar —</option>
+          {% for c in nbs %}<option value="{{ c.codigo }}" {{ 'selected' if params.codigo_nbs == c.codigo }}>{{ c.rotulo }}</option>{% endfor %}
+        </select></label>
+      <label>Município da prestação *
+        <input type="hidden" name="municipio_prestacao" class="combo-api" data-api="/api/municipios" data-rotulo="{{ local_rotulo }}" value="{{ local }}"></label>
+      <label>Competência padrão <small class="sutil">(para linhas sem data)</small>
+        <input type="date" name="competencia" value="{{ params.competencia or '' }}" max="{{ hoje }}"></label>
+    </div>
+    <label>Informações complementares <small class="sutil">(opcional, sai em todas)</small>
+      <textarea name="info_complementares" rows="2" maxlength="2000">{{ params.info_complementares or '' }}</textarea></label>
+    <p class="sutil">ISS não retido (apurado no Simples) e valor aproximado dos tributos pela alíquota do Simples do cadastro.
+      Notas com retenção ou de obra devem ser emitidas individualmente.</p>
+  </fieldset>
+  <button>Conferir planilha</button>
+</form>
+{% else %}
+<section class="cartao">
+  <h2>Conferência: {{ previa.arquivo }}</h2>
+  <p><b>{{ previa.validas }}</b> nota(s) prontas · total <b>R$ {{ previa.total|moeda }}</b>
+    {% if previa.com_erro %} · <span class="etiqueta erro">{{ previa.com_erro }} linha(s) com problema serão ignoradas</span>{% endif %}</p>
+  <table class="notas ordenavel">
+    <tr><th>Linha</th><th>CPF/CNPJ</th><th>Nome</th><th>Data</th><th>Histórico</th><th class="num">Valor</th><th>E-mail</th><th>Situação</th></tr>
+    {% for it in previa.linhas %}
+    <tr class="{{ 'inativo' if it.erros }}">
+      <td>{{ it.linha }}</td><td class="linha">{{ it.cpf|doc }}</td><td class="linha">{{ it.nome }}</td><td>{{ it.data|data }}</td>
+      <td class="linha" title="{{ it.historico }}">{{ it.historico }}</td><td class="num">{{ it.valor|moeda if it.valor else '' }}</td>
+      <td class="linha">{{ it.email }}</td>
+      <td>{% if it.erros %}<span class="etiqueta erro">{{ it.erros|join(', ') }}</span>{% else %}<span class="etiqueta situacao-autorizada">ok</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% if previa.validas %}
+<form class="cartao" method="post" action="/prestadores/{{ p.id }}/notas/lote/confirmar" onsubmit="this.querySelectorAll('button').forEach(b => b.disabled = true); document.getElementById('aguarde').style.display='block'">
+  <input type="hidden" name="token" value="{{ token }}">
+  <label class="check"><input type="checkbox" name="enviar_email" value="1" checked> Enviar PDF + XML por e-mail para cada cliente que tiver e-mail, logo após autorizar</label>
+  <div class="acoes">
+    <button name="acao" value="transmitir" class="grande">Emitir {{ previa.validas }} nota(s) agora</button>
+    <button name="acao" value="rascunhos" class="secundario">Só criar os rascunhos</button>
+    <a href="/prestadores/{{ p.id }}/notas/lote">Enviar outra planilha</a>
+  </div>
+  <p id="aguarde" class="msg" style="display:none">Emitindo as notas uma a uma… isso pode levar alguns minutos. Não feche a página.</p>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

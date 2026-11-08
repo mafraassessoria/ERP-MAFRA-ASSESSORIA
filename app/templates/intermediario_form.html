@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Intermediário{% endblock %}
+{% block conteudo %}
+<h1>{{ 'Editar intermediário' if i.id else 'Novo intermediário' }}</h1>
+<p class="sutil">Prestador: <a href="/prestadores/{{ p.id }}?aba=cadastros#intermediarios">{{ p.razao_social }}</a> ·
+  O intermediário é quem intermediou a operação e, quando for o caso, reteve o ISS.</p>
+<form class="cartao" method="post" action="/prestadores/{{ p.id }}/intermediarios/salvar">
+  <input type="hidden" name="id" value="{{ i.id or '' }}">
+  <input type="hidden" name="volta" value="{{ volta }}">
+  <div class="aviso-consulta" style="display:none"></div>
+  <div class="grade">
+    <label>CPF/CNPJ * <span class="com-botao"><input name="documento" data-doc data-nome="nome" value="{{ i.documento|doc if i.documento else '' }}" required>
+      <button type="button" class="secundario" onclick="buscarCNPJ(this)">Buscar CPF/CNPJ</button></span></label>
+    <label class="larga">Nome / razão social * <input name="nome" value="{{ i.nome or '' }}" required></label>
+    <label>Inscrição municipal <input name="inscricao_municipal" value="{{ i.inscricao_municipal or '' }}"></label>
+    <label>E-mail <input name="email" type="email" value="{{ i.email or '' }}"></label>
+    <label>Telefone <input name="telefone" value="{{ i.telefone or '' }}"></label>
+    <label>CEP <input name="cep" value="{{ i.cep or '' }}"></label>
+    <label class="larga">Logradouro <input name="logradouro" value="{{ i.logradouro or '' }}"></label>
+    <label>Número <input name="numero" value="{{ i.numero or '' }}"></label>
+    <label>Complemento <input name="complemento" value="{{ i.complemento or '' }}"></label>
+    <label>Bairro <input name="bairro" value="{{ i.bairro or '' }}"></label>
+    <label>Município <input name="municipio" value="{{ i.municipio or '' }}"></label>
+    <label>UF <input name="uf" value="{{ i.uf or '' }}" maxlength="2"></label>
+    <label>Código IBGE <input name="codigo_municipio_ibge" value="{{ i.codigo_municipio_ibge or '' }}" maxlength="7"></label>
+  </div>
+  <label class="check"><input type="checkbox" name="ativo" value="1" {{ 'checked' if i.ativo }}> Ativo</label>
+  <div class="acoes"><button>Salvar</button><a href="{{ volta or ('/prestadores/%d?aba=cadastros#intermediarios' % p.id) }}">Cancelar</a></div>
+</form>
+{% endblock %}

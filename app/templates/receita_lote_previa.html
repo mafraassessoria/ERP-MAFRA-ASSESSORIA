@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Prévia do lote · Receita Federal{% endblock %}
+{% block conteudo %}
+<h1>Prévia da consulta em lote</h1>
+<section class="cartao">
+  <p><b>{{ s.grupo }} · {{ s.nome }}</b>{% for c in s.campos %} · {{ c.rotulo }}: {{ valores[c.nome] }}{% endfor %}</p>
+  <p><b>{{ alvos|length }}</b> empresa(s) compatível(is).
+    {% if sit.modo == 'producao' %}Custo estimado: <b>R$ {{ '%.2f'|format(total)|replace('.', ',') }}</b>
+      (R$ {{ '%.2f'|format(unit)|replace('.', ',') }} por empresa) · já gasto no mês R$ {{ '%.2f'|format(sit.gasto)|replace('.', ',') }} de R$ {{ '%.2f'|format(sit.limite)|replace('.', ',') }}.
+    {% else %}Modo demonstração: sem custo.{% endif %}</p>
+  {% if estoura %}<p class="etiqueta erro">Atenção: este lote passa do limite mensal. O sistema para quando o limite for atingido; as empresas restantes ficam sem consulta.</p>{% endif %}
+  {% if alvos %}
+  <form method="post" action="/receita/lote/executar">
+    <input type="hidden" name="servico" value="{{ s.codigo }}">
+    {% for k, v in valores.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <div class="rolagem" style="max-height:360px"><table class="compacta"><thead><tr><th></th><th>Empresa</th><th>CNPJ</th><th>Regime</th></tr></thead><tbody>
+    {% for p in alvos %}<tr><td><input type="checkbox" name="ids" value="{{ p.id }}" checked></td><td>{{ p.razao_social }}</td><td>{{ p.cnpj|doc }}</td><td>{{ p.regime }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    <p><button>Confirmar e iniciar</button> <a class="botao secundario" href="/receita#lote">Voltar</a></p>
+  </form>
+  {% else %}<p><a class="botao secundario" href="/receita#lote">Voltar</a></p>{% endif %}
+</section>
+{% endblock %}

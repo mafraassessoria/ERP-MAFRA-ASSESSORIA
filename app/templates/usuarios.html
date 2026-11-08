@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Usuários{% endblock %}
+{% block conteudo %}
+<h1>Usuários do escritório</h1>
+<table>
+  <tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Situação</th><th></th></tr>
+  {% for x in lista %}
+  <tr class="{{ '' if x.ativo else 'inativo' }}"><td>{{ x.nome }}</td><td>{{ x.login }}</td><td>{{ PERFIS[x.perfil] }}</td>
+    <td>{{ 'Ativo' if x.ativo else 'Inativo' }}</td>
+    <td>{% if x.id != usuario.id %}<form method="post" action="/usuarios/{{ x.id }}/ativo"><button class="link">{{ 'desativar' if x.ativo else 'reativar' }}</button></form>{% endif %}</td></tr>
+  {% endfor %}
+</table>
+<form class="cartao" method="post" action="/usuarios">
+  <h2>Novo usuário</h2>
+  <div class="grade">
+    <label>Nome <input name="nome" required></label>
+    <label>Login <input name="login" required autocomplete="off"></label>
+    <label>Senha inicial <input name="senha" type="password" required autocomplete="new-password"></label>
+    <label>Perfil <select name="perfil">{% for k, v in PERFIS.items() %}<option value="{{ k }}" {{ 'selected' if k == 'OPERADOR' }}>{{ v }}</option>{% endfor %}</select></label>
+  </div>
+  <button>Criar usuário</button>
+</form>
+{% endblock %}

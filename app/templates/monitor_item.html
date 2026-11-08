@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo_item }} · Monitor e-CAC{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo"><h1>{{ titulo_item }}{% if ref %} <small class="sutil">{{ ref }}</small>{% endif %}</h1><a class="botao secundario" href="/monitor">Voltar ao painel</a></div>
+<form class="busca filtros" method="get">
+  {% if refs and refs != [''] %}<select name="ref">{% for r in refs %}<option {{ 'selected' if r == ref }}>{{ r }}</option>{% endfor %}</select>{% endif %}
+  <select name="status"><option value="">Todos</option>{% for k, v in STATUS.items() %}<option value="{{ k }}" {{ 'selected' if k == status }}>{{ v[0] }}</option>{% endfor %}</select>
+  <button>Filtrar</button><span class="sutil" style="margin-left:auto">{{ lista|length }} empresa(s)</span>
+</form>
+<section class="cartao">
+<table class="compacta">
+  <thead><tr><th>Empresa</th><th>Situação</th><th>Resumo</th><th>Atualizado</th><th></th></tr></thead>
+  <tbody>{% for m in lista %}{% set st = STATUS.get(m.status, (m.status, '')) %}{% set d = detalhe(m) %}
+    <tr><td><a href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
+      <td><span class="etiqueta {{ st[1] }}">{{ st[0] }}</span></td>
+      <td>{{ m.resumo }}
+        {% if d.pendencias %}<details><summary>pendências</summary><ul>{% for x in d.pendencias %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
+        {% if d.pedidos %}<details><summary>pedidos</summary><ul>{% for x in d.pedidos %}<li>{{ x.numero }} · {{ x.situacao }}{% if x.pedido %} · pedido {{ x.pedido }}{% endif %}</li>{% endfor %}</ul></details>{% endif %}
+        {% if d.mensagens %}<details><summary>mensagens</summary><ul>{% for x in d.mensagens %}<li>{{ '' if x.lida else '● ' }}{{ x.enviada }} · {{ x.assunto }}</li>{% endfor %}</ul></details>{% endif %}</td>
+      <td><small>{{ m.atualizado_em|datahora }}</small></td>
+      <td>{% if m.consulta_id %}<a href="/prestadores/{{ m.prestador_id }}/receita?ver={{ m.consulta_id }}#resultado">consulta</a>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="5" class="sutil">Nada para esta referência. Rode a rotina no painel.</td></tr>{% endfor %}</tbody>
+</table>
+</section>
+{% endblock %}

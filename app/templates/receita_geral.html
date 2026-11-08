@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block titulo %}Receita Federal{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <div><h1>Receita Federal</h1>
+  <p class="sutil">Consultas ao e-CAC pela API Integra Contador (Serpro). Para consultar uma empresa, abra a empresa e use a aba <b>Receita Federal</b>.</p></div>
+  {% if usuario.perfil == 'ADMIN' %}<a class="botao secundario" href="/configuracoes#receita">Configurar</a>{% endif %}
+</div>
+
+<div class="tres-colunas">
+  <section class="cartao"><h2>Modo</h2><p><b>{{ {'desligado': 'Desligado', 'demonstracao': 'Demonstração', 'producao': 'Produção'}[sit.modo] }}</b></p>
+    {% if sit.modo == 'demonstracao' %}<p class="sutil">Respostas fictícias do ambiente de testes do Serpro, sem custo.</p>{% endif %}</section>
+  <section class="cartao"><h2>Uso no mês</h2><p><b>{{ sit.chamadas }}</b> chamada(s) cobrada(s) · <b>R$ {{ '%.2f'|format(sit.gasto)|replace('.', ',') }}</b></p>
+    {% set pct = (sit.gasto / sit.limite * 100) if sit.limite else 0 %}
+    <div class="barra-progresso"><span style="width: {{ [pct, 100]|min|round(0) }}%"></span></div>
+    <p class="sutil">Limite mensal R$ {{ '%.2f'|format(sit.limite)|replace('.', ',') }}</p></section>
+  <section class="cartao"><h2>Preços por chamada</h2>
+    <p class="sutil">{% for t, v in sit.precos.items() %}{{ t }} R$ {{ '%.2f'|format(v)|replace('.', ',') }}{% if not loop.last %} · {% endif %}{% endfor %}</p></section>
+</div>
+
+{% if sit.modo != 'desligado' %}
+<section class="cartao" id="lote">
+  <h2>Consulta em lote</h2>
+  <p class="sutil">Roda a mesma consulta para várias empresas de uma vez (só as empresas do regime compatível entram). Antes de começar o sistema mostra quantas são e o custo estimado.</p>
+  <form method="post" action="/receita/lote/previa">
+    <div class="rf-campos">
+      <label>Consulta <select name="servico" id="lote-servico">
+        {% for s in servicos_lote %}<option value="{{ s.codigo }}">{{ s.grupo }} · {{ s.nome }}</option>{% endfor %}</select></label>
+      {% for s in servicos_lote %}{% for c in s.campos %}
+        <span class="campo-lote" data-servico="{{ s.codigo }}">
+        {% if c.tipo == 'opcoes' %}<label>{{ c.rotulo }} <select name="{{ c.nome }}">{% for k, r in c.opcoes.items() %}<option value="{{ k }}" {{ 'selected' if k == c.valor_padrao() }}>{{ r }}</option>{% endfor %}</select></label>
+        {% elif c.tipo == 'periodo' %}<label>{{ c.rotulo }} <input type="month" name="{{ c.nome }}" value="{{ c.valor_padrao() }}"></label>
+        {% elif c.tipo == 'ano' %}<label>{{ c.rotulo }} <input type="number" name="{{ c.nome }}" value="{{ c.valor_padrao() }}"></label>
+        {% elif c.tipo == 'data' %}<label>{{ c.rotulo }} <input type="date" name="{{ c.nome }}" value="{{ c.valor_padrao() }}"></label>
+        {% else %}<label>{{ c.rotulo }} <input name="{{ c.nome }}" value="{{ c.valor_padrao() }}"></label>{% endif %}
+        </span>{% endfor %}{% endfor %}
+      <label>Empresas <select name="empresas" id="lote-empresas"><option value="todas">Todas as ativas</option><option value="marcadas">Somente as marcadas abaixo</option></select></label>
+      <button>Ver prévia e custo</button>
+    </div>
+    <details id="lote-lista" class="oculto"><summary>Marcar empresas ({{ prestadores|length }} ativas)</summary>
+      <p><label class="em-linha"><input type="checkbox" id="marcar-todas"> marcar todas</label></p>
+      <div class="rolagem" style="max-height:320px">{% for p in prestadores %}
+        <label class="em-linha" style="display:block"><input type="checkbox" name="ids" value="{{ p.id }}" class="lote-id"> {{ p.codigo_interno ~ ' · ' if p.codigo_interno }}{{ p.razao_social }} <small class="sutil">{{ p.cnpj|doc }} · {{ p.regime }}</small></label>{% endfor %}</div>
+    </details>
+  </form>
+  {% if lotes %}<h3>Lotes recentes</h3><ul>{% for l in lotes %}
+    <li><a href="/receita/lote/{{ l.id }}">{{ l.inicio|datahora }} · {{ l.servico }}</a> — {{ l.feitos }}/{{ l.total }}{% if l.rodando %} (rodando){% endif %}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% endif %}
+
+<section class="cartao">
+  <h2>Últimas consultas (todas as empresas)</h2>
+  {% if recentes %}
+  <table class="compacta">
+    <thead><tr><th>Data</th><th>Empresa</th><th>Consulta</th><th>Resultado</th><th>Custo</th><th>Usuário</th></tr></thead>
+    <tbody>{% for c in recentes %}{% set s = POR_CODIGO.get(c.servico) %}
+      <tr><td><a href="/prestadores/{{ c.prestador_id }}/receita?ver={{ c.id }}#resultado">{{ c.data_hora|datahora }}</a></td>
+        <td>{{ c.prestador.razao_social if c.prestador }}</td>
+        <td>{{ s.nome if s else c.servico }}{% if c.modo == 'demonstracao' %} <span class="etiqueta">demo</span>{% endif %}{% if c.lote %} <a class="etiqueta" href="/receita/lote/{{ c.lote }}">lote</a>{% endif %}</td>
+        <td>{% if c.ok %}<span class="etiqueta ok">ok</span>{% else %}<span class="etiqueta erro" title="{{ c.mensagens }}">erro</span>{% endif %}{% if c.lista_arquivos %} · <a href="/receita/consultas/{{ c.id }}/arquivo/0" target="_blank">PDF</a>{% endif %}</td>
+        <td>{{ c.custo|moeda if c.custo else '—' }}</td><td>{{ c.usuario }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="sutil">Nenhuma consulta ainda.</p>{% endif %}
+</section>
+<script src="/static/receita.js"></script>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block titulo %}Tomador{% endblock %}
+{% block conteudo %}
+<h1>{{ 'Editar tomador' if t.id else 'Novo tomador' }}</h1>
+<p class="sutil">Prestador: <a href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a></p>
+<form class="cartao" method="post" action="/prestadores/{{ p.id }}/tomadores/salvar">
+  <input type="hidden" name="id" value="{{ t.id or '' }}">
+  <input type="hidden" name="volta" value="{{ volta or '' }}">
+  <div class="aviso-consulta" style="display:none"></div>
+  <div class="grade">
+    <label>CPF/CNPJ * <span class="com-botao"><input name="documento" data-doc data-nome="nome" value="{{ t.documento|doc if t.documento else '' }}" required>
+      <button type="button" class="secundario" onclick="buscarCNPJ(this)">Buscar CPF/CNPJ</button></span></label>
+    <label class="larga">Nome / razão social * <input name="nome" value="{{ t.nome or '' }}" required></label>
+    <label>Inscrição municipal <input name="inscricao_municipal" value="{{ t.inscricao_municipal or '' }}"></label>
+    <label>E-mail <input name="email" type="email" value="{{ t.email or '' }}"></label>
+    <label>Telefone <input name="telefone" value="{{ t.telefone or '' }}"></label>
+    <label>CEP <input name="cep" value="{{ t.cep or '' }}"></label>
+    <label class="larga">Logradouro <input name="logradouro" value="{{ t.logradouro or '' }}"></label>
+    <label>Número <input name="numero" value="{{ t.numero or '' }}"></label>
+    <label>Complemento <input name="complemento" value="{{ t.complemento or '' }}"></label>
+    <label>Bairro <input name="bairro" value="{{ t.bairro or '' }}"></label>
+    <label>Município <input name="municipio" value="{{ t.municipio or '' }}"></label>
+    <label>UF <input name="uf" value="{{ t.uf or '' }}" maxlength="2"></label>
+    <label>Código IBGE <input name="codigo_municipio_ibge" value="{{ t.codigo_municipio_ibge or '' }}" maxlength="7"></label>
+  </div>
+  <label class="check"><input type="checkbox" name="ativo" value="1" {{ 'checked' if t.ativo }}> Ativo</label>
+  <div class="acoes"><button>Salvar</button><a href="{{ volta or ('/prestadores/%d?aba=cadastros#tomadores' % p.id) }}">Cancelar</a></div>
+</form>
+
+{% if t.id %}
+<section class="cartao" id="obras">
+  <h2>Obras deste tomador</h2>
+  <p class="sutil">Usadas nas notas de construção civil. A obra é identificada pelo <b>CNO</b> (ou CEI antigo), pelo <b>CIB</b>
+    ou, na falta deles, pelo <b>endereço</b>. O município da obra vira o local da prestação (onde o ISS é devido).</p>
+  <table class="ordenavel">
+    <tr><th>Descrição</th><th>Identificação</th><th>Município</th><th>Situação</th><th></th></tr>
+    {% for o in obras %}
+    <tr class="{{ '' if o.ativo else 'inativo' }}"><td>{{ o.descricao }}</td><td>{{ o.identificacao }}{% if o.inscricao_imobiliaria %} · Insc. imob. {{ o.inscricao_imobiliaria }}{% endif %}</td>
+      <td>{{ o.municipio }}{% if o.uf %}/{{ o.uf }}{% endif %} ({{ o.codigo_municipio_ibge }})</td><td>{{ 'Ativa' if o.ativo else 'Inativa' }}</td>
+      <td><form method="post" action="/obras/{{ o.id }}/desativar"><button class="link">{{ 'desativar' if o.ativo else 'reativar' }}</button></form></td></tr>
+    {% else %}<tr><td colspan="5" class="sutil">Nenhuma obra cadastrada.</td></tr>{% endfor %}
+  </table>
+  <details {{ 'open' if not obras }}><summary>+ Nova obra</summary>
+    <form method="post" action="/tomadores/{{ t.id }}/obras">
+      <div class="grade">
+        <label class="larga">Descrição (apelido) <input name="descricao" placeholder="ex.: Residencial Bela Vista – bloco A"></label>
+        <label>CNO / CEI <input name="cno" maxlength="30"></label>
+        <label>CIB <input name="cib" maxlength="8"></label>
+        <label>Inscrição imobiliária <input name="inscricao_imobiliaria" maxlength="30" placeholder="se a prefeitura exigir"></label>
+        <label>CEP <input name="cep"></label>
+        <label class="larga">Logradouro <input name="logradouro"></label>
+        <label>Número <input name="numero"></label>
+        <label>Complemento <input name="complemento"></label>
+        <label>Bairro <input name="bairro"></label>
+        <label>Município <input name="municipio"></label>
+        <label>UF <input name="uf" maxlength="2"></label>
+        <label>Código IBGE * <input name="codigo_municipio_ibge" maxlength="7" required></label>
+      </div>
+      <button>Salvar obra</button>
+    </form>
+  </details>
+</section>
+{% endif %}
+{% endblock %}

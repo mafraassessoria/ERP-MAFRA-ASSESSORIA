@@ -1,0 +1,337 @@
+"""Rotinas de acompanhamento do e-CAC (substituto do eRadar), uma por assunto.
+
+Cada rotina usa as consultas do módulo Receita Federal (serpro.servico.executar) — assim custo, limite mensal e
+histórico ficam no mesmo lugar — e grava o resultado resumido em MonitorItem / PagamentoRF.
+
+Os formatos de resposta do Serpro variam entre versões; por isso a leitura é tolerante (procura os campos pelo nome
+em qualquer nível) e, quando não reconhece, grava status INDEFINIDO com o texto da Receita para conferência.
+"""
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
+from typing import Callable
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from .. import models
+from ..serpro import servico as sv
+
+
+# ---- utilitários de leitura ------------------------------------------------------------------
+
+def dicts(obj):
+    """Todos os dicionários dentro de obj, em qualquer nível."""
+    if isinstance(obj, dict):
+        yield obj
+        for v in obj.values():
+            yield from dicts(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from dicts(v)
+
+
+def campo(d: dict, *nomes, padrao=None):
+    low = {k.lower(): v for k, v in d.items()} if isinstance(d, dict) else {}
+    for n in nomes:
+        if n.lower() in low and low[n.lower()] not in (None, ""):
+            return low[n.lower()]
+    return padrao
+
+
+def data_br(v) -> date | None:
+    if v in (None, ""):
+        return None
+    s = str(v).strip()
+    for fmt, n in (("%Y-%m-%d", 10), ("%d/%m/%Y", 10), ("%Y%m%d", 8)):
+        try:
+            return datetime.strptime(s[:n], fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def periodo(v) -> str:
+    """202610 / '2026-10' / '10/2026' → '2026-10'; '' se não reconhecer."""
+    s = re.sub(r"\D", "", str(v or ""))
+    if len(s) == 6:
+        a, m = (s[:4], s[4:]) if s[:2] in ("19", "20") else (s[2:], s[:2])
+        if 1 <= int(m) <= 12:
+            return f"{a}-{m}"
+    if len(s) == 8:
+        d = data_br(v)
+        return f"{d:%Y-%m}" if d else ""
+    return ""
+
+
+def dinheiro(v) -> Decimal:
+    if v in (None, ""):
+        return Decimal("0")
+    s = str(v).strip()
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return Decimal(s).quantize(Decimal("0.01"))
+    except InvalidOperation:
+        return Decimal("0")
+
+
+def mes_anterior(ref: date) -> str:
+    d = ref.replace(day=1) - timedelta(days=1)
+    return f"{d:%Y-%m}"
+
+
+def gravar(db: Session, p: models.Prestador, item: str, ref: str, status: str, resumo: str, detalhe=None,
+           consulta: models.ConsultaReceita | None = None) -> models.MonitorItem:
+    m = db.scalar(select(models.MonitorItem).where(models.MonitorItem.prestador_id == p.id, models.MonitorItem.item == item,
+                                                   models.MonitorItem.referencia == ref))
+    if m is None:
+        m = models.MonitorItem(prestador_id=p.id, item=item, referencia=ref)
+        db.add(m)
+    m.status, m.resumo = status, resumo[:300]
+    m.detalhe = json.dumps(detalhe, ensure_ascii=False, default=str) if detalhe is not None else ""
+    m.consulta_id = consulta.id if consulta is not None else None
+    m.atualizado_em = datetime.now()
+    db.flush()
+    return m
+
+
+def _dados(c: models.ConsultaReceita):
+    try:
+        return json.loads(c.dados) if c.dados else None
+    except ValueError:
+        return None
+
+
+def _consultar(db, p, codigo, valores, usuario, lote, cli):
+    return sv.executar(db, p, codigo, valores, usuario, lote=lote, cli=cli)
+
+
+def _nao_encontrado(texto: str) -> bool:
+    """A Receita respondeu que não há o documento pedido (diferente de erro de acesso/procuração)."""
+    return bool(re.search(r"n[ãa]o (foi |foram |há |ha |existe|possui)?\s*(encontrad|localizad|declara|registro|parcelamento|mensage|pagamento)"
+                          r"|inexistente|nenhum[ao]? ", texto or "", re.I))
+
+
+# ---- rotinas -------------------------------------------------------------------------------
+
+def situacao_fiscal(db, p, usuario, lote, cli, hoje: date):
+    c = _consultar(db, p, "sitfis", {}, usuario, lote, cli)
+    if not c.ok or not c.lista_arquivos:
+        return gravar(db, p, "SITFIS", "", "ERRO", c.mensagens or "Relatório não disponível", consulta=c)
+    texto = ler_pdf(sv.arquivo_absoluto(c.lista_arquivos[0]))
+    status, pend = classificar_sitfis(texto)
+    resumo = {"REGULAR": "Sem pendências", "PENDENCIA": f"{len(pend)} tipo(s) de pendência",
+              "INDEFINIDO": "Relatório baixado; leitura automática não concluiu — abrir o PDF"}[status]
+    return gravar(db, p, "SITFIS", "", status, resumo, {"pendencias": pend}, c)
+
+
+def ler_pdf(caminho) -> str:
+    if caminho is None:
+        return ""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return ""
+    try:
+        return "\n".join((pg.extract_text() or "") for pg in PdfReader(str(caminho)).pages)
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def classificar_sitfis(texto: str) -> tuple[str, list[str]]:
+    if not texto.strip():
+        return "INDEFINIDO", []
+    linhas = [re.sub(r"\s+", " ", l).strip() for l in texto.splitlines()]
+    pend = list(dict.fromkeys(l for l in linhas if re.match(r"^(Pend[êe]ncias?|Débito|Omiss[ãa]o)\b.{3,}", l, re.I)
+                              and not re.search(r"n[ãa]o foram detectad", l, re.I)))
+    if re.search(r"n[ãa]o foram detectad[ao]s pend[êe]ncias", texto, re.I) and not any(l.lower().startswith("pend") for l in pend):
+        return "REGULAR", []
+    if pend:
+        return "PENDENCIA", pend[:30]
+    return "INDEFINIDO", []
+
+
+def parcelamentos(db, p, usuario, lote, cli, hoje: date):
+    codigo = "parcmei_pedidos" if p.regime == "MEI" else "parcsn_pedidos"
+    c = _consultar(db, p, codigo, {}, usuario, lote, cli)
+    if not c.ok:
+        if _nao_encontrado(c.mensagens):
+            return gravar(db, p, "PARCELAMENTO", "", "SEM", "Nenhum parcelamento", consulta=c)
+        return gravar(db, p, "PARCELAMENTO", "", "ERRO", c.mensagens or "Sem resposta", consulta=c)
+    lista = [dict(numero=campo(d, "numero", "numeroParcelamento"), situacao=campo(d, "situacao", padrao=""),
+                  pedido=campo(d, "dataDoPedido", "dataPedido"), data_situacao=campo(d, "dataDaSituacao", "dataSituacao"))
+             for d in dicts(_dados(c)) if campo(d, "numero", "numeroParcelamento") and campo(d, "situacao")]
+    ativos = [x for x in lista if re.search(r"parcelamento|ativo|em dia|deferido", str(x["situacao"]), re.I)
+              and not re.search(r"encerrad|rescind|liquidad|sem efeito|cancelad", str(x["situacao"]), re.I)]
+    if not lista:
+        return gravar(db, p, "PARCELAMENTO", "", "SEM", "Nenhum parcelamento", consulta=c)
+    return gravar(db, p, "PARCELAMENTO", "", "COM" if ativos else "SEM",
+                  f"{len(ativos)} em andamento de {len(lista)} pedido(s)", {"pedidos": lista}, c)
+
+
+def caixa_postal(db, p, usuario, lote, cli, hoje: date):
+    c = _consultar(db, p, "caixa_lista", {"status": "0"}, usuario, lote, cli)
+    if not c.ok:
+        if _nao_encontrado(c.mensagens):
+            return gravar(db, p, "CAIXA", "", "SEM", "Nenhuma mensagem", consulta=c)
+        return gravar(db, p, "CAIXA", "", "ERRO", c.mensagens or "Sem resposta", consulta=c)
+    msgs = []
+    for d in dicts(_dados(c)):
+        isn = campo(d, "isn")
+        if not isn:
+            continue
+        lida = str(campo(d, "indicadorLeitura", "statusLeitura", padrao="")).strip()
+        msgs.append(dict(isn=str(isn), assunto=str(campo(d, "assuntoModelo", "assunto", padrao="")),
+                         enviada=str(campo(d, "dataEnvio", padrao="")), remetente=str(campo(d, "remetente", "codigoSistemaRemetente", padrao="")),
+                         lida=lida in ("1", "true", "True", "S", "Lida")))
+    nao_lidas = sum(1 for m in msgs if not m["lida"])
+    return gravar(db, p, "CAIXA", "", "NOVAS" if nao_lidas else "SEM",
+                  f"{nao_lidas} não lida(s) de {len(msgs)}", {"mensagens": msgs[:100]}, c)
+
+
+def pagamentos(db, p, usuario, lote, cli, hoje: date):
+    inicio = (hoje.replace(day=1) - timedelta(days=1)).replace(day=1)
+    c = _consultar(db, p, "pagamentos", {"de": inicio.isoformat(), "ate": hoje.isoformat()}, usuario, lote, cli)
+    if not c.ok:
+        if _nao_encontrado(c.mensagens):
+            return gravar(db, p, "PAGAMENTOS", f"{hoje:%Y-%m}", "SEM", "Nenhum pagamento no período", consulta=c)
+        return gravar(db, p, "PAGAMENTOS", f"{hoje:%Y-%m}", "ERRO", c.mensagens or "Sem resposta", consulta=c)
+    novos = total = 0
+    for d in dicts(_dados(c)):
+        num = campo(d, "numeroDocumento")
+        if not num or not campo(d, "valorTotal", "valor"):
+            continue
+        total += 1
+        num = re.sub(r"\D", "", str(num)) or str(num)
+        pg = db.scalar(select(models.PagamentoRF).where(models.PagamentoRF.prestador_id == p.id,
+                                                        models.PagamentoRF.numero_documento == num))
+        if pg is None:
+            pg = models.PagamentoRF(prestador_id=p.id, numero_documento=num)
+            db.add(pg)
+            novos += 1
+        tipo = campo(d, "tipo")
+        pg.tipo = str(campo(tipo, "codigo", "descricao") if isinstance(tipo, dict) else (tipo or ""))[:40]
+        rec = campo(d, "codigoReceitaDoc", "codigoReceita", "receitaPrincipal")
+        pg.codigo_receita = str(campo(rec, "codigo") if isinstance(rec, dict) else (rec or ""))[:20]
+        pa = campo(d, "periodoApuracao")
+        pg.periodo_apuracao = data_br(pa) or (date.fromisoformat(periodo(pa) + "-01") if periodo(pa) else None)
+        pg.vencimento = data_br(campo(d, "dataVencimento", "vencimento"))
+        pg.data_arrecadacao = data_br(campo(d, "dataArrecadacao", "dataPagamento"))
+        pg.valor = dinheiro(campo(d, "valorTotal", "valor"))
+        pg.em_atraso = bool(pg.vencimento and pg.data_arrecadacao and pg.data_arrecadacao > pg.vencimento)
+        pg.detalhe = json.dumps(d, ensure_ascii=False, default=str)[:4000]
+    db.flush()
+    return gravar(db, p, "PAGAMENTOS", f"{hoje:%Y-%m}", "COM" if total else "SEM",
+                  f"{total} pagamento(s) desde {inicio:%d/%m/%Y}, {novos} novo(s)", None, c)
+
+
+def pgdasd(db, p, usuario, lote, cli, hoje: date):
+    pa = mes_anterior(hoje)
+    ano = pa[:4]
+    c = _consultar(db, p, "pgdasd_declaracoes", {"ano": ano}, usuario, lote, cli)
+    if not c.ok and not _nao_encontrado(c.mensagens):
+        return gravar(db, p, "PGDASD", pa, "ERRO", c.mensagens or "Sem resposta", consulta=c)
+    entregues = set()
+    for d in dicts(_dados(c)):
+        per = periodo(campo(d, "periodoApuracao", padrao=""))
+        if per and any(isinstance(v, (list, dict)) for v in d.values()):
+            entregues.add(per)
+    ultimo = None
+    for mes in range(1, int(pa[5:]) + 1):
+        ref = f"{ano}-{mes:02d}"
+        st = "ENTREGUE" if ref in entregues else "NAO_ENTREGUE"
+        ultimo = gravar(db, p, "PGDASD", ref, st, "Declaração transmitida" if st == "ENTREGUE" else "Sem declaração na Receita",
+                        consulta=c)
+    return ultimo
+
+
+def dctfweb(db, p, usuario, lote, cli, hoje: date):
+    """Consulta o mês anterior e os meses ainda não entregues dos últimos 6 meses (no máximo 3 consultas extras)."""
+    pa = mes_anterior(hoje)
+    pendentes = db.scalars(select(models.MonitorItem.referencia).where(
+        models.MonitorItem.prestador_id == p.id, models.MonitorItem.item == "DCTFWEB",
+        models.MonitorItem.status.in_(("NAO_ENTREGUE", "ERRO")), models.MonitorItem.referencia < pa,
+        models.MonitorItem.referencia >= f"{hoje - timedelta(days=186):%Y-%m}")).all()
+    ultimo = None
+    for ref in [pa] + sorted(pendentes, reverse=True)[:3]:
+        c = _consultar(db, p, "dctf_recibo", {"categoria": "GERAL_MENSAL", "periodo": ref}, usuario, lote, cli)
+        if c.ok:
+            ultimo = gravar(db, p, "DCTFWEB", ref, "ENTREGUE", "Recibo de transmissão encontrado", consulta=c)
+        elif _nao_encontrado(c.mensagens):
+            ultimo = gravar(db, p, "DCTFWEB", ref, "NAO_ENTREGUE", c.mensagens[:200] or "Sem declaração", consulta=c)
+        else:
+            ultimo = gravar(db, p, "DCTFWEB", ref, "ERRO", c.mensagens or "Sem resposta", consulta=c)
+    return ultimo
+
+
+def mit(db, p, usuario, lote, cli, hoje: date):
+    pa = mes_anterior(hoje)
+    c = _consultar(db, p, "mit_lista", {"ano": pa[:4]}, usuario, lote, cli)
+    if not c.ok and not _nao_encontrado(c.mensagens):
+        return gravar(db, p, "MIT", pa, "ERRO", c.mensagens or "Sem resposta", consulta=c)
+    sit = {}
+    for d in dicts(_dados(c)):
+        per = periodo(campo(d, "periodoApuracao", "periodo", padrao=""))
+        if per:
+            sit[per] = str(campo(d, "situacao", "situacaoApuracao", padrao="")).strip()
+    ultimo = None
+    for mes in range(1, int(pa[5:]) + 1):
+        ref = f"{pa[:4]}-{mes:02d}"
+        s = sit.get(ref)
+        st = "ENTREGUE" if s and re.search(r"encerrad|transmitid|entregue", s, re.I) else "NAO_ENTREGUE"
+        ultimo = gravar(db, p, "MIT", ref, st, s or "Sem apuração encerrada", consulta=c)
+    return ultimo
+
+
+def defis(db, p, usuario, lote, cli, hoje: date):
+    ano = str(hoje.year - 1)
+    c = _consultar(db, p, "defis_lista", {}, usuario, lote, cli)
+    if not c.ok and not _nao_encontrado(c.mensagens):
+        return gravar(db, p, "DEFIS", ano, "ERRO", c.mensagens or "Sem resposta", consulta=c)
+    anos = {str(campo(d, "anoCalendario", "ano", padrao="")) for d in dicts(_dados(c))}
+    st = "ENTREGUE" if ano in anos else "NAO_ENTREGUE"
+    return gravar(db, p, "DEFIS", ano, st, "Declaração transmitida" if st == "ENTREGUE" else "Sem DEFIS na Receita",
+                  {"anos_entregues": sorted(a for a in anos if a)}, c)
+
+
+# ---- quadro das rotinas -----------------------------------------------------------------------
+
+@dataclass
+class Rotina:
+    codigo: str
+    nome: str
+    executar: Callable
+    aplica: Callable[[models.Prestador], bool]
+    servicos: tuple[str, ...]          # para a estimativa de custo
+    agenda_padrao: str                 # S<dia semana> | M<dia do mês> | A<MM-DD>, seguido de HH:MM
+    descricao: str
+
+
+def _simples(p):
+    return p.regime in ("SIMPLES", "SIMPLES_EXCESSO")
+
+
+ROTINAS = [
+    Rotina("SITFIS", "Situação fiscal", situacao_fiscal, lambda p: True, ("sitfis",), "M1 07:30",
+           "Relatório de situação fiscal; lê o PDF e separa empresas regulares das com pendência."),
+    Rotina("PARCELAMENTO", "Parcelamentos", parcelamentos, lambda p: p.regime != "REGULAR",
+           ("parcsn_pedidos",), "M10 07:30", "Pedidos de parcelamento do Simples/MEI e a situação de cada um."),
+    Rotina("CAIXA", "Caixa postal", caixa_postal, lambda p: True, ("caixa_lista",), "S0 07:30",
+           "Mensagens da caixa postal do e-CAC (lidas e não lidas)."),
+    Rotina("PAGAMENTOS", "Pagamentos", pagamentos, lambda p: True, ("pagamentos",), "M25 07:30",
+           "Pagamentos do mês anterior e do atual (base para a baixa das guias)."),
+    Rotina("PGDASD", "PGDAS-D", pgdasd, _simples, ("pgdasd_declaracoes",), "M21 07:30",
+           "Declarações do Simples transmitidas no ano até o mês anterior."),
+    Rotina("DCTFWEB", "DCTFWeb", dctfweb, lambda p: p.regime != "MEI", ("dctf_recibo",), "M16 07:30",
+           "Recibo da DCTFWeb do mês anterior e dos meses ainda em aberto."),
+    Rotina("MIT", "MIT", mit, lambda p: p.regime == "REGULAR", ("mit_lista",), "M28 07:30",
+           "Apurações do MIT (empresas fora do Simples)."),
+    Rotina("DEFIS", "DEFIS", defis, _simples, ("defis_lista",), "A04-01 07:30",
+           "DEFIS do ano anterior (prazo 31 de março)."),
+]
+POR_ROTINA = {r.codigo: r for r in ROTINAS}
