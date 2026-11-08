@@ -41,8 +41,9 @@ try {
                ($ssh -replace '\\', '/'), ($chave -replace '\\', '/'), ((Join-Path $dirChave 'known_hosts') -replace '\\', '/'))
     if (-not (Test-Path (Join-Path $pasta '.git'))) { & $git init -q -b main }
     & $git -c safe.directory=* config core.sshCommand $sshCmd
-    & $git -c safe.directory=* remote remove origin 2>$null
-    & $git -c safe.directory=* remote add origin "git@github.com:$Repositorio.git"
+    $remotos = @(& $git -c safe.directory=* remote)
+    if ($remotos -contains 'origin') { & $git -c safe.directory=* remote set-url origin "git@github.com:$Repositorio.git" }
+    else { & $git -c safe.directory=* remote add origin "git@github.com:$Repositorio.git" }
     Write-Host 'Buscando a versao no GitHub...'
     & $git -c safe.directory=* fetch origin main
     if ($LASTEXITCODE -ne 0) { throw 'Nao foi possivel acessar o repositorio. Confira se a chave foi adicionada em Deploy keys.' }
