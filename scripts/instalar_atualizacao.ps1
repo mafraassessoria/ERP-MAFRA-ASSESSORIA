@@ -37,8 +37,12 @@ try {
     Pausar
 
     # 2) liga a pasta ao repositorio
-    $sshCmd = ('"{0}" -i "{1}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="{2}"' -f
-               ($ssh -replace '\\', '/'), ($chave -replace '\\', '/'), ((Join-Path $dirChave 'known_hosts') -replace '\\', '/'))
+    # O git (bash do Git for Windows) acha o "ssh" sozinho; os caminhos vao sem aspas e com "/".
+    # A pasta do sistema nao pode ter espacos no caminho (C:\emissor_nfse).
+    $c = $chave -replace '\\', '/'
+    $k = (Join-Path $dirChave 'known_hosts') -replace '\\', '/'
+    if ($c -match ' ') { throw 'O caminho da pasta do sistema tem espacos; mova para C:\emissor_nfse.' }
+    $sshCmd = "ssh -i $c -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$k"
     if (-not (Test-Path (Join-Path $pasta '.git'))) { & $git init -q -b main }
     & $git -c safe.directory=* config core.sshCommand $sshCmd
     $remotos = @(& $git -c safe.directory=* remote)
