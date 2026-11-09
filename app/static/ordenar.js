@@ -1,4 +1,4 @@
-// Ordena qualquer tabela com class="ordenavel" ao clicar no título da coluna.
+// Ordena as tabelas ao clicar no título da coluna (todas que têm cabeçalho <th>; class="sem-ordenar" desliga).
 (function () {
   function valor(td) {
     if (!td) return "";
@@ -7,6 +7,10 @@
     if (m) return { n: Number(m[3] + m[2] + m[1]) };
     if (/^-?[\d.]+,\d{2}$/.test(t)) return { n: Number(t.replace(/\./g, "").replace(",", ".")) };  // 1.234,56
     if (/^-?\d+$/.test(t)) return { n: Number(t) };
+    m = t.match(/^R\$\s*(-?[\d.]+,\d{2})/);                                // R$ 1.234,56
+    if (m) return { n: Number(m[1].replace(/\./g, "").replace(",", ".")) };
+    m = t.match(/^(\d+)\s*[·-]\s/);                                         // "24 · EMPRESA"
+    if (m) return { n: Number(m[1]), s: t.toLocaleLowerCase("pt-BR") };
     return { s: t.toLocaleLowerCase("pt-BR") };
   }
   function comparar(a, b) {
@@ -15,9 +19,12 @@
     if (b.n !== undefined) return 1;
     return a.s.localeCompare(b.s, "pt-BR", { numeric: true });
   }
-  document.querySelectorAll("table.ordenavel").forEach(function (tabela) {
+  document.querySelectorAll("table:not(.sem-ordenar)").forEach(function (tabela) {
     const cab = tabela.querySelector("tr");
+    if (!cab) return;
     const ths = [...cab.children];
+    if (!ths.length || ths.some(x => x.tagName !== "TH") || ths.some(x => x.colSpan > 1)) return;
+    if (tabela.querySelectorAll("tr").length < 3) return;
     ths.forEach(function (th, i) {
       if (th.classList.contains("sem-ordem") || th.querySelector("input")) return;
       th.classList.add("clicavel");

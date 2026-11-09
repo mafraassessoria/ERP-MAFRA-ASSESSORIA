@@ -91,7 +91,7 @@ def _carregar(c: models.ConsultaReceita | None):
 
 
 @router.post("/prestadores/{pid}/receita/{codigo}")
-async def receita_executar(pid: int, codigo: str, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+async def receita_executar(pid: int, codigo: str, request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     p = db.get(models.Prestador, pid)
     s = POR_CODIGO.get(codigo)
     if not p or not s or not p.usa_receita:
@@ -160,7 +160,7 @@ def _alvos(db: Session, s, form) -> list[models.Prestador]:
 
 
 @router.post("/receita/lote/previa")
-async def receita_lote_previa(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+async def receita_lote_previa(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     form = await request.form()
     s = POR_CODIGO.get(form.get("servico") or "")
     if not s or not s.lote:
@@ -181,7 +181,7 @@ async def receita_lote_previa(request: Request, db: Session = Depends(get_db), u
 
 
 @router.post("/receita/lote/executar")
-async def receita_lote_executar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+async def receita_lote_executar(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     form = await request.form()
     s = POR_CODIGO.get(form.get("servico") or "")
     ids = [int(x) for x in form.getlist("ids") if str(x).isdigit()]

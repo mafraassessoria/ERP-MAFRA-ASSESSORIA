@@ -42,7 +42,7 @@
           <label>{{ c.rotulo }} <input name="{{ c.nome }}" value="{{ c.valor_padrao() }}" required {% if c.ajuda %}title="{{ c.ajuda }}"{% endif %}></label>
         {% endif %}
       {% endfor %}
-        <button class="secundario">Consultar</button>
+        {% if usuario.perfil == 'ADMIN' %}<button class="secundario">Consultar</button>{% else %}<small class="sutil" title="As consultas pagas ao Serpro são feitas só pelo administrador">só o administrador</small>{% endif %}
       </div>
     </form>
     {% endfor %}
@@ -56,7 +56,7 @@
   {% set s = POR_CODIGO.get(aberta.servico) %}
   <div class="linha-titulo">
     <h2>{{ s.nome if s else aberta.servico }} <small class="sutil">{{ aberta.data_hora|datahora }} · {{ aberta.usuario }}{% if aberta.modo == 'demonstracao' %} · demonstração{% endif %}</small></h2>
-    {% if s and sit.modo != 'desligado' %}
+    {% if s and sit.modo != 'desligado' and usuario.perfil == 'ADMIN' %}
     <form method="post" action="/prestadores/{{ p.id }}/receita/{{ aberta.servico }}">
       {% for k, v in (aberta.parametros|from_json).items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
       <input type="hidden" name="repetir" value="1"><button class="secundario">Consultar de novo</button>

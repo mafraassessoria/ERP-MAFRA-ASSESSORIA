@@ -5,7 +5,7 @@
   {% for r in lista %}{% set c = r.c %}
     <tr class="{{ 'inativo' if r.substituida }}">
       {% if mostrar_empresa %}<td><a href="/prestadores/{{ c.prestador_id }}/certidoes">{% if c.prestador.codigo_interno %}<b>{{ c.prestador.codigo_interno }}</b> · {% endif %}{{ c.prestador.razao_social }}</a></td>{% endif %}
-      <td>{{ c.tipo_nome }}<br><small class="sutil">registro {{ c.pack_id }}{% if not c.tipo %} · tipo não mapeado{% endif %}{% if c.avisos %} · data ilegível: {{ c.avisos }}{% endif %}</small></td>
+      <td>{{ c.tipo_nome }}<br><small class="sutil">registro {{ c.pack_id }}{% if not c.tipo %} · tipo não mapeado{% endif %}{% if c.avisos %} · {{ c.avisos if c.pack_id.startswith('RFB-') else 'data ilegível: ' ~ c.avisos }}{% endif %}</small></td>
       <td>{{ c.emissao|data if c.emissao else '—' }}</td>
       <td>{{ c.vencimento|data if c.vencimento else '—' }}</td>
       <td>{{ c.situacao or '—' }}</td>

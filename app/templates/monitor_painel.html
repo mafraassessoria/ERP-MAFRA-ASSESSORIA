@@ -59,7 +59,7 @@
       <td><small>{{ x.ultima or '—' }}</small></td>
       <td><form method="post" action="/monitor/rotinas/{{ x.r.codigo }}/rodar"
             onsubmit="return confirm('Rodar {{ x.r.nome }} agora para {{ x.empresas }} empresa(s)? Custo estimado: R$ {{ x.custo|moeda }}')">
-          <button class="secundario mini" {{ 'disabled' if execucao.rodando or modo == 'desligado' }}>Rodar agora</button></form></td></tr>
+          <button class="secundario mini" {{ 'disabled' if execucao.rodando or modo == 'desligado' or usuario.perfil != 'ADMIN' }}>Rodar agora</button></form></td></tr>
     {% endfor %}</tbody>
   </table>
   <p class="sutil">Agenda: semanal usa 0 = segunda … 6 = domingo; mensal, dia 1 a 28; anual, MM-DD (ex.: 04-01). Se o servidor estiver

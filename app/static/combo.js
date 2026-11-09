@@ -147,3 +147,11 @@
   };
   document.addEventListener("DOMContentLoaded", function () { window.iniciarCombos(); });
 })();
+
+// Formulários com class="filtro-auto": aplica o filtro ao escolher uma opção, sem botão.
+document.addEventListener("change", function (e) {
+  var f = e.target.form;
+  if (!f || !f.classList.contains("filtro-auto")) return;
+  if (e.target.tagName === "INPUT" && e.target.type === "text") return;
+  f.submit();
+});

@@ -48,7 +48,7 @@ def guias(request: Request, situacao: str = "ABERTA", empresa: int = 0, tipo: st
 
 
 @router.post("/guias/gerar")
-async def guias_gerar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+async def guias_gerar(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     form = await request.form()
     p = db.get(models.Prestador, int(form.get("prestador_id") or 0))
     tipo, comp, cons = form.get("tipo") or "", (form.get("competencia") or "").strip(), (form.get("consolidacao") or "").strip()
@@ -76,7 +76,7 @@ async def guias_gerar(request: Request, db: Session = Depends(get_db), u=Depends
 
 
 @router.post("/guias/parcelas-do-mes")
-async def guias_parcelas(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+async def guias_parcelas(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     """Gera a parcela do mês para todas as empresas que o Monitor e-CAC indicou com parcelamento em andamento."""
     comp = f"{date.today():%Y-%m}"
     itens = db.scalars(select(models.MonitorItem).where(models.MonitorItem.item == "PARCELAMENTO",

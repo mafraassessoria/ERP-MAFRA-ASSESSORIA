@@ -36,12 +36,15 @@ def _ctx(db: Session) -> dict:
 
 
 @router.get("/certidoes")
-def certidoes_geral(request: Request, estado: str = "", q: str = "", tipo: str = "", todas: int = 0,
+def certidoes_geral(request: Request, estado: str = "", q: str = "", tipo: str = "", todas: int = 0, empresa: str = "",
                     db: Session = Depends(get_db), u=Depends(usuario_atual)):
     rows = cs.linhas(db)
     atuais = [r for r in rows if not r["substituida"] and r["c"].prestador.ativo]
     contagem = Counter(r["estado"] for r in atuais)
-    lista = rows if todas else atuais
+    eid = int(empresa) if empresa.isdigit() else 0
+    lista = rows if (todas or eid) else atuais   # empresa escolhida: todas as certidões dela, inclusive substituídas
+    if eid:
+        lista = [r for r in lista if r["c"].prestador_id == eid]
     if estado:
         lista = [r for r in lista if r["estado"] == estado]
     if tipo:
@@ -51,9 +54,15 @@ def certidoes_geral(request: Request, estado: str = "", q: str = "", tipo: str =
         lista = [r for r in lista if t in r["c"].prestador.razao_social.upper() or t == (r["c"].prestador.codigo_interno or "")
                  or t.replace(".", "").replace("/", "").replace("-", "") in r["c"].prestador.cnpj]
     tipos = sorted({r["c"].tipo_nome for r in rows})
+    vistos, empresas_lista = set(), []
+    for r in rows:
+        p = r["c"].prestador
+        if p.id not in vistos:
+            vistos.add(p.id)
+            empresas_lista.append(p)
     pendentes = len(cs.candidatas(db))
     return render(request, "certidoes_geral.html", lista=lista, contagem=contagem, total=len(atuais), estado=estado, q=q,
-                  tipo=tipo, todas=todas, tipos=tipos, pendentes=pendentes, empresas=len(cs.empresas_alvo(db)), **_ctx(db))
+                  tipo=tipo, todas=todas, tipos=tipos, empresa=eid, empresas_lista=empresas_lista, pendentes=pendentes, empresas=len(cs.empresas_alvo(db)), **_ctx(db))
 
 
 @router.get("/prestadores/{pid}/certidoes")
@@ -75,12 +84,13 @@ async def certidoes_consultar(request: Request, db: Session = Depends(get_db), u
     volta = f"/prestadores/{pid}/certidoes" if pid else "/certidoes"
     try:
         from ..econtador.servico import cliente
+        federal_ok = u.perfil == "ADMIN"   # API Consulta CND só pelo administrador
         try:
             cliente(db)  # confere a chave antes de abrir a execução
         except ValueError:
-            if not federal.automatico(db):
+            if not (federal_ok and federal.automatico(db)):
                 raise
-        cs.executar_em_segundo_plano(pid, u.login)
+        cs.executar_em_segundo_plano(pid, u.login, federal_ok)
     except ValueError as e:
         flash(request, str(e), "erro")
         return _redir(volta)
@@ -94,7 +104,7 @@ _federal = {"rodando": False}
 
 
 @router.post("/prestadores/{pid}/certidoes/federal")
-async def certidao_federal_emitir(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+async def certidao_federal_emitir(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     p = db.get(models.Prestador, pid)
     if not p:
         return _redir("/prestadores")
@@ -117,7 +127,7 @@ async def certidao_federal_emitir(pid: int, request: Request, db: Session = Depe
 
 
 @router.post("/certidoes/federal/renovar")
-async def certidoes_federal_renovar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+async def certidoes_federal_renovar(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     if apis.modo(db, "CND") == "desligado":
         flash(request, "A Consulta CND do Serpro está desligada (Configurações → APIs do Serpro).", "erro")
         return _redir("/certidoes")

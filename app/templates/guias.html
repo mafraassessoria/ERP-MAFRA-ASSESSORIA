@@ -9,7 +9,7 @@
   <div class="acoes">
     <form method="post" action="/guias/conciliar" class="em-linha"><button class="secundario">Conferir pagamentos agora</button></form>
     <form method="post" action="/guias/parcelas-do-mes" class="em-linha" onsubmit="return confirm('Gerar a parcela de {{ hoje.strftime('%m/%Y') }} para as {{ n_parc }} empresa(s) com parcelamento em andamento (segundo o Monitor e-CAC)?')">
-      <button {{ 'disabled' if not n_parc or modo == 'desligado' }}>Gerar parcelas do mês ({{ n_parc }})</button></form>
+      <button {{ 'disabled' if not n_parc or modo == 'desligado' or usuario.perfil != 'ADMIN' }}>Gerar parcelas do mês ({{ n_parc }})</button></form>
   </div>
 </div>
 {% if modo == 'desligado' %}<div class="cartao aviso">O Integra Contador está desligado (Configurações → Receita Federal).</div>{% endif %}
@@ -24,7 +24,7 @@
     <label>Tipo <select name="tipo">{% for k, v in TIPOS.items() %}<option value="{{ k }}">{{ v[0] }}</option>{% endfor %}</select></label>
     <label>Competência / parcela <input type="month" name="competencia" required></label>
     <label title="Para DAS vencido: multa e juros calculados até esta data. Vazio = hoje.">Pagar até (DAS vencido) <input type="date" name="consolidacao"></label>
-    <button {{ 'disabled' if modo == 'desligado' }}>Gerar</button>
+    {% if usuario.perfil == 'ADMIN' %}<button {{ 'disabled' if modo == 'desligado' }}>Gerar</button>{% else %}<small class="sutil" title="As consultas pagas ao Serpro são feitas só pelo administrador">só o administrador</small>{% endif %}
   </form>
   {% if usuario.perfil == 'ADMIN' %}
   <form method="post" action="/configuracoes/guias" class="em-linha" style="margin-top:.6rem">

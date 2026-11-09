@@ -19,7 +19,7 @@
     <p class="sutil">{% for t, v in sit.precos.items() %}{{ t }} R$ {{ '%.2f'|format(v)|replace('.', ',') }}{% if not loop.last %} · {% endif %}{% endfor %}</p></section>
 </div>
 
-{% if sit.modo != 'desligado' %}
+{% if sit.modo != 'desligado' and usuario.perfil == 'ADMIN' %}
 <section class="cartao" id="lote">
   <h2>Consulta em lote</h2>
   <p class="sutil">Roda a mesma consulta para várias empresas de uma vez (só as empresas do regime compatível entram). Antes de começar o sistema mostra quantas são e o custo estimado.</p>

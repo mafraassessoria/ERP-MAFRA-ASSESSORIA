@@ -286,7 +286,8 @@ def situacao_execucao() -> dict:
     return dict(_execucao)
 
 
-def executar(prestador_id: int | None = None, usuario: str = "agendador", cli: ClienteEContador | None = None) -> dict:
+def executar(prestador_id: int | None = None, usuario: str = "agendador", cli: ClienteEContador | None = None,
+             federal_ok: bool = True) -> dict:
     """Roda a coleta (e a entrega, se ligada) com sessão própria. Uma execução por vez."""
     from ..db import SessionLocal
     from ..econtador.servico import cliente as cliente_padrao
@@ -296,7 +297,7 @@ def executar(prestador_id: int | None = None, usuario: str = "agendador", cli: C
         _execucao.update(rodando=True, inicio=datetime.now(), fim=None, feitas=0, total=0, erros=[], resumo="", por=usuario)
         with SessionLocal() as db:
             from . import federal
-            fed_auto = federal.automatico(db)
+            fed_auto = federal_ok and federal.automatico(db)   # federal (Serpro) só agendador/administrador
             try:
                 cli = cli or cliente_padrao(db)
                 emps = empresas_alvo(db, prestador_id)
@@ -344,13 +345,13 @@ def executar(prestador_id: int | None = None, usuario: str = "agendador", cli: C
         _trava.release()
 
 
-def executar_em_segundo_plano(prestador_id: int | None, usuario: str) -> None:
+def executar_em_segundo_plano(prestador_id: int | None, usuario: str, federal_ok: bool = True) -> None:
     if _execucao["rodando"]:
         raise ValueError("Já há uma consulta de certidões em andamento.")
 
     def alvo():
         try:
-            executar(prestador_id, usuario)
+            executar(prestador_id, usuario, federal_ok=federal_ok)
         except Exception as e:  # noqa: BLE001
             _execucao["erros"].append(f"Falha: {e}")
             log.exception("coleta de certidões")

@@ -77,7 +77,7 @@ def monitor_pagamentos(request: Request, mes: str = "", atraso: int = 0, q: str 
 
 
 @router.post("/monitor/rotinas/{cod}/rodar")
-async def monitor_rodar(cod: str, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+async def monitor_rodar(cod: str, request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     if cod not in POR_ROTINA:
         return _redir("/monitor")
     form = await request.form()

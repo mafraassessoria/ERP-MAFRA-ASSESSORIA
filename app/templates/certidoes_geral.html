@@ -9,7 +9,7 @@
       última consulta geral {{ ultima[:16]|replace('T', ' ') if ultima else 'nunca' }}{% if proxima %} · próxima automática {{ proxima|datahora }}{% endif %}</p></div>
   <div class="acoes">
     {% if pendentes %}<form method="post" action="/certidoes/entregar-pendentes" class="em-linha" onsubmit="return confirm('Entregar {{ pendentes }} certidão(ões) ao Bot Arquivador?')"><button class="secundario">Entregar {{ pendentes }} ao arquivador</button></form>{% endif %}
-    {% if cnd_modo != 'desligado' %}<form method="post" action="/certidoes/federal/renovar" class="em-linha" onsubmit="return confirm('Emitir na Receita a certidão federal das empresas que não têm uma válida por mais de 15 dias? Cada emissão é cobrada pelo Serpro.')"><button class="secundario" {{ 'disabled' if federal_rodando }}>{{ 'Renovando federais…' if federal_rodando else 'Renovar certidões federais' }}</button></form>{% endif %}
+    {% if cnd_modo != 'desligado' and usuario.perfil == 'ADMIN' %}<form method="post" action="/certidoes/federal/renovar" class="em-linha" onsubmit="return confirm('Emitir na Receita a certidão federal das empresas que não têm uma válida por mais de 15 dias? Cada emissão é cobrada pelo Serpro.')"><button class="secundario" {{ 'disabled' if federal_rodando }}>{{ 'Renovando federais…' if federal_rodando else 'Renovar certidões federais' }}</button></form>{% endif %}
     <form method="post" action="/certidoes/consultar" class="em-linha"><button {{ 'disabled' if execucao.rodando or (not tem_token and not federal_auto) }}>Consultar o Pack CND</button></form>
   </div>
 </div>
@@ -23,12 +23,16 @@
   {% endfor %}
 </div>
 
-<form class="busca filtros" method="get">
-  <input name="q" value="{{ q }}" placeholder="Empresa, código ou CNPJ">
+<form class="busca filtros filtro-auto" method="get">
+  <div class="filtro-empresa"><select name="empresa" class="combo" data-placeholder="Empresa: digite o nome ou o código (vazio = todas)">
+    <option value="">Todas as empresas</option>
+    {% for p in empresas_lista %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.codigo_interno ~ ' · ' if p.codigo_interno }}{{ p.razao_social }}</option>{% endfor %}
+  </select></div>
+  {% if q %}<input name="q" value="{{ q }}" placeholder="Empresa, código ou CNPJ">{% endif %}
   <select name="tipo"><option value="">Todos os tipos</option>{% for t in tipos %}<option {{ 'selected' if t == tipo }}>{{ t }}</option>{% endfor %}</select>
   <select name="estado"><option value="">Todos os estados</option>{% for k, v in ESTADOS.items() %}<option value="{{ k }}" {{ 'selected' if k == estado }}>{{ v[0] }}</option>{% endfor %}</select>
-  <label class="check"><input type="checkbox" name="todas" value="1" {{ 'checked' if todas }}> incluir substituídas</label>
-  <button>Filtrar</button>{% if q or tipo or estado or todas %} <a href="/certidoes">limpar</a>{% endif %}
+  <label class="check" {% if empresa %}title="Com uma empresa escolhida, todas as certidões dela aparecem"{% endif %}><input type="checkbox" name="todas" value="1" {{ 'checked' if todas or empresa }} {{ 'disabled' if empresa }}> incluir substituídas</label>
+  <noscript><button>Filtrar</button></noscript>{% if q or tipo or estado or todas or empresa %} <a href="/certidoes">limpar filtros</a>{% endif %}
   <span class="sutil" style="margin-left:auto">{{ lista|length }} certidão(ões)</span>
 </form>
 <section class="cartao">

@@ -235,3 +235,7 @@ button.mini { padding:.15rem .55rem; font-size:.8rem; }
 .mon-agenda { display:flex; gap:.3rem; align-items:center; flex-wrap:wrap; }
 .mon-agenda select, .mon-agenda input { width:auto; padding:.2rem .35rem; }
 td.num, th.num { text-align:right; }
+
+/* filtro com envio automático (Certidões) */
+.filtro-empresa { flex: 1 1 520px; min-width: 420px; max-width: 760px; }
+.filtro-empresa .combo-caixa input { font-size: 1rem; padding: .55rem .8rem; }
