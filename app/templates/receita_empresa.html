@@ -37,7 +37,7 @@
         {% elif c.tipo == 'ano' %}
           <label>{{ c.rotulo }} <input type="number" name="{{ c.nome }}" value="{{ c.valor_padrao() }}" min="2000" max="2100" required></label>
         {% elif c.tipo == 'data' %}
-          <label>{{ c.rotulo }} <input type="date" name="{{ c.nome }}" value="{{ c.valor_padrao() }}" required></label>
+          <label>{{ c.rotulo }} <input type="date" name="{{ c.nome }}" value="{{ c.valor_padrao() if c.obrigatorio }}" {{ 'required' if c.obrigatorio }} {% if c.ajuda %}title="{{ c.ajuda }}"{% endif %}></label>
         {% else %}
           <label>{{ c.rotulo }} <input name="{{ c.nome }}" value="{{ c.valor_padrao() }}" required {% if c.ajuda %}title="{{ c.ajuda }}"{% endif %}></label>
         {% endif %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block titulo %}Honorários{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <div><h1>Honorários recebidos</h1>
+    <p class="sutil">Importe o relatório de títulos baixados do financeiro, marque os recebimentos e gere os rascunhos das NFS-e do escritório.
+      Cada recebimento gera no máximo uma nota.</p></div>
+  <form method="post" action="/honorarios/importar" enctype="multipart/form-data" class="em-linha">
+    <input type="file" name="arquivo" accept=".xls" required><button>Importar XLS</button></form>
+</div>
+
+{% if not esc %}<div class="cartao aviso">Defina abaixo a empresa do escritório, que emite as notas de honorários.</div>{% endif %}
+
+<form class="busca filtros" method="get">
+  <label>Mês do pagamento <input type="month" name="mes" value="{{ mes }}"></label>
+  <select name="situacao"><option value="">Todos</option><option value="sem_nota" {{ 'selected' if situacao == 'sem_nota' }}>Sem nota</option>
+    <option value="com_nota" {{ 'selected' if situacao == 'com_nota' }}>Com nota</option></select>
+  <input name="q" value="{{ q }}" placeholder="Cliente ou código">
+  <button>Filtrar</button>
+  <span class="sutil" style="margin-left:auto">{{ lista|length }} recebimento(s) · R$ {{ total|moeda }} · {{ sem_nota }} sem nota</span>
+</form>
+
+<form method="post" action="/honorarios/rascunhos" id="form-rascunhos">
+<input type="hidden" name="volta" value="/honorarios?mes={{ mes }}&situacao={{ situacao }}&q={{ q }}">
+<section class="cartao">
+  <div class="em-linha" style="justify-content:space-between;margin-bottom:.5rem">
+    <span class="sutil">Descrição: <i>{{ exemplo }}</i> · competência = data do pagamento</span>
+    <button {{ 'disabled' if not esc }} onclick="return document.querySelectorAll('.rec-id:checked').length ? confirm('Gerar rascunho de NFS-e para ' + document.querySelectorAll('.rec-id:checked').length + ' recebimento(s)?') : (alert('Marque os recebimentos.'), false)">Gerar rascunhos de NFS-e</button>
+  </div>
+  <table class="compacta">
+    <thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.rec-id').forEach(c => c.checked = this.checked)"></th>
+      <th>Cliente</th><th>Título</th><th>Categoria</th><th>Período</th><th>Vencimento</th><th>Pagamento</th><th class="num">Recebido</th><th>NFS-e</th></tr></thead>
+    <tbody>{% for r in lista %}
+      <tr>
+        <td>{% if not r.nota_id and r.prestador_id %}<input type="checkbox" name="ids" value="{{ r.id }}" class="rec-id">{% endif %}</td>
+        <td><b>{{ r.codigo_empresa }}</b> · {{ r.nome }}{% if not r.prestador_id %} <span class="etiqueta erro" title="Cadastre a empresa com este código interno">sem cadastro</span>{% endif %}</td>
+        <td>{{ r.titulo }}</td><td>{{ r.categoria }}</td>
+        <td>{{ r.periodo_inicio.strftime('%m/%Y') if r.periodo_inicio else '—' }}</td>
+        <td>{{ r.vencimento|data if r.vencimento else '—' }}</td>
+        <td>{{ r.pagamento|data if r.pagamento else '—' }}</td>
+        <td class="num">{{ r.recebido|moeda }}{% if r.recebido != r.valor %}<br><small class="erro-texto">título {{ r.valor|moeda }}</small>{% endif %}</td>
+        <td>{% if r.nota %}<a href="/notas/{{ r.nota_id }}">{{ 'Rascunho' if r.nota.situacao == 'RASCUNHO' else r.nota.situacao|capitalize }}{% if r.nota.numero_nfse %} nº {{ r.nota.numero_nfse }}{% endif %}</a>{% else %}<span class="sutil">—</span>{% endif %}</td>
+      </tr>
+    {% else %}<tr><td colspan="9" class="sutil">Nenhum recebimento neste mês. Importe o relatório XLS.</td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+</form>
+
+{% if usuario.perfil == 'ADMIN' %}
+<section class="cartao">
+  <h2>Notas de honorários</h2>
+  <form method="post" action="/honorarios/config">
+    <div class="tres-colunas">
+      <label>Empresa do escritório (emite as notas)
+        <select name="honorarios_prestador_id"><option value="">— escolha —</option>
+          {% for p in emissoras %}<option value="{{ p.id }}" {{ 'selected' if esc and esc.id == p.id }}>{{ p.razao_social }}</option>{% endfor %}</select></label>
+      <label>Código de tributação nacional
+        <input name="honorarios_ctribnac" value="{{ cfg.honorarios_ctribnac }}" list="cods-trib" placeholder="padrão: 1º código da empresa"></label>
+      <label>NBS <input name="honorarios_nbs" value="{{ cfg.honorarios_nbs }}" list="cods-nbs" placeholder="padrão: 1º NBS da empresa"></label>
+    </div>
+    <datalist id="cods-trib">{% for c in codigos if c.tipo == 'CTRIBNAC' %}<option value="{{ c.codigo }}">{% endfor %}</datalist>
+    <datalist id="cods-nbs">{% for c in codigos if c.tipo == 'NBS' %}<option value="{{ c.codigo }}">{% endfor %}</datalist>
+    <label>Descrição ({MES} e {ANO} = mês e ano do pagamento) <input name="honorarios_descricao" value="{{ cfg.honorarios_descricao or descricao_padrao }}"></label>
+    <button>Salvar</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

@@ -603,3 +603,51 @@ class PagamentoRF(Base):
     comprovante_consulta_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     prestador: Mapped["Prestador"] = relationship()
+
+
+class GuiaRF(Base):
+    """Guia (DAS, DAS-MEI, DARF DCTFWeb, parcela) gerada pelo Integra Contador. Só vencidas e parcelamentos."""
+    __tablename__ = "guias_rf"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    prestador_id: Mapped[int] = mapped_column(ForeignKey("prestadores.id", ondelete="CASCADE"), index=True)
+    tipo: Mapped[str] = mapped_column(String(20), index=True)          # DAS | DAS_MEI | DARF_DCTFWEB | PARC_SN | PARC_MEI
+    competencia: Mapped[str] = mapped_column(String(7), default="")    # 2026-09 (período ou parcela)
+    numero_documento: Mapped[str] = mapped_column(String(40), default="", index=True)
+    valor: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=0)
+    vencimento: Mapped[date | None] = mapped_column(Date, nullable=True)   # "pagar este documento até"
+    arquivo: Mapped[str] = mapped_column(String(300), default="")
+    situacao: Mapped[str] = mapped_column(String(15), default="ABERTA", index=True)  # ABERTA | PAGA | SUBSTITUIDA
+    gerada_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    gerada_por: Mapped[str] = mapped_column(String(40), default="")
+    consulta_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pago_em: Mapped[date | None] = mapped_column(Date, nullable=True)
+    pagamento_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    criterio_baixa: Mapped[str] = mapped_column(String(80), default="")
+    entregue_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    erro: Mapped[str] = mapped_column(Text, default="")
+
+    prestador: Mapped["Prestador"] = relationship()
+
+
+class Recebimento(Base):
+    """Honorário recebido (relatório do financeiro). Cada recebimento vira no máximo uma NFS-e do escritório."""
+    __tablename__ = "recebimentos"
+    __table_args__ = (UniqueConstraint("codigo_empresa", "titulo", name="uq_recebimento"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo_empresa: Mapped[str] = mapped_column(String(20), index=True)
+    nome: Mapped[str] = mapped_column(String(150), default="")
+    titulo: Mapped[str] = mapped_column(String(30))
+    categoria: Mapped[str] = mapped_column(String(60), default="")
+    vencimento: Mapped[date | None] = mapped_column(Date, nullable=True)
+    pagamento: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    valor: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=0)
+    recebido: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=0)
+    periodo_inicio: Mapped[date | None] = mapped_column(Date, nullable=True)
+    periodo_fim: Mapped[date | None] = mapped_column(Date, nullable=True)
+    arquivo_origem: Mapped[str] = mapped_column(String(200), default="")
+    importado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    prestador_id: Mapped[int | None] = mapped_column(ForeignKey("prestadores.id", ondelete="SET NULL"), nullable=True)
+    nota_id: Mapped[int | None] = mapped_column(ForeignKey("notas_fiscais.id", ondelete="SET NULL"), nullable=True)
+
+    prestador: Mapped["Prestador"] = relationship()
+    nota: Mapped["NotaFiscal"] = relationship()

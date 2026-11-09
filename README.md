@@ -301,6 +301,21 @@ são listados para conferência. Pode importar de novo sempre que o cadastro do 
 Organização do código: `app/` (núcleo: empresas, usuários, certificados, configurações), `app/nfse/` (emissor e importação ADN)
 `app/serpro/` (Receita Federal – Integra Contador), `app/econtador/` (API do e-Contador) e `app/certidoes/`. Os módulos usam o núcleo e não dependem uns dos outros.
 
+## Guias e baixa
+
+Menu **Guias**: gera pelo Integra Contador só guias vencidas (DAS do Simples e do MEI com multa e juros até a data escolhida,
+DARF da DCTFWeb) e parcelas de parcelamento ("Gerar parcelas do mês" usa as empresas que o Monitor e-CAC indicou com
+parcelamento em andamento). Uma guia nova da mesma empresa, tipo e competência substitui a anterior. Opcionalmente, cada guia é
+entregue ao Bot Arquivador. A baixa é automática quando a rotina Pagamentos do Monitor encontra o pagamento: pelo número do
+documento ou, se não houver, pelo valor exato pago até o vencimento (quando há mais de um pagamento possível, fica para conferir).
+
+## Honorários
+
+Menu **Honorários**: importe o XLS de títulos baixados do financeiro, marque os recebimentos e gere os rascunhos de NFS-e da
+empresa do escritório (competência = data do pagamento; descrição "HONORÁRIOS REFERENTES A PRESTAÇÃO DE SERVIÇOS CONTÁBEIS NO MÊS
+DE <MÊS>/<ANO>" do pagamento). O cliente é achado pelo código interno e vira tomador automaticamente. Um recebimento nunca gera
+duas notas. Os rascunhos são conferidos e transmitidos na aba Notas fiscais.
+
 ## Monitor e-CAC (substituto do eRadar)
 
 Menu **Monitor e-CAC**: painel com situação fiscal (regular / com pendência, lida do PDF do relatório), parcelamentos,

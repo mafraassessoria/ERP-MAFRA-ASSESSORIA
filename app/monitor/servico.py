@@ -162,6 +162,10 @@ def executar(cod: str, usuario: str, ids: list[int] | None = None, cli=None, hoj
                     _exec["erros"].append(f"{p.razao_social}: falha inesperada ({type(e).__name__})")
                 _exec["feitas"] += 1
             resumo = f"{r.nome}: {_exec['feitas']} empresa(s) — " + ", ".join(f"{k} {v}" for k, v in cont.items())
+            if cod == "PAGAMENTOS":  # baixa automática das guias geradas pelo sistema
+                from ..guias.servico import conciliar
+                b = conciliar(db)
+                resumo += f" · {b['pagas']} guia(s) baixada(s)" + (f", {len(b['conferir'])} para conferir" if b["conferir"] else "")
             _exec["resumo"] = resumo
             if not ids:
                 gravar_config(db, f"monitor_ultima_{cod}", datetime.now().isoformat(timespec="seconds"))

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block titulo %}Guias{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <div><h1>Guias vencidas e de parcelamento</h1>
+    <p class="sutil">Geradas pelo Integra Contador (as guias dentro do prazo continuam saindo do sistema contábil). Uma guia nova da mesma
+      empresa, tipo e competência substitui a anterior. A baixa é feita pelos pagamentos que o Monitor e-CAC encontra na Receita.</p></div>
+  <div class="acoes">
+    <form method="post" action="/guias/conciliar" class="em-linha"><button class="secundario">Conferir pagamentos agora</button></form>
+    <form method="post" action="/guias/parcelas-do-mes" class="em-linha" onsubmit="return confirm('Gerar a parcela de {{ hoje.strftime('%m/%Y') }} para as {{ n_parc }} empresa(s) com parcelamento em andamento (segundo o Monitor e-CAC)?')">
+      <button {{ 'disabled' if not n_parc or modo == 'desligado' }}>Gerar parcelas do mês ({{ n_parc }})</button></form>
+  </div>
+</div>
+{% if modo == 'desligado' %}<div class="cartao aviso">O Integra Contador está desligado (Configurações → Receita Federal).</div>{% endif %}
+
+<section class="cartao">
+  <h2>Gerar guia</h2>
+  <form method="post" action="/guias/gerar" class="rf-campos">
+    <label>Empresa <select name="prestador_id" class="combo" required>
+      <option value="">— escolha —</option>
+      {% for p in empresas %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.codigo_interno ~ ' · ' if p.codigo_interno }}{{ p.razao_social }} ({{ REGIMES_CURTO[p.regime] }})</option>{% endfor %}
+    </select></label>
+    <label>Tipo <select name="tipo">{% for k, v in TIPOS.items() %}<option value="{{ k }}">{{ v[0] }}</option>{% endfor %}</select></label>
+    <label>Competência / parcela <input type="month" name="competencia" required></label>
+    <label title="Para DAS vencido: multa e juros calculados até esta data. Vazio = hoje.">Pagar até (DAS vencido) <input type="date" name="consolidacao"></label>
+    <button {{ 'disabled' if modo == 'desligado' }}>Gerar</button>
+  </form>
+  {% if usuario.perfil == 'ADMIN' %}
+  <form method="post" action="/configuracoes/guias" class="em-linha" style="margin-top:.6rem">
+    <label class="rf-radio"><input type="checkbox" name="guias_entregar" value="1" {{ 'checked' if entregar_auto }} onchange="this.form.submit()"> Entregar as guias geradas ao Bot Arquivador automaticamente</label>
+  </form>{% endif %}
+</section>
+
+<form class="busca filtros" method="get">
+  <select name="situacao"><option value="">Todas</option>{% for k, v in SITUACOES.items() %}<option value="{{ k }}" {{ 'selected' if k == situacao }}>{{ v[0] }}</option>{% endfor %}</select>
+  <select name="tipo"><option value="">Todos os tipos</option>{% for k, v in TIPOS.items() %}<option value="{{ k }}" {{ 'selected' if k == tipo }}>{{ v[0] }}</option>{% endfor %}</select>
+  <select name="empresa"><option value="0">Todas as empresas</option>{% for p in empresas %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.razao_social }}</option>{% endfor %}</select>
+  <button>Filtrar</button><span class="sutil" style="margin-left:auto">{{ lista|length }} guia(s)</span>
+</form>
+<section class="cartao">
+<table class="compacta">
+  <thead><tr><th>Empresa</th><th>Guia</th><th>Competência</th><th class="num">Valor</th><th>Pagar até</th><th>Situação</th><th>Documento</th><th></th></tr></thead>
+  <tbody>{% for g in lista %}{% set st = SITUACOES[g.situacao] %}
+    <tr class="{{ 'inativo' if g.situacao == 'SUBSTITUIDA' }}">
+      <td><a href="/prestadores/{{ g.prestador_id }}/receita">{% if g.prestador.codigo_interno %}<b>{{ g.prestador.codigo_interno }}</b> · {% endif %}{{ g.prestador.razao_social }}</a></td>
+      <td>{{ TIPOS[g.tipo][0] }}<br><small class="sutil">gerada {{ g.gerada_em|datahora }} · {{ g.gerada_por }}</small></td>
+      <td>{{ g.competencia[5:] }}/{{ g.competencia[:4] }}</td>
+      <td class="num">{{ g.valor|moeda }}</td>
+      <td>{{ g.vencimento|data if g.vencimento else '—' }}</td>
+      <td><span class="etiqueta {{ st[1] }}">{{ st[0] }}</span>{% if g.situacao == 'PAGA' %}<br><small>{{ g.pago_em|data if g.pago_em }} · {{ g.criterio_baixa }}</small>{% endif %}
+        {% if g.erro %}<br><small class="erro-texto">{{ g.erro[:120] }}</small>{% endif %}</td>
+      <td><small>{{ g.numero_documento or '—' }}</small><br>
+        {% if g.consulta_id %}<a href="/receita/consultas/{{ g.consulta_id }}/arquivo/0" target="_blank">PDF</a>{% endif %}
+        {% if g.entregue_em %}<small class="sutil"> · arquivada {{ g.entregue_em|datahora }}</small>{% endif %}</td>
+      <td class="acoes-linha">
+        {% if g.situacao == 'ABERTA' %}
+          {% if not g.entregue_em %}<form method="post" action="/guias/{{ g.id }}/entregar"><button class="secundario mini">Arquivar</button></form>{% endif %}
+          <form method="post" action="/guias/{{ g.id }}/paga" onsubmit="this.data.value = prompt('Data do pagamento (AAAA-MM-DD):', '{{ hoje.isoformat() }}') || ''; return !!this.data.value"><input type="hidden" name="data"><button class="secundario mini">Marcar paga</button></form>
+        {% elif g.situacao == 'PAGA' %}<form method="post" action="/guias/{{ g.id }}/reabrir"><button class="secundario mini">Reabrir</button></form>{% endif %}
+      </td></tr>
+  {% else %}<tr><td colspan="8" class="sutil">Nenhuma guia.</td></tr>{% endfor %}</tbody>
+</table>
+</section>
+<script src="/static/combo.js"></script>
+{% endblock %}

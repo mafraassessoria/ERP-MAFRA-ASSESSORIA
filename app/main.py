@@ -19,6 +19,8 @@ from .serpro.rotas import router as receita_router
 from .econtador.rotas import router as econtador_router
 from .certidoes.rotas import router as certidoes_router
 from .monitor.rotas import router as monitor_router
+from .guias.rotas import router as guias_router
+from .honorarios.rotas import router as honorarios_router
 from .seguranca import (
     conferir_senha, gerar_hash_senha, limpar_falhas, login_bloqueado, registrar_falha, senha_forte,
 )
@@ -39,6 +41,8 @@ app.include_router(receita_router)
 app.include_router(econtador_router)
 app.include_router(certidoes_router)
 app.include_router(monitor_router)
+app.include_router(guias_router)
+app.include_router(honorarios_router)
 
 
 @app.on_event("startup")

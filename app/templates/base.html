@@ -25,6 +25,8 @@
     <a href="/relatorios" class="{{ 'ativo' if atual.startswith('/relatorios') }}">Relatórios</a>
     <a href="/certidoes" class="{{ 'ativo' if atual.startswith('/certidoes') }}">Certidões</a>
     <a href="/monitor" class="{{ 'ativo' if atual.startswith('/monitor') or atual.startswith('/receita') }}">Monitor e-CAC</a>
+    <a href="/guias" class="{{ 'ativo' if atual.startswith('/guias') }}">Guias</a>
+    <a href="/honorarios" class="{{ 'ativo' if atual.startswith('/honorarios') }}">Honorários</a>
     {% if usuario.perfil == 'ADMIN' %}<a href="/usuarios" class="{{ 'ativo' if atual.startswith('/usuarios') }}">Usuários</a><a href="/configuracoes" class="{{ 'ativo' if atual.startswith('/configuracoes') }}">Configurações</a><a href="/auditoria" class="{{ 'ativo' if atual.startswith('/auditoria') }}">Auditoria</a>{% endif %}
   </nav>{% endif %}
   <span class="quem">{{ usuario.nome }} · <a href="/minha-senha">senha</a> · <a href="/sair">sair</a></span>

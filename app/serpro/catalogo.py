@@ -104,6 +104,18 @@ def _dctf(v: dict) -> dict:
 
 
 PERIODO = Campo("periodo", "Período de apuração", "periodo", padrao=_mes_anterior)
+CONSOLIDACAO = Campo("consolidacao", "Pagar até", "data", obrigatorio=False,
+                     ajuda="Para guia vencida: data até quando a guia vale (multa e juros calculados até ela). Vazio = hoje.")
+
+
+def _com_consolidacao(v: dict) -> dict:
+    d = {"periodoApuracao": _pa(v.get("periodo"))}
+    c = re.sub(r"\D", "", v.get("consolidacao") or "")
+    if c:
+        if len(c) != 8:
+            raise ValueError("Data de consolidação inválida.")
+        d["dataConsolidacao"] = c
+    return d
 ANO = Campo("ano", "Ano-calendário", "ano", padrao=_ano_atual)
 CATEGORIA = Campo("categoria", "Categoria", "opcoes", opcoes=CATEGORIAS_DCTF, padrao=lambda: "GERAL_MENSAL")
 
@@ -119,14 +131,14 @@ SERVICOS: list[Servico] = [
     Servico("pgdasd_ultima", "Simples Nacional", "Última declaração e recibo do período (PDF)", "PGDASD", "CONSULTIMADECREC14",
             "Consultar", montar=lambda v: {"periodoApuracao": _pa(v.get("periodo"))}, campos=[PERIODO], aplica=("SIMPLES",)),
     Servico("pgdasd_das", "Simples Nacional", "Gerar DAS do período (PDF)", "PGDASD", "GERARDAS12", "Emitir",
-            montar=lambda v: {"periodoApuracao": _pa(v.get("periodo"))}, campos=[PERIODO], aplica=("SIMPLES",), lote=True,
-            descricao="Gera o DAS de um período já declarado no PGDAS-D."),
+            montar=_com_consolidacao, campos=[PERIODO, CONSOLIDACAO], aplica=("SIMPLES",), lote=True,
+            descricao="Gera o DAS de um período já declarado no PGDAS-D (vencido: com multa e juros até a data informada)."),
     Servico("pgdasd_extrato", "Simples Nacional", "Extrato do DAS", "PGDASD", "CONSEXTRATO16", "Consultar",
             montar=lambda v: {"numeroDas": re.sub(r"\D", "", v.get("numero_das") or "")},
             campos=[Campo("numero_das", "Número do DAS", "texto")], aplica=("SIMPLES",)),
     # ---- MEI
     Servico("pgmei_das", "MEI", "Gerar DAS do MEI (PDF)", "PGMEI", "GERARDASPDF21", "Emitir",
-            montar=lambda v: {"periodoApuracao": _pa(v.get("periodo"))}, campos=[PERIODO], aplica=("MEI",), lote=True),
+            montar=_com_consolidacao, campos=[PERIODO, CONSOLIDACAO], aplica=("MEI",), lote=True),
     Servico("pgmei_divida", "MEI", "Dívida ativa do MEI", "PGMEI", "DIVIDAATIVA24", "Consultar",
             montar=lambda v: {"anoCalendario": _ano(v.get("ano"))}, campos=[ANO], aplica=("MEI",)),
     # ---- DCTFWeb
