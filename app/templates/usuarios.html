@@ -3,11 +3,13 @@
 {% block conteudo %}
 <h1>Usuários do escritório</h1>
 <table>
-  <tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Situação</th><th></th></tr>
+  <tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Situação</th><th>Duas etapas</th><th></th></tr>
   {% for x in lista %}
   <tr class="{{ '' if x.ativo else 'inativo' }}"><td>{{ x.nome }}</td><td>{{ x.login }}</td><td>{{ PERFIS[x.perfil] }}</td>
     <td>{{ 'Ativo' if x.ativo else 'Inativo' }}</td>
-    <td>{% if x.id != usuario.id %}<form method="post" action="/usuarios/{{ x.id }}/ativo"><button class="link">{{ 'desativar' if x.ativo else 'reativar' }}</button></form>{% endif %}</td></tr>
+    <td>{{ 'Ativada' if x.tem_2fa else '—' }}</td>
+    <td>{% if x.id != usuario.id %}<form method="post" action="/usuarios/{{ x.id }}/ativo" class="em-linha"><button class="link">{{ 'desativar' if x.ativo else 'reativar' }}</button></form>
+      {% if x.tem_2fa %}<form method="post" action="/usuarios/{{ x.id }}/zerar-2fa" class="em-linha" onsubmit="return confirm('Remover a verificação em duas etapas de {{ x.login }}? Use quando a pessoa perdeu ou trocou o celular.')"><button class="link">remover 2 etapas</button></form>{% endif %}{% endif %}</td></tr>
   {% endfor %}
 </table>
 <form class="cartao" method="post" action="/usuarios">

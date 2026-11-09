@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Código de verificação{% endblock %}
+{% block conteudo %}
+<form class="cartao estreito" method="post" action="/login/codigo">
+  <h1>Código de verificação</h1>
+  <p class="sutil">Abra o aplicativo autenticador no celular e digite o código de 6 números do <b>ERP MAFRA ASSESSORIA</b>.</p>
+  <label>Código <input name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" autofocus required></label>
+  <button>Entrar</button>
+  <p class="sutil" style="margin-top:1rem">Perdeu o celular? Peça a outro administrador para remover a verificação em Usuários,
+    ou rode <code>DESATIVAR_2FA.bat</code> no servidor.</p>
+  <p><a href="/sair">voltar</a></p>
+</form>
+{% endblock %}

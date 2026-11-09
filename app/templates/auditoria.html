@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block titulo %}Auditoria{% endblock %}
 {% block conteudo %}
-<h1>Auditoria <small class="sutil">(últimos 500 registros)</small></h1>
+<h1>Auditoria <small class="sutil">(últimos 500 registros{{ ' · ' ~ acao if acao }})</small></h1>
+{% if acao %}<p><a href="/auditoria">ver todos os registros</a></p>{% endif %}
 <table class="compacta">
   <tr><th>Data/hora</th><th>Usuário</th><th>Ação</th><th>Registro</th><th>Detalhes</th><th>IP</th></tr>
   {% for a in lista %}

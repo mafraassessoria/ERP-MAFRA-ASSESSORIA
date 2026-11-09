@@ -9,6 +9,15 @@
   <a class="cartao-num" href="/notas?situacao=AUTORIZADA&competencia={{ mes_atual }}"><b>{{ resumo.notas_mes }}</b><span>notas autorizadas no mês</span></a>
 </div>
 
+{% if seguranca and seguranca.falhas %}
+<div class="msg erro">Segurança: {{ seguranca.falhas }} tentativa(s) de login com erro nas últimas 24 horas
+  ({{ seguranca.logins|join(', ') }}){% if seguranca.bloqueados %} · bloqueado(s) agora: <b>{{ seguranca.bloqueados|join(', ') }}</b>{% endif %}.
+  <a href="/auditoria?acao=LOGIN_FALHOU">Ver detalhes</a></div>
+{% endif %}
+{% if seguranca and seguranca.sem_2fa %}
+<div class="msg">Recomendado: ative a <a href="/minha-conta/2fa">verificação em duas etapas</a> na sua conta de administrador
+  (código do celular no login). É quem pode fazer consultas pagas ao Serpro e mudar as configurações.</div>
+{% endif %}
 {% if backup_atrasado %}
 <div class="msg erro">Atenção: {% if ultimo_backup %}o último backup é de {{ ultimo_backup|datahora }}{% else %}nenhum backup foi feito ainda{% endif %}. Confira a tarefa de backup.</div>
 {% else %}

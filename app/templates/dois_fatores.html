@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Verificação em duas etapas{% endblock %}
+{% block conteudo %}
+<section class="cartao estreito">
+  <h1>Verificação em duas etapas</h1>
+  {% if usuario.tem_2fa %}
+  <p><span class="etiqueta ok">Ativada</span> A cada login, depois da senha, o sistema pede o código de 6 números do aplicativo.</p>
+  <form method="post" action="/minha-conta/2fa/desativar">
+    <h2>Desativar</h2>
+    <label>Senha <input name="senha" type="password" required autocomplete="current-password"></label>
+    <label>Código atual do aplicativo <input name="codigo" inputmode="numeric" maxlength="7" required></label>
+    <button class="secundario">Desativar verificação em duas etapas</button>
+  </form>
+  {% else %}
+  <p>Além da senha, o login passa a pedir um código que muda a cada 30 segundos no seu celular. Mesmo que alguém descubra a senha,
+    não entra sem o celular.</p>
+  <ol>
+    <li>Instale no celular um aplicativo autenticador: <b>Google Authenticator</b> ou <b>Microsoft Authenticator</b> (gratuitos).</li>
+    <li>No aplicativo, toque em <b>+</b> → <b>Ler código QR</b> e aponte para o código abaixo.</li>
+    <li>Digite o código de 6 números que aparecer no aplicativo e clique em Ativar.</li>
+  </ol>
+  {% if qr %}<div class="qr-2fa" style="max-width:220px;margin:1rem 0">{{ qr|safe }}</div>{% endif %}
+  <p class="sutil">Sem câmera? Escolha "Inserir chave de configuração" no aplicativo e digite a chave:<br>
+    <code style="font-size:1.05rem">{{ segredo_formatado }}</code> (tipo: baseado em tempo)</p>
+  <form method="post" action="/minha-conta/2fa/ativar">
+    <label>Código do aplicativo <input name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required autofocus></label>
+    <button>Ativar</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

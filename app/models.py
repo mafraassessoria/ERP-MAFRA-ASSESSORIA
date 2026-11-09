@@ -95,6 +95,12 @@ class Usuario(Timestamps, Base):
     senha_hash: Mapped[str] = mapped_column(String(255))
     perfil: Mapped[str] = mapped_column(String(20), default="OPERADOR")
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    totp_segredo: Mapped[str] = mapped_column(Text, default="")      # criptografado; vazio = sem verificação em duas etapas
+    totp_ultimo: Mapped[int] = mapped_column(Integer, default=0)     # último passo aceito (impede reusar o mesmo código)
+
+    @property
+    def tem_2fa(self) -> bool:
+        return bool(self.totp_segredo)
 
 
 class Auditoria(Base):

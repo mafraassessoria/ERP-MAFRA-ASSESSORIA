@@ -22,7 +22,8 @@ from .monitor.rotas import router as monitor_router
 from .guias.rotas import router as guias_router
 from .honorarios.rotas import router as honorarios_router
 from .seguranca import (
-    conferir_senha, gerar_hash_senha, limpar_falhas, login_bloqueado, registrar_falha, senha_forte,
+    conferir_senha, criptografar, descriptografar, falhas_recentes, gerar_hash_senha, login_bloqueado, qr_svg,
+    senha_forte, totp_conferir, totp_novo_segredo, totp_uri,
 )
 from .web import (
     PrecisaLogin, SemPermissao, admin, auditar, flash, ip_de, render, texto, usuario_atual,
@@ -199,27 +200,122 @@ def login_form(request: Request, db: Session = Depends(get_db)):
     return render(request, "login.html")
 
 
-@app.post("/login")
-async def login(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
-    login_ = texto(form, "login").lower()
-    chave = f"{ip_de(request)}|{login_}"
-    if login_bloqueado(chave):
-        flash(request, "Muitas tentativas. Aguarde 15 minutos.", "erro")
-        return RedirectResponse("/login", status_code=303)
-    u = db.scalar(select(models.Usuario).where(models.Usuario.login == login_))
-    if not u or not u.ativo or not conferir_senha(form.get("senha", ""), u.senha_hash):
-        registrar_falha(chave)
-        auditar(db, request, None, "LOGIN_FALHOU", "usuario", None, f"login={login_}")
-        db.commit()
-        flash(request, "Usuário ou senha incorretos.", "erro")
-        return RedirectResponse("/login", status_code=303)
-    limpar_falhas(chave)
+def _entrar(request: Request, db: Session, u: models.Usuario) -> RedirectResponse:
     request.session.clear()
     request.session["uid"] = u.id
     auditar(db, request, u, "LOGIN", "usuario", u.id)
     db.commit()
     return RedirectResponse("/", status_code=303)
+
+
+def _falhou(request: Request, db: Session, login_: str, codigo: bool = False) -> None:
+    auditar(db, request, None, "LOGIN_FALHOU", "usuario", None, f"login={login_}" + (" codigo" if codigo else ""))
+    db.commit()
+
+
+@app.post("/login")
+async def login(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    login_ = texto(form, "login").lower()
+    if login_bloqueado(db, login_):
+        flash(request, "Muitas tentativas erradas. Aguarde 15 minutos.", "erro")
+        return RedirectResponse("/login", status_code=303)
+    u = db.scalar(select(models.Usuario).where(models.Usuario.login == login_))
+    if not u or not u.ativo or not conferir_senha(form.get("senha", ""), u.senha_hash):
+        _falhou(request, db, login_)
+        flash(request, "Usuário ou senha incorretos.", "erro")
+        return RedirectResponse("/login", status_code=303)
+    if u.tem_2fa:   # senha certa: falta o código do aplicativo
+        request.session.clear()
+        request.session["pre_uid"] = u.id
+        return RedirectResponse("/login/codigo", status_code=303)
+    return _entrar(request, db, u)
+
+
+@app.get("/login/codigo")
+def login_codigo_form(request: Request):
+    if not request.session.get("pre_uid"):
+        return RedirectResponse("/login", status_code=303)
+    return render(request, "login_codigo.html")
+
+
+@app.post("/login/codigo")
+async def login_codigo(request: Request, db: Session = Depends(get_db)):
+    uid = request.session.get("pre_uid")
+    u = db.get(models.Usuario, uid) if uid else None
+    if not u or not u.ativo or not u.tem_2fa:
+        request.session.clear()
+        return RedirectResponse("/login", status_code=303)
+    if login_bloqueado(db, u.login):
+        request.session.clear()
+        flash(request, "Muitas tentativas erradas. Aguarde 15 minutos.", "erro")
+        return RedirectResponse("/login", status_code=303)
+    form = await request.form()
+    passo = totp_conferir(descriptografar(u.totp_segredo.encode()).decode(), form.get("codigo", ""), u.totp_ultimo)
+    if not passo:
+        _falhou(request, db, u.login, codigo=True)
+        flash(request, "Código incorreto ou já usado. Use o código que aparece agora no aplicativo.", "erro")
+        return RedirectResponse("/login/codigo", status_code=303)
+    u.totp_ultimo = passo
+    return _entrar(request, db, u)
+
+
+# ---- Verificação em duas etapas (cada usuário ativa a sua) ------------------------------------
+
+@app.get("/minha-conta/2fa")
+def dois_fatores_form(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    segredo = ""
+    if not u.tem_2fa:
+        segredo = request.session.get("totp_novo") or totp_novo_segredo()
+        request.session["totp_novo"] = segredo
+    uri = totp_uri(segredo, u.login) if segredo else ""
+    return render(request, "dois_fatores.html", segredo=segredo, qr=qr_svg(uri) if uri else "",
+                  segredo_formatado=" ".join(segredo[i:i + 4] for i in range(0, len(segredo), 4)))
+
+
+@app.post("/minha-conta/2fa/ativar")
+async def dois_fatores_ativar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    form = await request.form()
+    segredo = request.session.get("totp_novo", "")
+    passo = totp_conferir(segredo, form.get("codigo", ""))
+    if u.tem_2fa or not segredo or not passo:
+        flash(request, "O código não confere. Confira se o aplicativo leu o QR code desta tela e digite o código atual.", "erro")
+        return RedirectResponse("/minha-conta/2fa", status_code=303)
+    u.totp_segredo, u.totp_ultimo = criptografar(segredo.encode()).decode(), passo
+    db.merge(u)
+    request.session.pop("totp_novo", None)
+    auditar(db, request, u, "ATIVAR_2FA", "usuario", u.id)
+    db.commit()
+    flash(request, "Verificação em duas etapas ativada. A partir do próximo login o sistema pedirá o código do aplicativo.")
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/minha-conta/2fa/desativar")
+async def dois_fatores_desativar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    form = await request.form()
+    ok = u.tem_2fa and conferir_senha(form.get("senha", ""), u.senha_hash) and totp_conferir(
+        descriptografar(u.totp_segredo.encode()).decode(), form.get("codigo", ""), u.totp_ultimo)
+    if not ok:
+        flash(request, "Para desativar, informe a senha e o código atual do aplicativo.", "erro")
+        return RedirectResponse("/minha-conta/2fa", status_code=303)
+    u.totp_segredo, u.totp_ultimo = "", 0
+    db.merge(u)
+    auditar(db, request, u, "DESATIVAR_2FA", "usuario", u.id)
+    db.commit()
+    flash(request, "Verificação em duas etapas desativada.")
+    return RedirectResponse("/minha-conta/2fa", status_code=303)
+
+
+@app.post("/usuarios/{uid}/zerar-2fa")
+def usuario_zerar_2fa(uid: int, request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    """Para quem perdeu o celular: o administrador remove a verificação de OUTRO usuário."""
+    alvo = db.get(models.Usuario, uid)
+    if alvo and alvo.id != u.id and alvo.tem_2fa:
+        alvo.totp_segredo, alvo.totp_ultimo = "", 0
+        auditar(db, request, u, "ZERAR_2FA", "usuario", uid, f"login={alvo.login}")
+        db.commit()
+        flash(request, f"Verificação em duas etapas de {alvo.login} removida; ele pode ativar de novo.")
+    return RedirectResponse("/usuarios", status_code=303)
 
 
 @app.get("/sair")
@@ -309,7 +405,16 @@ def painel(request: Request, db: Session = Depends(get_db), u=Depends(usuario_at
     ultimas = db.scalars(select(models.NotaFiscal).where(models.NotaFiscal.situacao.in_(("AUTORIZADA", "CANCELADA")),
                                                          models.NotaFiscal.ambiente == "PRODUCAO")
                          .order_by(models.NotaFiscal.id.desc()).limit(12)).all()
+    seguranca = None
+    if u.perfil == "ADMIN":
+        desde = datetime.now() - timedelta(days=1)
+        falhas = db.scalars(select(models.Auditoria).where(models.Auditoria.acao == "LOGIN_FALHOU",
+                                                           models.Auditoria.data_hora >= desde)).all()
+        logins = sorted({f.detalhes.split()[0].removeprefix("login=") for f in falhas})
+        bloqueados = [x for x in logins if login_bloqueado(db, x)]
+        seguranca = dict(falhas=len(falhas), logins=logins, bloqueados=bloqueados, sem_2fa=not u.tem_2fa)
     return render(request, "painel.html", resumo=resumo, alertas=alertas, mes_atual=date.today().strftime("%Y-%m"),
+                  seguranca=seguranca,
                   ultimas=ultimas,
                   ultimo_backup=ultimo_backup, backup_atrasado=backup_atrasado)
 
@@ -382,6 +487,9 @@ async def minha_senha(request: Request, db: Session = Depends(get_db), u=Depends
 # ---- Auditoria --------------------------------------------------------------
 
 @app.get("/auditoria")
-def auditoria(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
-    lista = db.scalars(select(models.Auditoria).order_by(models.Auditoria.id.desc()).limit(500)).all()
-    return render(request, "auditoria.html", lista=lista)
+def auditoria(request: Request, acao: str = "", db: Session = Depends(get_db), u=Depends(admin)):
+    stmt = select(models.Auditoria)
+    if acao:
+        stmt = stmt.where(models.Auditoria.acao == acao)
+    lista = db.scalars(stmt.order_by(models.Auditoria.id.desc()).limit(500)).all()
+    return render(request, "auditoria.html", lista=lista, acao=acao)

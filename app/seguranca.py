@@ -3,7 +3,6 @@ import hashlib
 import hmac
 import os
 import time
-from collections import defaultdict
 
 from cryptography.fernet import Fernet
 
@@ -45,21 +44,76 @@ def descriptografar(dados: bytes) -> bytes:
     return _fernet.decrypt(dados)
 
 
-# Bloqueio simples: 5 erros em 15 minutos bloqueiam o login/IP por 15 minutos.
-_falhas: dict[str, list[float]] = defaultdict(list)
+# ---- Bloqueio de tentativas -------------------------------------------------------------------
+# Contado a partir da auditoria (LOGIN_FALHOU), então vale mesmo depois de reiniciar o sistema.
+# 5 erros em 15 minutos bloqueiam aquele login por 15 minutos; um login certo zera a contagem.
 _JANELA = 15 * 60
 _LIMITE = 5
 
 
-def login_bloqueado(chave: str) -> bool:
-    agora = time.time()
-    _falhas[chave] = [t for t in _falhas[chave] if agora - t < _JANELA]
-    return len(_falhas[chave]) >= _LIMITE
+def _detalhes_falha(login: str) -> tuple[str, str]:
+    return f"login={login}", f"login={login} codigo"
 
 
-def registrar_falha(chave: str) -> None:
-    _falhas[chave].append(time.time())
+def falhas_recentes(db, login: str) -> int:
+    from datetime import datetime, timedelta
+    from sqlalchemy import func, select
+    from . import models
+    desde = datetime.now() - timedelta(seconds=_JANELA)
+    ultimo_ok = db.scalar(select(func.max(models.Auditoria.data_hora)).where(
+        models.Auditoria.acao == "LOGIN", models.Auditoria.usuario_login == login))
+    if ultimo_ok and ultimo_ok > desde:
+        desde = ultimo_ok
+    return db.scalar(select(func.count(models.Auditoria.id)).where(
+        models.Auditoria.acao == "LOGIN_FALHOU", models.Auditoria.data_hora > desde,
+        models.Auditoria.detalhes.in_(_detalhes_falha(login)))) or 0
 
 
-def limpar_falhas(chave: str) -> None:
-    _falhas.pop(chave, None)
+def login_bloqueado(db, login: str) -> bool:
+    return falhas_recentes(db, login) >= _LIMITE
+
+
+# ---- Verificação em duas etapas (TOTP, RFC 6238 — Google Authenticator, Microsoft Authenticator…) ----
+import base64 as _b64
+import struct as _struct
+from urllib.parse import quote as _quote
+
+TOTP_PASSO = 30
+
+
+def totp_novo_segredo() -> str:
+    return _b64.b32encode(os.urandom(20)).decode().rstrip("=")
+
+
+def _totp(segredo: str, passo: int) -> str:
+    chave = _b64.b32decode(segredo + "=" * (-len(segredo) % 8), casefold=True)
+    h = hmac.new(chave, _struct.pack(">Q", passo), hashlib.sha1).digest()
+    o = h[-1] & 0x0F
+    return f"{(_struct.unpack('>I', h[o:o + 4])[0] & 0x7FFFFFFF) % 1_000_000:06d}"
+
+
+def totp_conferir(segredo: str, codigo: str, ultimo_passo: int = 0, agora: float | None = None) -> int:
+    """Devolve o passo aceito (para impedir reuso do mesmo código) ou 0 se o código não confere."""
+    codigo = "".join(ch for ch in (codigo or "") if ch.isdigit())
+    if len(codigo) != 6 or not segredo:
+        return 0
+    atual = int((agora if agora is not None else time.time()) // TOTP_PASSO)
+    for passo in (atual, atual - 1, atual + 1):   # tolera relógio do celular 30 s adiantado/atrasado
+        if passo > ultimo_passo and hmac.compare_digest(_totp(segredo, passo), codigo):
+            return passo
+    return 0
+
+
+def totp_uri(segredo: str, login: str) -> str:
+    emissor = "ERP MAFRA ASSESSORIA"
+    return f"otpauth://totp/{_quote(emissor)}:{_quote(login)}?secret={segredo}&issuer={_quote(emissor)}&digits=6&period={TOTP_PASSO}"
+
+
+def qr_svg(texto: str) -> str:
+    try:
+        import qrcode
+        import qrcode.image.svg
+        img = qrcode.make(texto, image_factory=qrcode.image.svg.SvgPathImage, box_size=8, border=2)
+        return img.to_string(encoding="unicode")
+    except Exception:  # noqa: BLE001 — sem a biblioteca: a chave em texto basta
+        return ""

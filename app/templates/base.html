@@ -29,7 +29,7 @@
     <a href="/honorarios" class="{{ 'ativo' if atual.startswith('/honorarios') }}">Honorários</a>
     {% if usuario.perfil == 'ADMIN' %}<a href="/usuarios" class="{{ 'ativo' if atual.startswith('/usuarios') }}">Usuários</a><a href="/configuracoes" class="{{ 'ativo' if atual.startswith('/configuracoes') }}">Configurações</a><a href="/auditoria" class="{{ 'ativo' if atual.startswith('/auditoria') }}">Auditoria</a>{% endif %}
   </nav>{% endif %}
-  <span class="quem">{{ usuario.nome }} · <a href="/minha-senha">senha</a> · <a href="/sair">sair</a></span>
+  <span class="quem">{{ usuario.nome }} · <a href="/minha-senha">senha</a> · <a href="/minha-conta/2fa">{{ "2 etapas ✓" if usuario.tem_2fa else "2 etapas" }}</a> · <a href="/sair">sair</a></span>
 </header>
 {% endif %}
 {% if empresa_sel %}
