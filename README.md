@@ -382,8 +382,9 @@ em produção só autentica (não cobra).
 ## e-Contador pela tela (etapa 5)
 
 A API do e-Contador só lê. Baixas, envio e exclusão de documentos usam a sessão de um login humano:
-**CONECTAR_ECONTADOR.bat** (no servidor) abre o Edge/Chrome, você faz o login com a verificação do e-Contador e
-o ERP guarda a sessão criptografada. Quando ela vencer, o ERP avisa e é só rodar o .bat de novo.
+o botão **Conectar e-Contador** (Configurações, Guias ou Honorários) pede usuário, senha e o código de verificação do
+e-Contador dentro do próprio ERP; a senha não é guardada, só a sessão, criptografada. Quando ela vencer, o ERP avisa
+e é só conectar de novo.
 
 - **Honorários → Dar baixa no e-Contador…**: confere cada recebimento com a cobrança (empresa pelo código, título,
   valor e período) e mostra a revisão; só depois de confirmar grava a baixa com a data do pagamento e relê cada

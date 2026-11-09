@@ -134,7 +134,7 @@ async def guias_conciliar(request: Request, db: Session = Depends(get_db), u=Dep
     return _redir("/guias")
 
 
-# ---- e-Contador (pela tela, com a sessão do CONECTAR_ECONTADOR.bat) -----------------------------
+# ---- e-Contador (pela tela, com a sessão do login feito no ERP) -----------------------------
 
 def _ec_erro(request, db, e):
     from ..econtador.web import ErroSessao

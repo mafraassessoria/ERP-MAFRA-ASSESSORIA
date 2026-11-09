@@ -95,12 +95,11 @@
 <section class="cartao" id="econtador-web">
   <h2>e-Contador pela tela (baixas, envio e exclusão)</h2>
   <p class="sutil">A API do e-Contador só lê. Para dar baixa em honorários e guias, enviar guias aos clientes e excluir guias substituídas,
-    o ERP usa a mesma sessão de um login humano (com a verificação em duas etapas do e-Contador), guardada criptografada.</p>
+    o ERP entra no e-Contador com o seu login (usuário, senha e código de verificação) e guarda só a sessão, criptografada.</p>
   <p>{% if ec_web.tem %}<span class="etiqueta ok">Conectado</span> desde {{ ec_web.conectado_em }}{% if ec_web.ultimo_teste %} · último teste: {{ ec_web.ultimo_teste }}{% endif %}
     {% else %}<span class="etiqueta aviso">Não conectado</span>{% endif %}</p>
-  <p class="sutil">Para conectar ou reconectar quando a sessão vencer: no servidor, dê dois cliques em <code>C:\emissor_nfse\CONECTAR_ECONTADOR.bat</code>,
-    faça o login na janela do navegador que abrir e espere a mensagem "Pronto".</p>
   <div class="em-linha" style="gap:.5rem">
+    <a class="botao" href="/econtador/conectar?volta=/configuracoes%23econtador-web">{{ 'Conectar de novo' if ec_web.tem else 'Conectar e-Contador' }}</a>
     <form method="post" action="/configuracoes/econtador/web/testar"><button class="secundario" {{ 'disabled' if not ec_web.tem }}>Testar sessão</button></form>
     {% if ec_web.tem %}<form method="post" action="/configuracoes/econtador/web/esquecer" onsubmit="return confirm('Apagar a sessão do e-Contador guardada no ERP?')"><button class="secundario">Desconectar</button></form>{% endif %}
   </div>

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}Conectar e-Contador{% endblock %}
+{% block conteudo %}
+<section class="cartao estreito">
+  <h1>Conectar e-Contador</h1>
+  <p class="sutil">{% if st.tem %}Conectado desde {{ st.conectado_em }}. Entre de novo se a sessão venceu.{% else %}O ERP precisa de uma sessão do e-Contador para dar baixa, enviar e excluir documentos.{% endif %}
+    A senha não é guardada; o ERP guarda só a sessão, criptografada.</p>
+  {% if etapa == 'senha' %}
+  <form method="post" action="/econtador/conectar">
+    <input type="hidden" name="volta" value="{{ volta }}">
+    <label>Usuário do e-Contador (CPF ou CNPJ) <input name="usuario" autocomplete="username" required autofocus></label>
+    <label>Senha <input name="senha" type="password" autocomplete="current-password" required></label>
+    <button>Entrar</button>
+  </form>
+  {% elif etapa == 'canal' %}
+  <form method="post" action="/econtador/conectar/canal">
+    <input type="hidden" name="volta" value="{{ volta }}">
+    <p>Senha aceita. Por onde o e-Contador deve mandar o <b>código de verificação</b>?</p>
+    {% for o in opcoes %}<label class="rf-radio"><input type="radio" name="canal" value="{{ o.id }}" {{ 'checked' if loop.first }}> {{ o.nome }}{% if o.contato %} <span class="sutil">({{ o.contato }})</span>{% endif %}</label>{% endfor %}
+    <button>Enviar código</button>
+  </form>
+  {% elif etapa == 'codigo' %}
+  <form method="post" action="/econtador/conectar/codigo">
+    <input type="hidden" name="volta" value="{{ volta }}">
+    <p>Digite o <b>código de verificação</b> que o e-Contador enviou.</p>
+    <label>Código <input name="codigo" inputmode="numeric" autocomplete="one-time-code" required autofocus></label>
+    <button>Confirmar</button>
+  </form>
+  <div class="em-linha" style="margin-top:.5rem;gap:1rem">
+    <form method="post" action="/econtador/conectar/canal"><input type="hidden" name="novo" value="1"><input type="hidden" name="volta" value="{{ volta }}"><button class="link">não recebi — enviar outro código</button></form>
+    <form method="post" action="/econtador/conectar/cancelar"><button class="link">começar de novo</button></form>
+  </div>
+  {% elif etapa == 'escolher' %}
+  <form method="post" action="/econtador/conectar/acesso">
+    <input type="hidden" name="volta" value="{{ volta }}">
+    <p>Este usuário tem mais de um acesso. Escolha o do escritório:</p>
+    {% for o in opcoes %}<label class="rf-radio"><input type="radio" name="conexao" value="{{ o.id }}" {{ 'checked' if loop.first }}> {{ o.nome }}</label>{% endfor %}
+    <button>Continuar</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

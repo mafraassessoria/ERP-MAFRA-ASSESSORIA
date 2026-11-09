@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..configuracoes import gravar_config
 from ..db import get_db
-from ..web import admin, auditar, flash, render, texto
+from ..web import admin, auditar, flash, render, texto, usuario_atual
 from . import servico as es
 from .cliente import ErroAPI
 
@@ -95,3 +95,100 @@ async def econtador_web_esquecer(request: Request, db: Session = Depends(get_db)
     db.commit()
     flash(request, "Sessão do e-Contador apagada do ERP.")
     return _redir("/configuracoes#econtador-web")
+
+
+# ---- conectar pelo próprio ERP -----------------------------------------------------------------
+
+@router.get("/econtador/conectar")
+def econtador_conectar_form(request: Request, volta: str = "", db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from . import sessao
+    etapa = "codigo" if sessao.login_pendente(u.id) else "senha"
+    return render(request, "econtador_conectar.html", etapa=etapa, st=sessao.estado(db), volta=volta or request.headers.get("referer", ""),
+                  opcoes=[])
+
+
+async def _resultado(request, db, u, r, volta):
+    from . import sessao
+    if r.get("ok"):
+        auditar(db, request, u, "EC_CONECTAR", "configuracao", None, f"{r['empresas']} empresa(s)")
+        db.commit()
+        flash(request, f"e-Contador conectado ({r['empresas']} empresas). A sessão fica guardada no ERP até o e-Contador encerrá-la.")
+        return _redir(volta if volta.startswith("/") else "/configuracoes#econtador-web")
+    if r.get("canais") is not None:
+        return render(request, "econtador_conectar.html", etapa="canal", st=sessao.estado(db), volta=volta, opcoes=r["canais"])
+    if r.get("codigo"):
+        if r.get("aviso"):
+            flash(request, r["aviso"], "erro")
+        return render(request, "econtador_conectar.html", etapa="codigo", st=sessao.estado(db), volta=volta, opcoes=[])
+    return render(request, "econtador_conectar.html", etapa="escolher", st=sessao.estado(db), volta=volta, opcoes=r.get("escolher", []))
+
+
+@router.post("/econtador/conectar")
+async def econtador_conectar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from . import sessao
+    form = await request.form()
+    volta = form.get("volta") or ""
+    try:
+        r = await run_in_threadpool(sessao.iniciar_login, db, u.id, form.get("usuario", ""), form.get("senha", ""))
+    except sessao.ErroLogin as e:
+        flash(request, str(e), "erro")
+        return render(request, "econtador_conectar.html", etapa="senha", st=sessao.estado(db), volta=volta, opcoes=[])
+    except Exception as e:  # noqa: BLE001 — teste da sessão recém-criada
+        flash(request, f"Login feito, mas o ERP não conseguiu usar a sessão: {e}", "erro")
+        return render(request, "econtador_conectar.html", etapa="senha", st=sessao.estado(db), volta=volta, opcoes=[])
+    return await _resultado(request, db, u, r, volta)
+
+
+@router.post("/econtador/conectar/codigo")
+async def econtador_conectar_codigo(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from . import sessao
+    form = await request.form()
+    volta = form.get("volta") or ""
+    try:
+        r = await run_in_threadpool(sessao.enviar_codigo, db, u.id, form.get("codigo", ""))
+    except sessao.ErroLogin as e:
+        flash(request, str(e), "erro")
+        etapa = "codigo" if sessao.login_pendente(u.id) else "senha"
+        return render(request, "econtador_conectar.html", etapa=etapa, st=sessao.estado(db), volta=volta, opcoes=[])
+    except Exception as e:  # noqa: BLE001
+        flash(request, f"Login feito, mas o ERP não conseguiu usar a sessão: {e}", "erro")
+        return render(request, "econtador_conectar.html", etapa="senha", st=sessao.estado(db), volta=volta, opcoes=[])
+    return await _resultado(request, db, u, r, volta)
+
+
+@router.post("/econtador/conectar/acesso")
+async def econtador_conectar_acesso(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from . import sessao
+    form = await request.form()
+    volta = form.get("volta") or ""
+    try:
+        r = await run_in_threadpool(sessao.escolher_acesso, db, u.id, form.get("conexao", ""))
+    except sessao.ErroLogin as e:
+        flash(request, str(e), "erro")
+        return render(request, "econtador_conectar.html", etapa="senha", st=sessao.estado(db), volta=volta, opcoes=[])
+    return await _resultado(request, db, u, r, volta)
+
+
+@router.post("/econtador/conectar/cancelar")
+async def econtador_conectar_cancelar(request: Request, u=Depends(usuario_atual)):
+    from . import sessao
+    sessao.cancelar_login(u.id)
+    return _redir("/econtador/conectar")
+
+
+@router.post("/econtador/conectar/canal")
+async def econtador_conectar_canal(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from . import sessao
+    form = await request.form()
+    volta = form.get("volta") or ""
+    try:
+        if form.get("novo") == "1":
+            opcoes = await run_in_threadpool(sessao.negociar_canal, u.id)
+            return render(request, "econtador_conectar.html", etapa="canal", st=sessao.estado(db), volta=volta, opcoes=opcoes)
+        await run_in_threadpool(sessao.enviar_canal, u.id, form.get("canal", ""))
+    except sessao.ErroLogin as e:
+        flash(request, str(e), "erro")
+        etapa = "codigo" if sessao.login_pendente(u.id) else "senha"
+        return render(request, "econtador_conectar.html", etapa=etapa, st=sessao.estado(db), volta=volta, opcoes=[])
+    flash(request, "Código enviado. Confira e digite abaixo.")
+    return render(request, "econtador_conectar.html", etapa="codigo", st=sessao.estado(db), volta=volta, opcoes=[])

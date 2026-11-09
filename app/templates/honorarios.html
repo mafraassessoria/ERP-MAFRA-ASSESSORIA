@@ -27,7 +27,7 @@
   <div class="em-linha" style="justify-content:space-between;margin-bottom:.5rem">
     <span class="sutil">Descrição: <i>{{ exemplo }}</i> · competência = data do pagamento</span>
     <button {{ 'disabled' if not esc }} onclick="return document.querySelectorAll('.rec-id:checked').length ? confirm('Gerar rascunho de NFS-e para ' + document.querySelectorAll('.rec-id:checked').length + ' recebimento(s)?') : (alert('Marque os recebimentos.'), false)">Gerar rascunhos de NFS-e</button>
-    <button class="secundario" formaction="/honorarios/econtador/revisar" onclick="return document.querySelectorAll('.rec-id:checked').length ? true : (alert('Marque os recebimentos.'), false)" title="Confere cada cobrança no e-Contador antes; nada é gravado nesta etapa">Dar baixa no e-Contador…</button>
+    <button class="secundario" formaction="/honorarios/econtador/revisar" onclick="return document.querySelectorAll('.rec-id:checked').length ? true : (alert('Marque os recebimentos.'), false)" title="Confere cada cobrança no e-Contador antes; nada é gravado nesta etapa">Dar baixa no e-Contador…</button> <a class="sutil" href="/econtador/conectar?volta=/honorarios" title="Entrar no e-Contador pelo ERP">conectar e-Contador</a>
   </div>
   <table class="compacta">
     <thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.rec-id').forEach(c => c.checked = this.checked)"></th>

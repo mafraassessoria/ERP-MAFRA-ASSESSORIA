@@ -27,7 +27,7 @@ CATEGORIA_GUIAS, CATEGORIA_COBRANCAS = 0, 5
 
 
 class ErroSessao(Exception):
-    """Sem sessão ou sessão vencida: reconectar (CONECTAR_ECONTADOR.bat)."""
+    """Sem sessão ou sessão vencida: reconectar em /econtador/conectar."""
 
 
 class ErroWeb(Exception):
@@ -84,7 +84,7 @@ class Documento:
 class ClienteWeb:
     def __init__(self, cookies: list[dict], sessao: requests.Session | None = None):
         if not cookies:
-            raise ErroSessao("O e-Contador não está conectado. Rode CONECTAR_ECONTADOR.bat no servidor e faça o login.")
+            raise ErroSessao("O e-Contador não está conectado. Clique em “Conectar e-Contador” e entre com seu usuário, senha e código.")
         self.s = sessao or requests.Session()
         for c in cookies:
             dom = c.get("domain") or "econtador.alterdata.com.br"
@@ -100,7 +100,7 @@ class ClienteWeb:
             raise ErroWeb("O e-Contador redirecionou para fora do endereço esperado.")
         corpo = r.text if hasattr(r, "text") else ""
         if "/Login" in url or "/Autenticacao" in url or ('type="password"' in corpo and "Informe a senha" in corpo):
-            raise ErroSessao("A sessão do e-Contador venceu. Rode CONECTAR_ECONTADOR.bat no servidor e faça o login de novo.")
+            raise ErroSessao("A sessão do e-Contador venceu. Clique em “Conectar e-Contador” e entre de novo (usuário, senha e código).")
         if r.status_code >= 400:
             raise ErroWeb(f"O e-Contador respondeu HTTP {r.status_code}.")
 

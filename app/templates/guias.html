@@ -36,8 +36,9 @@
   <div class="linha-titulo"><div><h2>e-Contador</h2>
     <p class="sutil">{% if ec.tem %}Conectado em {{ ec.conectado_em }}{% if ec.ultimo_teste %} · último teste: {{ ec.ultimo_teste }}{% endif %}.
       Marque guias em aberto e envie para o cliente no e-Contador (categoria Guias); a guia anterior do mesmo período, se foi enviada pelo ERP, é excluída de lá.
-      {% else %}Não conectado: rode <code>CONECTAR_ECONTADOR.bat</code> no servidor e faça o login (usuário, senha e verificação).{% endif %}</p></div>
+      {% else %}Não conectado.{% endif %}</p></div>
     <div class="acoes">
+      <a class="botao {{ 'secundario' if ec.tem }}" href="/econtador/conectar?volta=/guias%23econtador">{{ 'Reconectar' if ec.tem else 'Conectar e-Contador' }}</a>
       {% if ec.pagas_pendentes %}<form method="post" action="/guias/econtador/baixar" class="em-linha"><button class="secundario" {{ 'disabled' if not ec.tem }}>Dar baixa no e-Contador ({{ ec.pagas_pendentes }})</button></form>{% endif %}
       {% if usuario.perfil == 'ADMIN' %}<form method="post" action="/configuracoes/guias" class="em-linha"><input type="hidden" name="form_ec" value="1">
         <label class="rf-radio"><input type="checkbox" name="econtador_baixa_guias_auto" value="1" {{ 'checked' if ec.baixa_auto }} onchange="this.form.submit()"> Baixa automática no e-Contador depois da conferência de pagamentos</label></form>{% endif %}
