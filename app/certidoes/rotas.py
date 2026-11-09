@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from collections import Counter
 
+import threading
+
 from fastapi import APIRouter, Depends, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -12,6 +15,8 @@ from ..config import DATA_DIR
 from ..configuracoes import ler_config
 from ..db import get_db
 from ..web import admin, auditar, flash, render, usuario_atual
+from ..serpro import apis
+from . import federal
 from . import servico as cs
 from . import tipos as T
 
@@ -26,7 +31,8 @@ def _ctx(db: Session) -> dict:
     from ..econtador.servico import tem_token
     return dict(execucao=cs.situacao_execucao(), tem_token=tem_token(db), publicar=cs.publicar_ligado(db),
                 ultima=ler_config(db, "certidoes_ultima_execucao"), proxima=cs.proxima_execucao(db),
-                ESTADOS=cs.ESTADOS, ROTULOS=T.ROTULOS)
+                ESTADOS=cs.ESTADOS, ROTULOS=T.ROTULOS, cnd_modo=apis.modo(db, "CND"), federal_auto=federal.automatico(db),
+                federal_rodando=_federal["rodando"])
 
 
 @router.get("/certidoes")
@@ -58,7 +64,8 @@ def certidoes_empresa(pid: int, request: Request, db: Session = Depends(get_db),
     if not p.usa_cnd:
         flash(request, "O módulo Certidões está desligado para esta empresa (Dados e configurações → Módulos).", "erro")
         return _redir(f"/prestadores/{pid}?aba=config")
-    return render(request, "certidoes_empresa.html", p=p, aba="certidoes", lista=cs.linhas(db, pid), **_ctx(db))
+    return render(request, "certidoes_empresa.html", p=p, aba="certidoes", lista=cs.linhas(db, pid),
+                  fed_atual=federal.federal_atual(db, p), fed_tentativa=federal.ultima_tentativa(db, p), **_ctx(db))
 
 
 @router.post("/certidoes/consultar")
@@ -68,13 +75,73 @@ async def certidoes_consultar(request: Request, db: Session = Depends(get_db), u
     volta = f"/prestadores/{pid}/certidoes" if pid else "/certidoes"
     try:
         from ..econtador.servico import cliente
-        cliente(db)  # confere a chave antes de abrir a execução
+        try:
+            cliente(db)  # confere a chave antes de abrir a execução
+        except ValueError:
+            if not federal.automatico(db):
+                raise
         cs.executar_em_segundo_plano(pid, u.login)
     except ValueError as e:
         flash(request, str(e), "erro")
         return _redir(volta)
     flash(request, "Consulta ao Pack CND iniciada. Esta página mostra o andamento; atualize em alguns instantes.")
     return _redir(volta)
+
+
+# ---- certidão federal pela API Consulta CND (Serpro) ------------------------------------------
+
+_federal = {"rodando": False}
+
+
+@router.post("/prestadores/{pid}/certidoes/federal")
+async def certidao_federal_emitir(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    p = db.get(models.Prestador, pid)
+    if not p:
+        return _redir("/prestadores")
+    volta = f"/prestadores/{pid}/certidoes"
+    try:
+        r = await run_in_threadpool(federal.emitir, db, p, u.login)
+    except apis.ErroAPI as e:
+        db.rollback()
+        flash(request, str(e), "erro")
+        return _redir(volta)
+    auditar(db, request, u, "CND_FEDERAL", "prestador", pid, r["mensagem"][:300])
+    db.commit()
+    if r["ok"]:
+        c = r["certidao"]
+        flash(request, f"Certidão federal: {r['mensagem']} — {c.situacao}, válida até {c.vencimento:%d/%m/%Y}." if c.vencimento
+              else f"Certidão federal: {r['mensagem']}.")
+    else:
+        flash(request, f"Certidão federal: {r['mensagem']}", "erro")
+    return _redir(volta)
+
+
+@router.post("/certidoes/federal/renovar")
+async def certidoes_federal_renovar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    if apis.modo(db, "CND") == "desligado":
+        flash(request, "A Consulta CND do Serpro está desligada (Configurações → APIs do Serpro).", "erro")
+        return _redir("/certidoes")
+    if _federal["rodando"]:
+        flash(request, "A renovação das certidões federais já está em andamento.", "erro")
+        return _redir("/certidoes")
+    usuario = u.login
+
+    def alvo():
+        from ..db import SessionLocal
+        _federal["rodando"] = True
+        try:
+            with SessionLocal() as s:
+                r = federal.renovar(s, federal.empresas(s), usuario)
+                if cs.publicar_ligado(s):
+                    cs.publicar_pendentes(s)
+                s.add(models.Auditoria(usuario_login=usuario, acao="CND_FEDERAL_LOTE", entidade="prestador", entidade_id=None,
+                                       detalhes=f"{r['consultadas']} consultada(s), {r['emitidas']} emitida(s); " + "; ".join(r["problemas"][:20])))
+                s.commit()
+        finally:
+            _federal["rodando"] = False
+    threading.Thread(target=alvo, daemon=True).start()
+    flash(request, "Renovação das certidões federais iniciada (só as empresas sem federal válida por mais de 15 dias). Atualize em alguns instantes.")
+    return _redir("/certidoes")
 
 
 @router.get("/certidoes/{cid}/arquivo")

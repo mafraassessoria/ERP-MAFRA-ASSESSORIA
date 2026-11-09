@@ -95,7 +95,7 @@
 <section class="cartao" id="receita">
   <h2>Receita Federal (Integra Contador – Serpro)</h2>
   <p class="sutil">Consultas no e-CAC das empresas pela API oficial do Serpro, usando o certificado do escritório e a procuração
-    eletrônica de cada cliente. Uso neste mês: <b>{{ serpro.chamadas }}</b> chamada(s) · <b>R$ {{ '%.2f'|format(serpro.gasto)|replace('.', ',') }}</b>
+    eletrônica de cada cliente. Uso neste mês: <b>{{ serpro.chamadas }}</b> chamada(s) do Integra · gasto total com o Serpro (inclui Consulta CPF e CND) <b>R$ {{ '%.2f'|format(serpro.gasto)|replace('.', ',') }}</b>
     (limite R$ {{ serpro.limite }}).</p>
   <form method="post" action="/configuracoes/receita">
     <fieldset>
@@ -123,6 +123,38 @@
     <button>Salvar Receita Federal</button>
   </form>
   <form method="post" action="/configuracoes/receita/testar" class="em-linha"><button class="secundario" {{ 'disabled' if serpro.modo == 'desligado' }}>Testar conexão</button></form>
+</section>
+
+<section class="cartao" id="apis-serpro">
+  <h2>APIs do Serpro: Consulta CPF e Consulta CND</h2>
+  <p class="sutil">Contratos avulsos da Loja Serpro. A <b>Consulta CPF</b> preenche o nome e a situação de pessoas físicas nos cadastros
+    (a Receita exige a data de nascimento). A <b>Consulta CND</b> emite a certidão federal (RFB/PGFN) das empresas, que entra na
+    lista de Certidões e vai para o Bot Arquivador. O gasto entra no mesmo limite mensal do Integra Contador.</p>
+  <form method="post" action="/configuracoes/apis-serpro">
+    {% for prod, a in apis_serpro.items() %}
+    <fieldset>
+      <legend>{{ a.nome }} {% if a.modo == 'producao' %}· neste mês {{ a.chamadas }} chamada(s) cobrada(s), R$ {{ '%.2f'|format(a.gasto)|replace('.', ',') }}{% endif %}</legend>
+      {% for k, rot in APIS_MODOS.items() %}<label class="rf-radio"><input type="radio" name="{{ prod|lower }}_modo" value="{{ k }}" {{ 'checked' if a.modo == k }}> {{ rot }}</label>{% endfor %}
+      <div class="tres-colunas">
+        <label>Consumer Key <input name="{{ prod|lower }}_ck" autocomplete="off" placeholder="{{ 'guardada — preencha só para trocar' if a.proprias else ('vazio = usar ' + a.origem_chaves if a.origem_chaves else '') }}"></label>
+        <label>Consumer Secret <input name="{{ prod|lower }}_cs" type="password" autocomplete="new-password" placeholder="{{ 'guardada — preencha só para trocar' if a.proprias else '' }}"></label>
+        <label>Preço por chamada (R$) <input name="{{ prod|lower }}_preco" value="{{ a.preco }}" inputmode="decimal"></label>
+      </div>
+      <p class="sutil">Chaves: {{ a.origem_chaves or 'nenhuma informada' }}. Cada contrato da Loja tem sua própria Consumer Key/Secret (Área do cliente → contrato → Credenciais).</p>
+      {% if prod == 'CND' %}
+      <div class="duas-colunas">
+        <label>Código de identificação da consulta <input name="cnd_codigo" value="{{ cnd_codigo }}" maxlength="10"></label>
+        <label class="check"><input type="checkbox" name="federal_auto" value="1" {{ 'checked' if federal_auto }}> Renovar a federal automaticamente na consulta agendada de certidões (só quando faltar ≤ 15 dias ou não houver)</label>
+      </div>
+      {% endif %}
+    </fieldset>
+    {% endfor %}
+    <button>Salvar APIs do Serpro</button>
+  </form>
+  <div class="acoes">
+    <form method="post" action="/configuracoes/apis-serpro/testar?produto=CPF" class="em-linha"><button class="secundario" {{ 'disabled' if apis_serpro.CPF.modo == 'desligado' }}>Testar Consulta CPF</button></form>
+    <form method="post" action="/configuracoes/apis-serpro/testar?produto=CND" class="em-linha"><button class="secundario" {{ 'disabled' if apis_serpro.CND.modo == 'desligado' }}>Testar Consulta CND</button></form>
+  </div>
 </section>
 
 <section class="cartao" id="tabelas">

@@ -180,7 +180,7 @@ def coletar_empresa(db: Session, cli: ClienteEContador, p: models.Prestador, ago
             except ErroAPI as e:
                 c.erro = str(e)[:500]
     for c in db.scalars(select(models.Certidao).where(models.Certidao.prestador_id == p.id)):
-        if c.pack_id not in vistos:
+        if c.pack_id not in vistos and not c.pack_id.startswith("RFB-"):   # federal emitida pela API não vem do Pack
             c.no_pack = False
     db.flush()
     return dict(certidoes=len(vistos), novas=novas, alteradas=alteradas, baixadas=baixadas)
@@ -295,8 +295,15 @@ def executar(prestador_id: int | None = None, usuario: str = "agendador", cli: C
     try:
         _execucao.update(rodando=True, inicio=datetime.now(), fim=None, feitas=0, total=0, erros=[], resumo="", por=usuario)
         with SessionLocal() as db:
-            cli = cli or cliente_padrao(db)
-            emps = empresas_alvo(db, prestador_id)
+            from . import federal
+            fed_auto = federal.automatico(db)
+            try:
+                cli = cli or cliente_padrao(db)
+                emps = empresas_alvo(db, prestador_id)
+            except ErroAPI:
+                if not fed_auto:
+                    raise
+                cli, emps = None, []   # sem e-Contador: faz só a federal
             _execucao["total"] = len(emps)
             soma = dict(certidoes=0, novas=0, alteradas=0, baixadas=0)
             for p in emps:
@@ -311,12 +318,18 @@ def executar(prestador_id: int | None = None, usuario: str = "agendador", cli: C
                     if "401" in str(e) or "conexão" in str(e):
                         break
                 _execucao["feitas"] += 1
+            fed = dict(consultadas=0, emitidas=0, problemas=[])
+            if fed_auto:
+                fed = federal.renovar(db, federal.empresas(db, prestador_id), usuario)
+                _execucao["erros"].extend(fed["problemas"])
             entregues, erros_pub = 0, []
             if publicar_ligado(db):
                 entregues, erros_pub = publicar_pendentes(db)
                 _execucao["erros"].extend(erros_pub)
             resumo = (f"{_execucao['feitas']} empresa(s), {soma['certidoes']} certidão(ões), {soma['novas']} nova(s), "
-                      f"{soma['alteradas']} alterada(s), {soma['baixadas']} PDF(s) baixado(s), {entregues} entregue(s) ao arquivador"
+                      f"{soma['alteradas']} alterada(s), {soma['baixadas']} PDF(s) baixado(s), "
+                      + (f"{fed['emitidas']} federal(is) emitida(s) na Receita, " if fed_auto else "")
+                      + f"{entregues} entregue(s) ao arquivador"
                       + (f", {len(_execucao['erros'])} problema(s)" if _execucao["erros"] else ""))
             _execucao["resumo"] = resumo
             if not prestador_id:

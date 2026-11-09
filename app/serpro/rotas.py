@@ -289,8 +289,75 @@ async def receita_testar(request: Request, db: Session = Depends(get_db), u=Depe
     return _redir("/configuracoes#receita")
 
 
+# ---- APIs avulsas: Consulta CPF e Consulta CND ------------------------------------------------
+
+@router.post("/configuracoes/apis-serpro")
+async def apis_config(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    from . import apis
+    form = await request.form()
+    det = []
+    for prod in apis.PRODUTOS:
+        k = prod.lower()
+        m = form.get(f"{k}_modo") or "desligado"
+        m = m if m in apis.MODOS else "desligado"
+        gravar_config(db, f"serpro_{k}_modo", m)
+        apis.gravar_chaves(db, prod, texto(form, f"{k}_ck", 200), texto(form, f"{k}_cs", 200))
+        if texto(form, f"{k}_preco", 12):
+            gravar_config(db, f"serpro_preco_{prod}", texto(form, f"{k}_preco", 12))
+        det.append(f"{prod}={m}")
+        if m == "producao" and not apis.chaves(db, prod)[0]:
+            flash(request, f"{apis.PRODUTOS[prod]} em produção sem chaves: informe a Consumer Key/Secret do contrato.", "erro")
+    if texto(form, "cnd_codigo", 10):
+        gravar_config(db, "serpro_cnd_codigo", texto(form, "cnd_codigo", 10))
+    gravar_config(db, "certidoes_federal_auto", "1" if form.get("federal_auto") == "1" else "0")
+    auditar(db, request, u, "CONFIG_APIS_SERPRO", "configuracao", None, " ".join(det))
+    db.commit()
+    flash(request, "Configuração das APIs do Serpro salva.")
+    return _redir("/configuracoes#apis-serpro")
+
+
+@router.post("/configuracoes/apis-serpro/testar")
+async def apis_testar(request: Request, produto: str = "CPF", db: Session = Depends(get_db), u=Depends(admin)):
+    """Produção: só autentica (não cobra). Demonstração: faz uma consulta com dado fictício do Serpro."""
+    from . import apis
+    from .gateway import ErroGateway
+    produto = produto if produto in apis.PRODUTOS else "CPF"
+    try:
+        cli = apis.cliente(db, produto)
+        if cli.modo == "producao":
+            await run_in_threadpool(cli.token)
+            msg = f"{apis.PRODUTOS[produto]}: chaves aceitas pelo Serpro. Nenhuma consulta cobrada."
+        elif produto == "CPF":
+            r = await run_in_threadpool(cli.cpf, "40442820135", "14111970")
+            d = r.json() if r.status_code == 200 else {}
+            msg = f"Consulta CPF (demonstração) respondeu HTTP {r.status_code}" + (f": {d.get('nome')} — {(d.get('situacao') or {}).get('descricao', '')}" if d else "")
+        else:
+            r = await run_in_threadpool(cli.cnd, {"TipoContribuinte": 1, "ContribuinteConsulta": "00000000000191",
+                                                  "CodigoIdentificacao": apis.codigo_cnd(db), "GerarCertidaoPdf": False})
+            msg = f"Consulta CND (demonstração) respondeu HTTP {r.status_code}: {r.text[:200]}"
+        flash(request, msg)
+    except (apis.ErroAPI, ErroGateway) as e:
+        flash(request, f"Falha no teste: {e}", "erro")
+    except ValueError:
+        flash(request, "O Serpro respondeu num formato inesperado.", "erro")
+    return _redir("/configuracoes#apis-serpro")
+
+
+def contexto_apis(db: Session) -> dict:
+    from . import apis
+    out = {}
+    for prod, nome in apis.PRODUTOS.items():
+        ck, cs, origem = apis.chaves(db, prod)
+        n, v = apis.uso_mes(db, prod)
+        out[prod] = dict(nome=nome, modo=apis.modo(db, prod), origem_chaves=origem,
+                         proprias=bool(ler_config(db, f"serpro_{prod.lower()}_ck_cripto")),
+                         preco=ler_config(db, f"serpro_preco_{prod}") or apis.PRECOS_PADRAO[prod], chamadas=n, gasto=v)
+    return {"apis_serpro": out, "APIS_MODOS": apis.MODOS, "cnd_codigo": apis.codigo_cnd(db),
+            "federal_auto": (ler_config(db, "certidoes_federal_auto") or "1") == "1"}
+
+
 def contexto_config(db: Session) -> dict:
-    return {"serpro": {"modo": sv.modo(db), "tem_chaves": sv.tem_chaves(db), "precos": {
+    return {**contexto_apis(db), "serpro": {"modo": sv.modo(db), "tem_chaves": sv.tem_chaves(db), "precos": {
         t: ler_config(db, f"serpro_preco_{t}") or p for t, p in PRECOS_PADRAO.items()},
         "limite": ler_config(db, "serpro_limite_mensal") or "200,00", "gasto": sv.gasto_mes(db),
         "chamadas": sv.chamadas_mes(db), "escritorio": sv.escritorio(db)}, "SERPRO_MODOS": sv.MODOS}

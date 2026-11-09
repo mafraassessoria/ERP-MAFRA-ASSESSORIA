@@ -119,7 +119,8 @@ def gasto_mes(db: Session, ref: date | None = None) -> Decimal:
     inicio = datetime(ref.year, ref.month, 1)
     v = db.scalar(select(func.coalesce(func.sum(models.ConsultaReceita.custo), 0)).where(
         models.ConsultaReceita.data_hora >= inicio, models.ConsultaReceita.modo == "producao"))
-    return Decimal(str(v or 0))
+    from .apis import gasto_mes as gasto_apis   # Consulta CPF e Consulta CND entram no mesmo limite
+    return Decimal(str(v or 0)) + gasto_apis(db, ref)
 
 
 def chamadas_mes(db: Session, ref: date | None = None) -> int:

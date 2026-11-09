@@ -44,34 +44,40 @@ async def api_cnpj(cnpj: str, u=Depends(usuario_atual)):
 
 
 @router.get("/api/cpf/{cpf}")
-def api_cpf(cpf: str, db: Session = Depends(get_db), u=Depends(usuario_atual)):
-    """CPF não tem consulta pública na Receita (LGPD). Busca na base do próprio escritório:
-    tomadores e intermediários de qualquer empresa (inclusive os criados pela importação do ADN)."""
+async def api_cpf(cpf: str, request: Request, nasc: str = "", forcar: int = 0, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    """Consulta CPF v3 do Serpro (nome e situação na Receita). A Receita exige a data de nascimento.
+    O endereço não vem da Receita: se o CPF já estiver cadastrado em alguma empresa do escritório,
+    os contatos/endereço de lá completam os campos vazios."""
+    from .serpro import apis
     doc = so_digitos(cpf)
     if len(doc) != 11 or not validar_documento(doc):
         return JSONResponse({"erro": "CPF inválido (confira os dígitos)."}, status_code=422)
-    campos = ("nome", "email", "telefone", "cep", "logradouro", "numero", "complemento", "bairro",
+    if not apis.data_nascimento(nasc):
+        return JSONResponse({"erro": "Informe a data de nascimento para consultar o CPF na Receita.",
+                             "precisa_nascimento": True}, status_code=422)
+    try:
+        r = await run_in_threadpool(apis.consultar_cpf, db, doc, nasc, u.login, bool(forcar))
+    except apis.ErroAPI as e:
+        db.commit()   # guarda o registro da tentativa (custo)
+        return JSONResponse({"erro": str(e)}, status_code=422)
+    if not r.do_cache:
+        auditar(db, request, u, "CONSULTA_CPF", "cpf", None, f"{doc[:3]}***{doc[-2:]} {r.situacao}")
+    db.commit()
+    dados = {"nome": r.nome, "nome_social": r.nome_social, "situacao": r.situacao, "regular": r.regular,
+             "data_nascimento": r.nascimento.isoformat() if r.nascimento else "",
+             "fonte": "Receita Federal (Consulta CPF – Serpro" + (", resultado guardado" if r.do_cache else "") + ")"}
+    campos = ("email", "telefone", "cep", "logradouro", "numero", "complemento", "bairro",
               "municipio", "uf", "codigo_municipio_ibge", "inscricao_municipal")
     achados = list(db.scalars(select(models.Tomador).where(models.Tomador.documento == doc)
                               .order_by(models.Tomador.atualizado_em.desc())))
     achados += list(db.scalars(select(models.Intermediario).where(models.Intermediario.documento == doc)))
-    if not achados:
-        nota = db.scalar(select(models.NotaFiscal).where(models.NotaFiscal.tomador_documento == doc)
-                         .order_by(models.NotaFiscal.id.desc()).limit(1))
-        if nota is None:
-            return JSONResponse({"erro": "CPF não encontrado na base do escritório. A Receita não oferece consulta "
-                                         "pública de CPF (dado pessoal, LGPD): preencha os dados manualmente."},
-                                status_code=404)
-        return JSONResponse({"nome": nota.tomador_nome, "fonte": "notas fiscais já registradas"})
-    # junta os dados: o cadastro mais recente manda, os outros completam o que faltar
-    dados = {}
     for a in achados:
         for c in campos:
             v = getattr(a, c, "") or ""
             if v and not dados.get(c):
                 dados[c] = v
-    empresas = sorted({db.get(models.Prestador, a.prestador_id).razao_social for a in achados})
-    dados["fonte"] = "cadastro de tomadores do escritório (" + ", ".join(empresas[:3]) + (" e outras" if len(empresas) > 3 else "") + ")"
+    if achados:
+        dados["complemento_fonte"] = "endereço e contatos do cadastro já existente no escritório"
     return JSONResponse(dados)
 
 
@@ -671,6 +677,8 @@ async def tomador_salvar(pid: int, request: Request, db: Session = Depends(get_d
     t.codigo_municipio_ibge = ibge
     t.uf = texto(form, "uf", 2).upper()
     t.ativo = form.get("ativo") == "1"
+    from .serpro.apis import data_nascimento
+    t.data_nascimento = data_nascimento(form.get("data_nascimento")) if len(doc) == 11 else None
     if erro:
         return render(request, "tomador_form.html", p=p, t=t, volta=form.get("volta") or "", mensagens=[["erro", erro]])
     if not tid:

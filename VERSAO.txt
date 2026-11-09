@@ -1,2 +1,2 @@
 ERP MAFRA ASSESSORIA
-Versão publicada em 07/11/2026 — teste da atualização automática.
+Versão publicada em 09/11/2026 — Consulta CPF e Consulta CND (Serpro).

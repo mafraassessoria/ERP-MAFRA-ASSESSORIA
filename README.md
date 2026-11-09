@@ -198,7 +198,10 @@ para tomador pessoa física.
   abertos do CNPJ** publicados pela Receita Federal. Os CEPs vêm do ViaCEP.
 - **Atualização:** a base pública é atualizada mensalmente. Empresas abertas ou alteradas há poucos
   dias podem não aparecer ou aparecer desatualizadas. Confira sempre antes de salvar.
-- **CPF:** não é consultável, porque é dado pessoal protegido pela LGPD. Preencha à mão.
+- **CPF:** usa a **Consulta CPF do Serpro** (contrato pago, ver "APIs do Serpro" abaixo). A Receita exige a
+  **data de nascimento**: ao buscar um CPF o sistema pede a data e consulta sozinho quando ela é preenchida. Vem o
+  nome e a situação do CPF (avisa se não estiver regular). A Receita não informa endereço: se o CPF já estiver
+  cadastrado em outra empresa do escritório, o endereço e os contatos de lá completam os campos vazios.
 - **Para escala maior:** a consulta oficial paga da Receita é a API do Serpro (Consulta CNPJ).
 
 ## Como emitir uma nota (resumo)
@@ -357,6 +360,24 @@ Configuração (Configurações → Receita Federal):
 4. Ajuste os preços por chamada conforme a faixa do contrato e o **limite mensal**. O sistema soma o custo, avisa o estimado antes de um lote e bloqueia ao atingir o limite.
 
 Repetir a mesma consulta no mesmo dia abre o resultado guardado (sem custo). Para forçar, use "Consultar de novo". Toda consulta fica registrada na auditoria.
+
+## APIs do Serpro: Consulta CPF e Consulta CND
+
+Contratos avulsos da Loja Serpro, configurados em **Configurações → APIs do Serpro**. Cada uma tem modo
+(desligado / demonstração / produção), Consumer Key/Secret próprias (se ficarem em branco usa as do Integra
+Contador) e preço por chamada. O gasto entra no **mesmo limite mensal** do Integra Contador. O botão *Testar*
+em produção só autentica (não cobra).
+
+- **Consulta CPF (v3):** nome, nome social e situação do CPF no cadastro de tomadores e intermediários.
+  O mesmo CPF com a mesma data de nascimento é reaproveitado por 180 dias, sem nova cobrança.
+- **Consulta CND (v1):** emite a **certidão federal** (Conjunta RFB/PGFN), que não vem no Pack CND. Ela entra na
+  lista de Certidões como as outras e é entregue ao Bot Arquivador.
+  - Botão **Emitir certidão federal agora** na aba Certidões da empresa; botão **Renovar certidões federais**
+    na tela geral.
+  - Com a renovação automática ligada, a consulta agendada de certidões emite a federal de quem não tem uma
+    válida por mais de 15 dias (vale também a federal que vier do Pack).
+  - Se a Receita recusar por pendência (certidão não emitida), a empresa só é tentada de novo depois de 7 dias,
+    para não pagar todo dia. "Em processamento" e "serviço indisponível" não são cobrados.
 
 ## Próximas etapas
 

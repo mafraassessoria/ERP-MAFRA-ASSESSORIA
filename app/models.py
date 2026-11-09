@@ -337,6 +337,7 @@ class Tomador(Timestamps, Base):
     municipio: Mapped[str] = mapped_column(String(80), default="")
     uf: Mapped[str] = mapped_column(String(2), default="")
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    data_nascimento: Mapped[date | None] = mapped_column(Date, nullable=True)   # pessoa física (Consulta CPF v3)
 
     prestador: Mapped[Prestador] = relationship(back_populates="tomadores")
 
@@ -651,3 +652,19 @@ class Recebimento(Base):
 
     prestador: Mapped["Prestador"] = relationship()
     nota: Mapped["NotaFiscal"] = relationship()
+
+
+class ConsultaAPI(Base):
+    """Chamadas às APIs avulsas do Serpro (Consulta CPF, Consulta CND): custo e resultado resumido."""
+    __tablename__ = "consultas_api"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    produto: Mapped[str] = mapped_column(String(10), index=True)      # CPF | CND
+    documento: Mapped[str] = mapped_column(String(14), index=True)
+    data_hora: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    usuario: Mapped[str] = mapped_column(String(40), default="")
+    modo: Mapped[str] = mapped_column(String(15), default="")
+    http: Mapped[int] = mapped_column(Integer, default=0)
+    ok: Mapped[bool] = mapped_column(Boolean, default=False)
+    resumo: Mapped[str] = mapped_column(String(300), default="")
+    dados: Mapped[str] = mapped_column(Text, default="")              # JSON sem o PDF
+    custo: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)

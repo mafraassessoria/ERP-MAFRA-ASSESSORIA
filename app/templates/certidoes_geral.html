@@ -5,10 +5,12 @@
 <div class="linha-titulo">
   <div><h1>Certidões</h1>
     <p class="sutil">Pack CND do e-Contador · {{ empresas }} empresa(s) com Certidões e e-Contador ligados ·
+      {% if cnd_modo != 'desligado' %}federal emitida na Receita (API Consulta CND{{ ', renovação automática' if federal_auto }}{{ ', demonstração' if cnd_modo == 'demonstracao' }}) ·{% endif %}
       última consulta geral {{ ultima[:16]|replace('T', ' ') if ultima else 'nunca' }}{% if proxima %} · próxima automática {{ proxima|datahora }}{% endif %}</p></div>
   <div class="acoes">
     {% if pendentes %}<form method="post" action="/certidoes/entregar-pendentes" class="em-linha" onsubmit="return confirm('Entregar {{ pendentes }} certidão(ões) ao Bot Arquivador?')"><button class="secundario">Entregar {{ pendentes }} ao arquivador</button></form>{% endif %}
-    <form method="post" action="/certidoes/consultar" class="em-linha"><button {{ 'disabled' if execucao.rodando or not tem_token }}>Consultar o Pack CND</button></form>
+    {% if cnd_modo != 'desligado' %}<form method="post" action="/certidoes/federal/renovar" class="em-linha" onsubmit="return confirm('Emitir na Receita a certidão federal das empresas que não têm uma válida por mais de 15 dias? Cada emissão é cobrada pelo Serpro.')"><button class="secundario" {{ 'disabled' if federal_rodando }}>{{ 'Renovando federais…' if federal_rodando else 'Renovar certidões federais' }}</button></form>{% endif %}
+    <form method="post" action="/certidoes/consultar" class="em-linha"><button {{ 'disabled' if execucao.rodando or (not tem_token and not federal_auto) }}>Consultar o Pack CND</button></form>
   </div>
 </div>
 {% include "_certidoes_execucao.html" %}

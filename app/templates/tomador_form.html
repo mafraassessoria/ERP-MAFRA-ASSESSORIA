@@ -10,6 +10,8 @@
   <div class="grade">
     <label>CPF/CNPJ * <span class="com-botao"><input name="documento" data-doc data-nome="nome" value="{{ t.documento|doc if t.documento else '' }}" required>
       <button type="button" class="secundario" onclick="buscarCNPJ(this)">Buscar CPF/CNPJ</button></span></label>
+    <label data-nascimento>Data de nascimento <small class="sutil">(pessoa física — exigida pela consulta de CPF na Receita)</small>
+      <input type="date" name="data_nascimento" value="{{ t.data_nascimento.isoformat() if t.data_nascimento else '' }}"></label>
     <label class="larga">Nome / razão social * <input name="nome" value="{{ t.nome or '' }}" required></label>
     <label>Inscrição municipal <input name="inscricao_municipal" value="{{ t.inscricao_municipal or '' }}"></label>
     <label>E-mail <input name="email" type="email" value="{{ t.email or '' }}"></label>
