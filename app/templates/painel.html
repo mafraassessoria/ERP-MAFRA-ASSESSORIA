@@ -1,58 +1,45 @@
 {% extends "base.html" %}
+{% block titulo %}Painel{% endblock %}
 {% block conteudo %}
-<h1>Painel</h1>
-<div class="numeros">
-  <a class="cartao-num" href="/prestadores?situacao=ativos"><b>{{ resumo.prestadores }}</b><span>prestadores ativos</span></a>
-  <a class="cartao-num" href="/prestadores?situacao=ativos&modo=EMISSAO"><b>{{ resumo.emissao }}</b><span>emissão pelo escritório</span></a>
-  <a class="cartao-num" href="/prestadores?situacao=ativos&modo=IMPORTACAO"><b>{{ resumo.importacao }}</b><span>somente importação</span></a>
-  <a class="cartao-num" href="/tomadores"><b>{{ resumo.tomadores }}</b><span>tomadores</span></a>
-  <a class="cartao-num" href="/notas?situacao=AUTORIZADA&competencia={{ mes_atual }}"><b>{{ resumo.notas_mes }}</b><span>notas autorizadas no mês</span></a>
-</div>
+<div class="linha-titulo"><h1>Painel</h1>
+  <p class="sutil"><a href="/prestadores?situacao=ativos">{{ empresas.ativas }} empresas ativas</a> · {{ empresas.nfse }} com NFS-e ·
+    {{ empresas.receita }} com Receita Federal · {{ empresas.cnd }} com certidões</p></div>
 
-{% if seguranca and seguranca.falhas %}
-<div class="msg erro">Segurança: {{ seguranca.falhas }} tentativa(s) de login com erro nas últimas 24 horas
-  ({{ seguranca.logins|join(', ') }}){% if seguranca.bloqueados %} · bloqueado(s) agora: <b>{{ seguranca.bloqueados|join(', ') }}</b>{% endif %}.
-  <a href="/auditoria?acao=LOGIN_FALHOU">Ver detalhes</a></div>
-{% endif %}
+<section class="para-hoje">
+  <h2>Para hoje <small class="sutil">· {{ hoje_txt }}</small></h2>
+  {% if acoes %}
+  <div class="acoes-dia">
+    {% for a in acoes %}<a class="acao-dia {{ a.nivel }}" href="{{ a.link }}"><b>{{ a.n }}</b> {{ a.texto }}</a>{% endfor %}
+  </div>
+  {% else %}<p class="sutil">Nada pedindo ação agora. 👍</p>{% endif %}
+</section>
+
 {% if seguranca and seguranca.sem_2fa %}
-<div class="msg">Recomendado: ative a <a href="/minha-conta/2fa">verificação em duas etapas</a> na sua conta de administrador
-  (código do celular no login). É quem pode fazer consultas pagas ao Serpro e mudar as configurações.</div>
-{% endif %}
-{% if backup_atrasado %}
-<div class="msg erro">Atenção: {% if ultimo_backup %}o último backup é de {{ ultimo_backup|datahora }}{% else %}nenhum backup foi feito ainda{% endif %}. Confira a tarefa de backup.</div>
-{% else %}
-<p class="sutil">Último backup: {{ ultimo_backup|datahora }}</p>
+<div class="msg">Recomendado: ative a <a href="/minha-conta/2fa">verificação em duas etapas</a> na sua conta de administrador.</div>
 {% endif %}
 
-<div class="duas-colunas">
-<section class="cartao">
-<h2>Pendências</h2>
-{% if alertas %}
-<table class="ordenavel compacta">
-  <tr><th>Prestador</th><th>Pendência</th></tr>
-  {% for p, texto, nota_id in alertas %}
-  <tr><td><a href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a></td>
-      <td>{% if nota_id %}<a href="/notas/{{ nota_id }}">{{ texto }}</a>{% else %}{{ texto }}{% endif %}</td></tr>
+<div class="modulos">
+  {% for c in cartoes %}
+  <section class="modulo">
+    <h3><a href="{{ c.link }}"><span aria-hidden="true">{{ c.icone }}</span> {{ c.titulo }}</a></h3>
+    {% for l in c.linhas %}
+    <div class="mod-linha">{% if l.link %}<a href="{{ l.link }}">{{ l.rotulo }}</a>{% else %}<span>{{ l.rotulo }}</span>{% endif %}
+      <b class="{{ l.nivel }}">{{ l.valor }}</b></div>
+    {% endfor %}
+  </section>
   {% endfor %}
-</table>
-{% else %}
-<p class="sutil">Nenhuma pendência. 👍</p>
-{% endif %}
-
-</section>
-<section class="cartao">
-  <div class="linha-titulo"><h2>Últimas notas</h2><a href="/notas">ver todas</a></div>
-  <table class="notas ordenavel compacta">
-    <colgroup><col style="width:90px"><col><col><col style="width:110px"><col style="width:110px"></colgroup>
-    <tr><th>Nº</th><th>Prestador</th><th>Tomador</th><th class="num">Valor</th><th>Situação</th></tr>
-    {% for n in ultimas %}
-    <tr><td class="linha"><a href="/notas/{{ n.id }}">{{ n.numero_nfse or n.id }}</a></td>
-      <td class="linha" title="{{ n.emitente_nome or n.prestador.razao_social }}">{{ n.emitente_nome or n.prestador.razao_social }}</td>
-      <td class="linha" title="{{ n.tomador_nome }}">{{ n.tomador_nome }}</td>
-      <td class="linha num">{{ n.valor_servicos|moeda }}</td>
-      <td class="linha"><span class="etiqueta situacao-{{ n.situacao|lower }}">{{ SITUACOES_NOTA[n.situacao] }}</span></td></tr>
-    {% else %}<tr><td colspan="5" class="sutil">Nenhuma nota ainda.</td></tr>{% endfor %}
-  </table>
-</section>
 </div>
+
+{% if detalhes_nfse %}
+<details class="cartao" id="pendencias-nfse" {{ 'open' if detalhes_nfse|length <= 6 }}>
+  <summary><h2 style="display:inline">Pendências da NFS-e por empresa ({{ detalhes_nfse|length }})</h2></summary>
+  <table class="compacta">
+    <tr><th>Empresa</th><th>Pendência</th></tr>
+    {% for p, texto, nota_id in detalhes_nfse %}
+    <tr><td><a href="/prestadores/{{ p.id }}">{{ p.codigo_interno ~ ' · ' if p.codigo_interno }}{{ p.razao_social }}</a></td>
+        <td>{% if nota_id %}<a href="/notas/{{ nota_id }}">{{ texto }}</a>{% else %}{{ texto }}{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+</details>
+{% endif %}
 {% endblock %}

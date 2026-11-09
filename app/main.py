@@ -357,66 +357,8 @@ async def primeiro_acesso(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/")
 def painel(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
-    prestadores = db.scalars(
-        select(models.Prestador).where(models.Prestador.ativo.is_(True)).order_by(models.Prestador.razao_social)
-    ).all()
-    limite = datetime.now() + timedelta(days=DIAS_AVISO_CERTIFICADO)
-    alertas = []
-    from .nfse.emissao import descricao_certificado
-    for p in prestadores:
-        if not p.usa_nfse:
-            continue  # os alertas abaixo são do módulo NFS-e
-        if p.importar_por_procuracao:
-            _dono, problema = descricao_certificado(db, p)
-            if problema:
-                alertas.append((p, problema, None))
-            c = None
-        else:
-            c = p.certificado_ativo
-        if c is None:
-            if not p.importar_por_procuracao:
-                alertas.append((p, "sem certificado A1 cadastrado", None))
-        elif c.validade_fim < datetime.now():
-            alertas.append((p, f"certificado VENCIDO em {c.validade_fim:%d/%m/%Y}", None))
-        elif c.validade_fim < limite:
-            alertas.append((p, f"certificado vence em {c.dias_para_vencer} dias ({c.validade_fim:%d/%m/%Y})", None))
-        if p.modo == "EMISSAO":
-            if not p.municipio_aderente:
-                alertas.append((p, "município não confirmado como aderente ao Emissor Nacional", None))
-            if not p.autorizacao_uso_certificado and not p.importar_por_procuracao:
-                alertas.append((p, "sem autorização registrada para uso do certificado", None))
-    pendentes = db.scalars(select(models.NotaFiscal).where(
-        models.NotaFiscal.situacao.in_(("PROCESSANDO", "REJEITADA")), models.NotaFiscal.ambiente == "PRODUCAO")).all()
-    for n in pendentes:
-        alertas.append((n.prestador, f"nota de R$ {n.valor_servicos:.2f} para {n.tomador_nome} está "
-                        f"{models.SITUACOES_NOTA[n.situacao].lower()} (rascunho #{n.id})", n.id))
-    resumo = {
-        "prestadores": len(prestadores),
-        "emissao": sum(1 for p in prestadores if p.emite_nfse),
-        "importacao": sum(1 for p in prestadores if p.usa_nfse and p.modo == "IMPORTACAO"),
-        "tomadores": db.scalar(select(func.count(models.Tomador.id))),
-        "notas_mes": db.scalar(select(func.count(models.NotaFiscal.id)).where(
-            models.NotaFiscal.competencia >= date.today().replace(day=1),
-            models.NotaFiscal.situacao == "AUTORIZADA", models.NotaFiscal.ambiente == "PRODUCAO")),
-    }
-    zips = sorted(BACKUP_DIR.glob("emissor_nfse_*.zip"), key=lambda f: f.stat().st_mtime)
-    ultimo_backup = datetime.fromtimestamp(zips[-1].stat().st_mtime) if zips else None
-    backup_atrasado = ultimo_backup is None or ultimo_backup < datetime.now() - timedelta(days=2)
-    ultimas = db.scalars(select(models.NotaFiscal).where(models.NotaFiscal.situacao.in_(("AUTORIZADA", "CANCELADA")),
-                                                         models.NotaFiscal.ambiente == "PRODUCAO")
-                         .order_by(models.NotaFiscal.id.desc()).limit(12)).all()
-    seguranca = None
-    if u.perfil == "ADMIN":
-        desde = datetime.now() - timedelta(days=1)
-        falhas = db.scalars(select(models.Auditoria).where(models.Auditoria.acao == "LOGIN_FALHOU",
-                                                           models.Auditoria.data_hora >= desde)).all()
-        logins = sorted({f.detalhes.split()[0].removeprefix("login=") for f in falhas})
-        bloqueados = [x for x in logins if login_bloqueado(db, x)]
-        seguranca = dict(falhas=len(falhas), logins=logins, bloqueados=bloqueados, sem_2fa=not u.tem_2fa)
-    return render(request, "painel.html", resumo=resumo, alertas=alertas, mes_atual=date.today().strftime("%Y-%m"),
-                  seguranca=seguranca,
-                  ultimas=ultimas,
-                  ultimo_backup=ultimo_backup, backup_atrasado=backup_atrasado)
+    from .painel import montar
+    return render(request, "painel.html", **montar(db, u))
 
 
 # ---- Usuários (somente admin) -----------------------------------------------

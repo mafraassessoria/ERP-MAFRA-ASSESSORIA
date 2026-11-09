@@ -239,3 +239,37 @@ td.num, th.num { text-align:right; }
 /* filtro com envio automático (Certidões) */
 .filtro-empresa { flex: 1 1 520px; min-width: 420px; max-width: 760px; }
 .filtro-empresa .combo-caixa input { font-size: 1rem; padding: .55rem .8rem; }
+
+/* menu por categoria */
+.topo .menu { gap:.15rem; }
+.topo .menu .grupo { position:relative; }
+.topo .menu .grupo > a { display:block; }
+.topo .menu .seta { font-size:.7em; opacity:.8; }
+.topo .menu .submenu { display:none; position:absolute; top:100%; left:0; min-width:190px; background:#fff; border:1px solid var(--borda);
+  border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.15); padding:.3rem; z-index:50; }
+.topo .menu .grupo:hover .submenu, .topo .menu .grupo:focus-within .submenu { display:block; }
+.topo .menu .submenu a { display:block; color:var(--texto, #1d2733); padding:.45rem .7rem; border-radius:6px; white-space:nowrap; font-weight:400; }
+.topo .menu .submenu a:hover { background:#eef3f8; }
+.topo .menu .submenu a.ativo { background:#e3ecf5; font-weight:600; }
+
+/* painel: para hoje + módulos */
+.para-hoje { margin-bottom:1.2rem; }
+.para-hoje h2 { font-size:1.05rem; margin:.2rem 0 .6rem; }
+.acoes-dia { display:flex; flex-wrap:wrap; gap:.6rem; }
+.acao-dia { flex:1 1 230px; max-width:420px; padding:.65rem .9rem; border-radius:8px; text-decoration:none; font-size:.93rem; border:1px solid transparent; }
+.acao-dia b { font-size:1.15rem; margin-right:.15rem; }
+.acao-dia.erro { background:#fdecec; color:#9b1c1c; border-color:#f5c2c2; }
+.acao-dia.aviso { background:#fff6e0; color:#7a5200; border-color:#f3dc9c; }
+.acao-dia.info { background:#e8f1fb; color:#1f4e79; border-color:#c4dbf3; }
+.acao-dia:hover { filter:brightness(.97); text-decoration:underline; }
+.modulos { display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:1rem; margin-bottom:1.2rem; }
+.modulo { background:#fff; border:1px solid var(--borda); border-radius:10px; padding:.9rem 1.1rem; }
+.modulo h3 { margin:0 0 .5rem; font-size:1.05rem; }
+.modulo h3 a { color:var(--azul); text-decoration:none; }
+.mod-linha { display:flex; justify-content:space-between; gap:1rem; padding:.32rem 0; border-top:1px solid #f0f2f5; font-size:.92rem; }
+.mod-linha:first-of-type { border-top:0; }
+.mod-linha a, .mod-linha span { color:var(--sutil); text-decoration:none; }
+.mod-linha a:hover { color:var(--azul); text-decoration:underline; }
+.mod-linha b { font-weight:600; white-space:nowrap; }
+.mod-linha b.erro { color:var(--verm); } .mod-linha b.aviso { color:var(--amar); } .mod-linha b.ok { color:var(--verde); }
+details.cartao summary { cursor:pointer; }

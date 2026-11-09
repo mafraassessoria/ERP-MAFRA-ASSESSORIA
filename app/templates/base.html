@@ -18,16 +18,23 @@
     <span class="logo"><img src="/static/logo_nfse.png" alt="NFS-e"></span><small><b>ERP MAFRA ASSESSORIA</b><br>M &amp; R Assessoria Contábil</small></a>
   {% set atual = request.url.path %}
   {% if empresa_sel %}<span></span>{% else %}
+  {% set grupos = [
+      ('Painel', '/', [], ['/']),
+      ('Empresas', '/prestadores', [], ['/prestadores', '/tomadores']),
+      ('Fiscal', '/notas', [('Notas fiscais', '/notas'), ('Relatórios', '/relatorios')], ['/notas', '/relatorios']),
+      ('Receita', '/monitor', [('Monitor e-CAC', '/monitor'), ('Guias', '/guias'), ('Pagamentos', '/monitor/pagamentos')], ['/monitor', '/receita', '/guias']),
+      ('Documentos', '/certidoes', [('Certidões', '/certidoes')], ['/certidoes']),
+      ('Financeiro', '/honorarios', [('Honorários', '/honorarios')], ['/honorarios']),
+  ] %}
+  {% if usuario.perfil == 'ADMIN' %}{% set grupos = grupos + [('Sistema', '/configuracoes',
+      [('Configurações', '/configuracoes'), ('Usuários', '/usuarios'), ('Auditoria', '/auditoria')], ['/configuracoes', '/usuarios', '/auditoria'])] %}{% endif %}
   <nav class="menu">
-    <a href="/" class="{{ 'ativo' if atual == '/' }}">Painel</a>
-    <a href="/prestadores" class="{{ 'ativo' if atual.startswith('/prestadores') or atual.startswith('/tomadores') }}">Empresas</a>
-    <a href="/notas" class="{{ 'ativo' if atual.startswith('/notas') }}">Notas</a>
-    <a href="/relatorios" class="{{ 'ativo' if atual.startswith('/relatorios') }}">Relatórios</a>
-    <a href="/certidoes" class="{{ 'ativo' if atual.startswith('/certidoes') }}">Certidões</a>
-    <a href="/monitor" class="{{ 'ativo' if atual.startswith('/monitor') or atual.startswith('/receita') }}">Monitor e-CAC</a>
-    <a href="/guias" class="{{ 'ativo' if atual.startswith('/guias') }}">Guias</a>
-    <a href="/honorarios" class="{{ 'ativo' if atual.startswith('/honorarios') }}">Honorários</a>
-    {% if usuario.perfil == 'ADMIN' %}<a href="/usuarios" class="{{ 'ativo' if atual.startswith('/usuarios') }}">Usuários</a><a href="/configuracoes" class="{{ 'ativo' if atual.startswith('/configuracoes') }}">Configurações</a><a href="/auditoria" class="{{ 'ativo' if atual.startswith('/auditoria') }}">Auditoria</a>{% endif %}
+    {% for nome, link, itens, prefixos in grupos %}
+    {% set ns = namespace(a=(atual == '/')) %}{% if link != '/' %}{% set ns.a = false %}{% for px in prefixos %}{% if atual.startswith(px) %}{% set ns.a = true %}{% endif %}{% endfor %}{% endif %}{% set ativo = ns.a %}
+    <div class="grupo{{ ' ativo' if ativo }}"><a href="{{ link }}" class="{{ 'ativo' if ativo }}">{{ nome }}{% if itens|length > 1 %} <span class="seta">▾</span>{% endif %}</a>
+      {% if itens|length > 1 %}<div class="submenu">{% for t, h in itens %}<a href="{{ h }}" class="{{ 'ativo' if atual.startswith(h) }}">{{ t }}</a>{% endfor %}</div>{% endif %}
+    </div>
+    {% endfor %}
   </nav>{% endif %}
   <span class="quem">{{ usuario.nome }} · <a href="/minha-senha">senha</a> · <a href="/minha-conta/2fa">{{ "2 etapas ✓" if usuario.tem_2fa else "2 etapas" }}</a> · <a href="/sair">sair</a></span>
 </header>
