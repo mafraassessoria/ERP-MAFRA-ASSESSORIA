@@ -6,7 +6,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -44,7 +44,17 @@ def guias(request: Request, situacao: str = "ABERTA", empresa: int = 0, tipo: st
                                                            models.MonitorItem.status == "COM")).all()
     return render(request, "guias.html", lista=lista, empresas=empresas, situacao=situacao, empresa=empresa, tipo=tipo,
                   TIPOS=gs.TIPOS, SITUACOES=gs.SITUACOES, entregar_auto=_entregar_auto(db), n_parc=len(com_parc),
-                  hoje=date.today(), modo=sv.modo(db))
+                  hoje=date.today(), modo=sv.modo(db), ec=_ec_estado(db))
+
+
+def _ec_estado(db):
+    from ..econtador import gravacoes as ecg, sessao as ecs
+    st = ecs.estado(db)
+    st["baixa_auto"] = ecg.automatico(db, "econtador_baixa_guias_auto")
+    st["pagas_pendentes"] = db.scalar(select(func.count(models.GuiaRF.id)).where(
+        models.GuiaRF.situacao == "PAGA", models.GuiaRF.ec_doc_id != "", models.GuiaRF.ec_baixada_em.is_(None),
+        models.GuiaRF.ec_excluida_em.is_(None))) or 0
+    return st
 
 
 @router.post("/guias/gerar")
@@ -124,6 +134,63 @@ async def guias_conciliar(request: Request, db: Session = Depends(get_db), u=Dep
     return _redir("/guias")
 
 
+# ---- e-Contador (pela tela, com a sessão do CONECTAR_ECONTADOR.bat) -----------------------------
+
+def _ec_erro(request, db, e):
+    from ..econtador.web import ErroSessao
+    db.rollback()
+    flash(request, str(e), "erro")
+
+
+@router.post("/guias/econtador/enviar")
+async def guias_ec_enviar(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    """Envia ao e-Contador (categoria Guias) as guias marcadas; as substituídas por elas saem de lá."""
+    from ..econtador import gravacoes as ecg, sessao as ecs
+    from ..econtador.web import ErroSessao, ErroWeb
+    form = await request.form()
+    ids = [int(x) for x in form.getlist("ids") if str(x).isdigit()]
+    guias = [g for g in (db.get(models.GuiaRF, i) for i in ids) if g]
+    if not guias:
+        flash(request, "Marque as guias em aberto que vão para o e-Contador.", "erro")
+        return _redir(form.get("volta") or "/guias")
+    feitas, erros = 0, []
+    try:
+        cli = ecs.cliente(db)
+        mapa = await run_in_threadpool(cli.empresas)
+        for g in guias:
+            try:
+                doc = await run_in_threadpool(ecg.enviar_guia, db, g, u.login, cli, mapa)
+                auditar(db, request, u, "EC_ENVIAR_GUIA", "prestador", g.prestador_id, f"guia {g.id} → documento {doc}")
+                db.commit()
+                feitas += 1
+            except ErroWeb as e:
+                g.ec_erro = str(e)
+                db.commit()
+                erros.append(f"{g.prestador.razao_social}: {e}")
+    except ErroSessao as e:
+        _ec_erro(request, db, e)
+        return _redir(form.get("volta") or "/guias")
+    except ErroWeb as e:
+        erros.append(str(e))
+    flash(request, f"{feitas} guia(s) enviada(s) ao e-Contador.")
+    for x in erros[:8]:
+        flash(request, x, "erro")
+    return _redir(form.get("volta") or "/guias")
+
+
+@router.post("/guias/econtador/baixar")
+async def guias_ec_baixar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    """Dá baixa no e-Contador das guias pagas (conciliadas) que o ERP enviou para lá."""
+    from ..econtador import gravacoes as ecg
+    r = await run_in_threadpool(ecg.baixar_guias_pagas, db)
+    auditar(db, request, u, "EC_BAIXAR_GUIAS", "prestador", None, f"{r['baixadas']} baixada(s); {r['problemas'][:10]}")
+    db.commit()
+    flash(request, f"{r['baixadas']} guia(s) baixada(s) no e-Contador.")
+    for x in r["problemas"][:8]:
+        flash(request, x, "erro")
+    return _redir("/guias?situacao=PAGA")
+
+
 @router.post("/guias/{gid}/{acao}")
 async def guias_acao(gid: int, acao: str, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
     g = db.get(models.GuiaRF, gid)
@@ -154,7 +221,10 @@ async def guias_acao(gid: int, acao: str, request: Request, db: Session = Depend
 @router.post("/configuracoes/guias")
 async def guias_config(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     form = await request.form()
-    gravar_config(db, "guias_entregar", "1" if form.get("guias_entregar") == "1" else "")
+    if "form_ec" in form:
+        gravar_config(db, "econtador_baixa_guias_auto", "1" if form.get("econtador_baixa_guias_auto") == "1" else "0")
+    else:
+        gravar_config(db, "guias_entregar", "1" if form.get("guias_entregar") == "1" else "")
     db.commit()
     flash(request, "Preferência salva.")
     return _redir("/guias")

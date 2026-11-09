@@ -102,6 +102,59 @@ async def honorarios_rascunhos(request: Request, db: Session = Depends(get_db), 
     return _redir(volta)
 
 
+# ---- baixa no e-Contador (pela tela) ------------------------------------------------------------
+
+@router.post("/honorarios/econtador/revisar")
+async def honorarios_ec_revisar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    """Confere cada recebimento com a cobrança do e-Contador (empresa, título, valor, período). Não grava nada."""
+    from fastapi.concurrency import run_in_threadpool
+    from ..econtador import gravacoes as ecg
+    from ..econtador.web import ErroSessao, ErroWeb
+    form = await request.form()
+    ids = [int(x) for x in form.getlist("ids") if str(x).isdigit()]
+    volta = form.get("volta") or "/honorarios"
+    if not ids:
+        flash(request, "Marque os recebimentos.", "erro")
+        return _redir(volta)
+    try:
+        itens = await run_in_threadpool(ecg.revisar_honorarios, db, ids)
+    except (ErroSessao, ErroWeb) as e:
+        flash(request, str(e), "erro")
+        return _redir(volta)
+    prontos = [i for i in itens if i["situacao"] in ("PRONTO", "JA_PAGO")]
+    return render(request, "honorarios_baixa.html", itens=itens, prontos=prontos, volta=volta, SIT=ecg.SITUACOES_REVISAO)
+
+
+@router.post("/honorarios/econtador/baixar")
+async def honorarios_ec_baixar(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from fastapi.concurrency import run_in_threadpool
+    from ..econtador import gravacoes as ecg
+    from ..econtador.web import ErroSessao, ErroWeb
+    form = await request.form()
+    volta = form.get("volta") or "/honorarios"
+    pares = []
+    for x in form.getlist("par"):
+        rid, _, doc = str(x).partition(":")
+        if rid.isdigit() and doc.isdigit():
+            pares.append((int(rid), doc))
+    if not pares:
+        flash(request, "Nenhum recebimento confirmado para baixa.", "erro")
+        return _redir(volta)
+    try:
+        r = await run_in_threadpool(ecg.baixar_honorarios, db, pares, u.login)
+    except (ErroSessao, ErroWeb) as e:
+        db.rollback()
+        flash(request, str(e), "erro")
+        return _redir(volta)
+    auditar(db, request, u, "EC_BAIXA_HONORARIOS", "recebimento", None,
+            f"{r['feitos']} baixa(s) conferida(s): {pares[:40]}; problemas={r['problemas'][:10]}")
+    db.commit()
+    flash(request, f"{r['feitos']} recebimento(s) baixado(s) e conferido(s) no e-Contador.")
+    for x in r["problemas"][:10]:
+        flash(request, x, "erro")
+    return _redir(volta)
+
+
 @router.post("/honorarios/config")
 async def honorarios_config(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     form = await request.form()

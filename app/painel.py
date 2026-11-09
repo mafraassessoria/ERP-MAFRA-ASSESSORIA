@@ -139,6 +139,10 @@ def montar(db: Session, u: models.Usuario) -> dict:
         a_vencer = [g for g in abertas if g.vencimento and hoje <= g.vencimento <= hoje + timedelta(days=5)]
         pagas_mes = db.scalars(select(models.GuiaRF).where(models.GuiaRF.situacao == "PAGA", models.GuiaRF.pago_em >= ini_mes)).all()
         auto = sum(1 for g in pagas_mes if g.pagamento_id)
+        ec_pend = db.scalar(select(func.count(models.GuiaRF.id)).where(
+            models.GuiaRF.situacao == "PAGA", models.GuiaRF.ec_doc_id != "", models.GuiaRF.ec_baixada_em.is_(None),
+            models.GuiaRF.ec_excluida_em.is_(None))) or 0
+        acao("aviso", ec_pend, "guia(s) paga(s) ainda em aberto no e-Contador", "/guias?situacao=PAGA#econtador")
         acao("erro", len(vencidas), "guia(s) com o prazo de pagamento passado e ainda em aberto", "/guias?situacao=ABERTA")
         acao("aviso", len(a_vencer), "guia(s) vencem nos próximos 5 dias", "/guias?situacao=ABERTA")
         cartoes.append(dict(titulo="Guias", icone="🧾", link="/guias", linhas=[
@@ -146,6 +150,7 @@ def montar(db: Session, u: models.Usuario) -> dict:
                    "/guias?situacao=ABERTA", "erro" if vencidas else "ok"),
             _linha("Em aberto (todas)", len(abertas), "/guias?situacao=ABERTA"),
             _linha("Pagas no mês", f"{len(pagas_mes)} ({auto} pela conciliação)", "/guias?situacao=PAGA", "ok" if pagas_mes else ""),
+            _linha("Pagas sem baixa no e-Contador", ec_pend, "/guias?situacao=PAGA#econtador", "aviso" if ec_pend else ""),
         ]))
 
     # ---- Certidões ---------------------------------------------------------------------------
@@ -184,6 +189,8 @@ def montar(db: Session, u: models.Usuario) -> dict:
                    f"/honorarios?mes={ini:%Y-%m}"),
             _linha("Sem nota fiscal", len(sem), f"/honorarios?mes={ini:%Y-%m}&situacao=sem_nota", "aviso" if sem else "ok"),
             _linha("Com nota gerada", len(recs) - len(sem), f"/honorarios?mes={ini:%Y-%m}&situacao=com_nota"),
+            _linha("Sem baixa no e-Contador", sum(1 for r in recs if not r.ec_baixado_em), f"/honorarios?mes={ini:%Y-%m}",
+                   "aviso" if any(not r.ec_baixado_em for r in recs) else "ok"),
             _linha("Último arquivo importado", _quando(ult_imp), "/honorarios"),
         ]))
 

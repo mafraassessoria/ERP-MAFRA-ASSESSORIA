@@ -53,7 +53,9 @@ def configuracoes(request: Request, db: Session = Depends(get_db), u=Depends(adm
         atualizacao = None
     from .certidoes.rotas import contexto_config as ctx_cert
     from .serpro.rotas import contexto_config
-    return render(request, "configuracoes.html", cfg=cfg, prestadores=prestadores, tab=tab, atualizacao=atualizacao, **contexto_config(db), **ctx_cert(db))
+    from .econtador import sessao as ec_sessao
+    return render(request, "configuracoes.html", cfg=cfg, prestadores=prestadores, tab=tab, atualizacao=atualizacao, **contexto_config(db), **ctx_cert(db),
+                  ec_web=ec_sessao.estado(db))
 
 
 @router.post("/configuracoes")

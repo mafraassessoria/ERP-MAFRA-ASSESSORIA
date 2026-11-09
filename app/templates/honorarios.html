@@ -27,13 +27,14 @@
   <div class="em-linha" style="justify-content:space-between;margin-bottom:.5rem">
     <span class="sutil">Descrição: <i>{{ exemplo }}</i> · competência = data do pagamento</span>
     <button {{ 'disabled' if not esc }} onclick="return document.querySelectorAll('.rec-id:checked').length ? confirm('Gerar rascunho de NFS-e para ' + document.querySelectorAll('.rec-id:checked').length + ' recebimento(s)?') : (alert('Marque os recebimentos.'), false)">Gerar rascunhos de NFS-e</button>
+    <button class="secundario" formaction="/honorarios/econtador/revisar" onclick="return document.querySelectorAll('.rec-id:checked').length ? true : (alert('Marque os recebimentos.'), false)" title="Confere cada cobrança no e-Contador antes; nada é gravado nesta etapa">Dar baixa no e-Contador…</button>
   </div>
   <table class="compacta">
     <thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.rec-id').forEach(c => c.checked = this.checked)"></th>
-      <th>Cliente</th><th>Título</th><th>Categoria</th><th>Período</th><th>Vencimento</th><th>Pagamento</th><th class="num">Recebido</th><th>NFS-e</th></tr></thead>
+      <th>Cliente</th><th>Título</th><th>Categoria</th><th>Período</th><th>Vencimento</th><th>Pagamento</th><th class="num">Recebido</th><th>NFS-e</th><th>e-Contador</th></tr></thead>
     <tbody>{% for r in lista %}
       <tr>
-        <td>{% if not r.nota_id and r.prestador_id %}<input type="checkbox" name="ids" value="{{ r.id }}" class="rec-id">{% endif %}</td>
+        <td>{% if (not r.nota_id and r.prestador_id) or not r.ec_baixado_em %}<input type="checkbox" name="ids" value="{{ r.id }}" class="rec-id">{% endif %}</td>
         <td><b>{{ r.codigo_empresa }}</b> · {{ r.nome }}{% if not r.prestador_id %} <span class="etiqueta erro" title="Cadastre a empresa com este código interno">sem cadastro</span>{% endif %}</td>
         <td>{{ r.titulo }}</td><td>{{ r.categoria }}</td>
         <td>{{ r.periodo_inicio.strftime('%m/%Y') if r.periodo_inicio else '—' }}</td>
@@ -41,8 +42,10 @@
         <td>{{ r.pagamento|data if r.pagamento else '—' }}</td>
         <td class="num">{{ r.recebido|moeda }}{% if r.recebido != r.valor %}<br><small class="erro-texto">título {{ r.valor|moeda }}</small>{% endif %}</td>
         <td>{% if r.nota %}<a href="/notas/{{ r.nota_id }}">{{ 'Rascunho' if r.nota.situacao == 'RASCUNHO' else r.nota.situacao|capitalize }}{% if r.nota.numero_nfse %} nº {{ r.nota.numero_nfse }}{% endif %}</a>{% else %}<span class="sutil">—</span>{% endif %}</td>
+        <td>{% if r.ec_baixado_em %}<span class="etiqueta ok" title="conferida em {{ r.ec_baixado_em|datahora }}">Baixado {{ r.ec_pago_em|data if r.ec_pago_em }}</span>
+          {% elif r.ec_erro %}<small class="erro-texto">{{ r.ec_erro[:100] }}</small>{% else %}<span class="sutil">—</span>{% endif %}</td>
       </tr>
-    {% else %}<tr><td colspan="9" class="sutil">Nenhum recebimento neste mês. Importe o relatório XLS.</td></tr>{% endfor %}</tbody>
+    {% else %}<tr><td colspan="10" class="sutil">Nenhum recebimento neste mês. Importe o relatório XLS.</td></tr>{% endfor %}</tbody>
   </table>
 </section>
 </form>

@@ -632,6 +632,11 @@ class GuiaRF(Base):
     criterio_baixa: Mapped[str] = mapped_column(String(80), default="")
     entregue_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     erro: Mapped[str] = mapped_column(Text, default="")
+    ec_doc_id: Mapped[str] = mapped_column(String(20), default="", index=True)      # documento no e-Contador (enviado pelo ERP)
+    ec_enviada_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ec_baixada_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ec_excluida_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ec_erro: Mapped[str] = mapped_column(Text, default="")
 
     prestador: Mapped["Prestador"] = relationship()
 
@@ -655,6 +660,10 @@ class Recebimento(Base):
     importado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     prestador_id: Mapped[int | None] = mapped_column(ForeignKey("prestadores.id", ondelete="SET NULL"), nullable=True)
     nota_id: Mapped[int | None] = mapped_column(ForeignKey("notas_fiscais.id", ondelete="SET NULL"), nullable=True)
+    ec_doc_id: Mapped[str] = mapped_column(String(20), default="")                 # cobrança no e-Contador
+    ec_baixado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # baixa gravada e conferida pelo ERP
+    ec_pago_em: Mapped[date | None] = mapped_column(Date, nullable=True)             # data que o e-Contador mostra
+    ec_erro: Mapped[str] = mapped_column(Text, default="")
 
     prestador: Mapped["Prestador"] = relationship()
     nota: Mapped["NotaFiscal"] = relationship()

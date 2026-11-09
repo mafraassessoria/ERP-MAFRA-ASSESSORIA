@@ -166,6 +166,11 @@ def executar(cod: str, usuario: str, ids: list[int] | None = None, cli=None, hoj
                 from ..guias.servico import conciliar
                 b = conciliar(db)
                 resumo += f" · {b['pagas']} guia(s) baixada(s)" + (f", {len(b['conferir'])} para conferir" if b["conferir"] else "")
+                from ..econtador import gravacoes as ecg
+                if ecg.automatico(db, "econtador_baixa_guias_auto"):
+                    eb = ecg.baixar_guias_pagas(db)
+                    resumo += f" · {eb['baixadas']} baixada(s) no e-Contador"
+                    _exec["erros"].extend(f"e-Contador: {x}" for x in eb["problemas"][:10])
             _exec["resumo"] = resumo
             if not ids:
                 gravar_config(db, f"monitor_ultima_{cod}", datetime.now().isoformat(timespec="seconds"))

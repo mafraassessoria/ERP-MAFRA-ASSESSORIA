@@ -32,17 +32,34 @@
   </form>{% endif %}
 </section>
 
+<section class="cartao" id="econtador">
+  <div class="linha-titulo"><div><h2>e-Contador</h2>
+    <p class="sutil">{% if ec.tem %}Conectado em {{ ec.conectado_em }}{% if ec.ultimo_teste %} · último teste: {{ ec.ultimo_teste }}{% endif %}.
+      Marque guias em aberto e envie para o cliente no e-Contador (categoria Guias); a guia anterior do mesmo período, se foi enviada pelo ERP, é excluída de lá.
+      {% else %}Não conectado: rode <code>CONECTAR_ECONTADOR.bat</code> no servidor e faça o login (usuário, senha e verificação).{% endif %}</p></div>
+    <div class="acoes">
+      {% if ec.pagas_pendentes %}<form method="post" action="/guias/econtador/baixar" class="em-linha"><button class="secundario" {{ 'disabled' if not ec.tem }}>Dar baixa no e-Contador ({{ ec.pagas_pendentes }})</button></form>{% endif %}
+      {% if usuario.perfil == 'ADMIN' %}<form method="post" action="/configuracoes/guias" class="em-linha"><input type="hidden" name="form_ec" value="1">
+        <label class="rf-radio"><input type="checkbox" name="econtador_baixa_guias_auto" value="1" {{ 'checked' if ec.baixa_auto }} onchange="this.form.submit()"> Baixa automática no e-Contador depois da conferência de pagamentos</label></form>{% endif %}
+    </div></div>
+</section>
+
 <form class="busca filtros" method="get">
   <select name="situacao"><option value="">Todas</option>{% for k, v in SITUACOES.items() %}<option value="{{ k }}" {{ 'selected' if k == situacao }}>{{ v[0] }}</option>{% endfor %}</select>
   <select name="tipo"><option value="">Todos os tipos</option>{% for k, v in TIPOS.items() %}<option value="{{ k }}" {{ 'selected' if k == tipo }}>{{ v[0] }}</option>{% endfor %}</select>
   <select name="empresa"><option value="0">Todas as empresas</option>{% for p in empresas %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.razao_social }}</option>{% endfor %}</select>
   <button>Filtrar</button><span class="sutil" style="margin-left:auto">{{ lista|length }} guia(s)</span>
 </form>
+<form method="post" action="/guias/econtador/enviar" id="form-ec-enviar">
+<input type="hidden" name="volta" value="/guias?situacao={{ situacao }}&tipo={{ tipo }}&empresa={{ empresa }}">
+{% if usuario.perfil == 'ADMIN' and ec.tem %}<div class="em-linha" style="margin:.4rem 0"><button class="secundario" onclick="var n=document.querySelectorAll('.guia-ec:checked').length; return n ? confirm('Enviar ' + n + ' guia(s) ao e-Contador? O cliente passa a ver o documento.') : (alert('Marque as guias em aberto.'), false)">Enviar marcadas ao e-Contador</button></div>{% endif %}
+</form>
 <section class="cartao">
 <table class="compacta">
-  <thead><tr><th>Empresa</th><th>Guia</th><th>Competência</th><th class="num">Valor</th><th>Pagar até</th><th>Situação</th><th>Documento</th><th></th></tr></thead>
+  <thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.guia-ec').forEach(c => c.checked = this.checked)" title="Marcar todas"></th><th>Empresa</th><th>Guia</th><th>Competência</th><th class="num">Valor</th><th>Pagar até</th><th>Situação</th><th>Documento</th><th></th></tr></thead>
   <tbody>{% for g in lista %}{% set st = SITUACOES[g.situacao] %}
     <tr class="{{ 'inativo' if g.situacao == 'SUBSTITUIDA' }}">
+      <td>{% if g.situacao == 'ABERTA' and not (g.ec_doc_id and not g.ec_excluida_em) %}<input type="checkbox" class="guia-ec" name="ids" value="{{ g.id }}" form="form-ec-enviar">{% endif %}</td>
       <td><a href="/prestadores/{{ g.prestador_id }}/receita">{% if g.prestador.codigo_interno %}<b>{{ g.prestador.codigo_interno }}</b> · {% endif %}{{ g.prestador.razao_social }}</a></td>
       <td>{{ TIPOS[g.tipo][0] }}<br><small class="sutil">gerada {{ g.gerada_em|datahora }} · {{ g.gerada_por }}</small></td>
       <td>{{ g.competencia[5:] }}/{{ g.competencia[:4] }}</td>
@@ -52,14 +69,17 @@
         {% if g.erro %}<br><small class="erro-texto">{{ g.erro[:120] }}</small>{% endif %}</td>
       <td><small>{{ g.numero_documento or '—' }}</small><br>
         {% if g.consulta_id %}<a href="/receita/consultas/{{ g.consulta_id }}/arquivo/0" target="_blank">PDF</a>{% endif %}
-        {% if g.entregue_em %}<small class="sutil"> · arquivada {{ g.entregue_em|datahora }}</small>{% endif %}</td>
+        {% if g.entregue_em %}<small class="sutil"> · arquivada {{ g.entregue_em|datahora }}</small>{% endif %}
+        {% if g.ec_doc_id %}<br><small><a href="https://econtador.alterdata.com.br/Documentos/Visualizar/{{ g.ec_doc_id }}" target="_blank">e-Contador {{ g.ec_doc_id }}</a>
+          {% if g.ec_excluida_em %} · excluída {{ g.ec_excluida_em|datahora }}{% elif g.ec_baixada_em %} · baixada {{ g.ec_baixada_em|datahora }}{% else %} · enviada {{ g.ec_enviada_em|datahora }}{% endif %}</small>{% endif %}
+        {% if g.ec_erro %}<br><small class="erro-texto">e-Contador: {{ g.ec_erro[:140] }}</small>{% endif %}</td>
       <td class="acoes-linha">
         {% if g.situacao == 'ABERTA' %}
           {% if not g.entregue_em %}<form method="post" action="/guias/{{ g.id }}/entregar"><button class="secundario mini">Arquivar</button></form>{% endif %}
           <form method="post" action="/guias/{{ g.id }}/paga" onsubmit="this.data.value = prompt('Data do pagamento (AAAA-MM-DD):', '{{ hoje.isoformat() }}') || ''; return !!this.data.value"><input type="hidden" name="data"><button class="secundario mini">Marcar paga</button></form>
         {% elif g.situacao == 'PAGA' %}<form method="post" action="/guias/{{ g.id }}/reabrir"><button class="secundario mini">Reabrir</button></form>{% endif %}
       </td></tr>
-  {% else %}<tr><td colspan="8" class="sutil">Nenhuma guia.</td></tr>{% endfor %}</tbody>
+  {% else %}<tr><td colspan="9" class="sutil">Nenhuma guia.</td></tr>{% endfor %}</tbody>
 </table>
 </section>
 <script src="/static/combo.js"></script>

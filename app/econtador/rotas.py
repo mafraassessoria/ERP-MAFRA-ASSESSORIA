@@ -67,3 +67,31 @@ async def econtador_sincronizar(request: Request, db: Session = Depends(get_db),
             f"{res.resumo}; divergentes={res.divergentes[:30]}")
     db.commit()
     return render(request, "econtador_sincronizacao.html", res=res)
+
+
+# ---- sessão de tela (baixas, envio e exclusão de documentos) -------------------------------------
+
+@router.post("/configuracoes/econtador/web/testar")
+async def econtador_web_testar(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    from fastapi.concurrency import run_in_threadpool
+    from . import sessao
+    from .web import ErroSessao, ErroWeb
+    try:
+        n = await run_in_threadpool(lambda: sessao.cliente(db).testar())
+        msg, ok = f"sessão ativa, {n} empresa(s) no e-Contador", True
+    except (ErroSessao, ErroWeb) as e:
+        msg, ok = str(e), False
+    sessao.registrar_teste(db, ok, msg)
+    db.commit()
+    flash(request, ("e-Contador: " + msg) if ok else msg, "ok" if ok else "erro")
+    return _redir("/configuracoes#econtador-web")
+
+
+@router.post("/configuracoes/econtador/web/esquecer")
+async def econtador_web_esquecer(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    from . import sessao
+    sessao.esquecer(db)
+    auditar(db, request, u, "EC_SESSAO_ESQUECER", "configuracao", None, "")
+    db.commit()
+    flash(request, "Sessão do e-Contador apagada do ERP.")
+    return _redir("/configuracoes#econtador-web")

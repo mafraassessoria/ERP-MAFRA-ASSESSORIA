@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}Baixa no e-Contador{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo"><div><h1>Baixa dos honorários no e-Contador</h1>
+  <p class="sutil">Conferência feita agora no e-Contador: empresa (código), título, valor e período. Só os itens "Pronto" são gravados,
+    com a data do pagamento; depois o ERP relê cada cobrança para confirmar. Nada foi gravado ainda.</p></div>
+  <a class="botao secundario" href="{{ volta }}">Voltar</a></div>
+<form method="post" action="/honorarios/econtador/baixar">
+<input type="hidden" name="volta" value="{{ volta }}">
+<section class="cartao">
+<table class="compacta">
+  <thead><tr><th></th><th>Cliente</th><th>Título</th><th>Período</th><th>Pagamento</th><th class="num">Valor</th><th>Cobrança no e-Contador</th><th>Situação</th></tr></thead>
+  <tbody>{% for i in itens %}{% set r = i.rec %}{% set st = SIT[i.situacao] %}
+  <tr>
+    <td>{% if i.situacao in ('PRONTO', 'JA_PAGO') %}<input type="checkbox" name="par" value="{{ r.id }}:{{ i.doc.id }}" checked>{% endif %}</td>
+    <td><b>{{ r.codigo_empresa }}</b> · {{ r.nome }}</td>
+    <td>{{ r.titulo }}</td>
+    <td>{{ r.periodo_inicio|data if r.periodo_inicio }}{% if r.periodo_fim %} a {{ r.periodo_fim|data }}{% endif %}</td>
+    <td>{{ r.pagamento|data if r.pagamento else '—' }}</td>
+    <td class="num">{{ r.valor|moeda }}</td>
+    <td>{% if i.doc %}<a href="https://econtador.alterdata.com.br/Documentos/Visualizar/{{ i.doc.id }}" target="_blank">{{ i.doc.id }}</a>
+      <small class="sutil">{{ i.doc.empresa_codigo }} · R$ {{ i.doc.valor|moeda }} · venc. {{ i.doc.vencimento|data if i.doc.vencimento }}</small>{% else %}—{% endif %}</td>
+    <td><span class="etiqueta {{ st[1] }}">{{ st[0] }}</span>{% if i.detalhe %}<br><small>{{ i.detalhe }}</small>{% endif %}</td>
+  </tr>{% endfor %}</tbody>
+</table>
+</section>
+{% if prontos %}
+<div class="em-linha"><button onclick="var n=document.querySelectorAll('input[name=par]:checked').length; return n ? confirm('Gravar a baixa de ' + n + ' cobrança(s) no e-Contador, com a data de cada pagamento?') : (alert('Marque pelo menos uma.'), false)">Confirmar baixa no e-Contador</button>
+  <span class="sutil">"Já está pago" com a mesma data só é registrado no ERP (nada é gravado no e-Contador).</span></div>
+{% else %}<p class="sutil">Nenhum recebimento pronto para baixa.</p>{% endif %}
+</form>
+{% endblock %}

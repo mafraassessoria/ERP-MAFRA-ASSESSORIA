@@ -379,6 +379,19 @@ em produção só autentica (não cobra).
   - Se a Receita recusar por pendência (certidão não emitida), a empresa só é tentada de novo depois de 7 dias,
     para não pagar todo dia. "Em processamento" e "serviço indisponível" não são cobrados.
 
+## e-Contador pela tela (etapa 5)
+
+A API do e-Contador só lê. Baixas, envio e exclusão de documentos usam a sessão de um login humano:
+**CONECTAR_ECONTADOR.bat** (no servidor) abre o Edge/Chrome, você faz o login com a verificação do e-Contador e
+o ERP guarda a sessão criptografada. Quando ela vencer, o ERP avisa e é só rodar o .bat de novo.
+
+- **Honorários → Dar baixa no e-Contador…**: confere cada recebimento com a cobrança (empresa pelo código, título,
+  valor e período) e mostra a revisão; só depois de confirmar grava a baixa com a data do pagamento e relê cada
+  cobrança. Pagamento parcial, valor/período diferente ou mais de uma cobrança: não grava.
+- **Guias → Enviar marcadas ao e-Contador** (administrador): publica o PDF na categoria Guias, com vencimento e
+  valor; a guia anterior do mesmo período (se foi enviada pelo ERP) é excluída de lá. Guias pagas na conciliação
+  recebem baixa no e-Contador (botão ou automático, se ligado).
+
 ## Próximas etapas
 
 4. **Regime Regular** com o grupo IBS/CBS.

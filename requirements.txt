@@ -15,3 +15,5 @@ pypdf>=4.0
 xlrd>=2.0
 # QR code da verificação em duas etapas (SVG, sem dependências)
 qrcode>=7.4
+# e-Contador pela tela: abre o Edge/Chrome do servidor para o login humano (sem baixar navegador)
+playwright>=1.45
