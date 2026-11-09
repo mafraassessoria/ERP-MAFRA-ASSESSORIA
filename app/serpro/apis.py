@@ -290,7 +290,7 @@ def emitir_cnd(db: Session, documento: str, usuario: str = "", espera=time.sleep
         except ErroGateway as e:
             raise ErroAPI(str(e)) from e
         d = _json(r)
-        status = int(d.get("Status") or 0) if str(d.get("Status") or "").isdigit() else 0
+        status = int(str(d.get("Status"))) if str(d.get("Status") or "").strip().isdigit() else 0
         if status == 7 and tentativas:
             if d.get("Chave"):
                 corpo["Chave"] = d["Chave"]
@@ -298,11 +298,18 @@ def emitir_cnd(db: Session, documento: str, usuario: str = "", espera=time.sleep
             continue
         break
     cert = d.get("Certidao") or {}
-    pdf_b64 = cert.get("DocumentoPdf") or ""
-    msgs = "; ".join(str(x.get("Mensagem") or x.get("mensagem") or x) for x in (d.get("Mensagens") or []) if x)
-    res = ResultadoCND(documento=doc, status=status, codigo_controle=re.sub(r"[^0-9A-Za-z]", "", cert.get("CodigoControle") or ""),
-                       tipo_certidao=(cert.get("TipoCertidao") or "").strip(), emissao=_data_iso(cert.get("DataEmissao")),
-                       validade=_data_iso(cert.get("DataValidade")))
+    if not isinstance(cert, dict):
+        cert = {}
+    pdf_b64 = str(cert.get("DocumentoPdf") or "")
+    lista = d.get("Mensagens") or []
+    lista = lista if isinstance(lista, list) else [lista]
+    msgs = "; ".join(str(x.get("Mensagem") or x.get("mensagem") or x) if isinstance(x, dict) else str(x) for x in lista if x)
+    if not msgs and d.get("Mensagem"):
+        msgs = str(d["Mensagem"])
+    res = ResultadoCND(documento=doc, status=status,
+                       codigo_controle=re.sub(r"[^0-9A-Za-z]", "", str(cert.get("CodigoControle") or "")),
+                       tipo_certidao=str(cert.get("TipoCertidao") if cert.get("TipoCertidao") is not None else "").strip(),
+                       emissao=_data_iso(cert.get("DataEmissao")), validade=_data_iso(cert.get("DataValidade")))
     if r.status_code != 200 and not status:
         res.mensagem = {401: "O Serpro recusou o acesso à Consulta CND (confira o contrato e as chaves).",
                         403: "O Serpro recusou o acesso à Consulta CND (confira o contrato e as chaves).",
@@ -318,6 +325,6 @@ def emitir_cnd(db: Session, documento: str, usuario: str = "", espera=time.sleep
     guardar["Certidao"] = {k: v for k, v in cert.items() if k != "DocumentoPdf"}
     cobrada = r.status_code == 200 and status not in NAO_COBRADOS and status != 0
     c = _registrar(db, "CND", doc, usuario, m, r.status_code, res.tem_certidao,
-                   f"{res.mensagem}" + (f" · {res.tipo_certidao} até {res.validade:%d/%m/%Y}" if res.validade else ""), guardar, cobrada)
+                   f"{res.mensagem}" + (f" · válida até {res.validade:%d/%m/%Y}" if res.validade else ""), guardar, cobrada)
     res.consulta_id, res.dados = c.id, guardar
     return res

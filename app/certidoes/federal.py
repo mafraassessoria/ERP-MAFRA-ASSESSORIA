@@ -29,13 +29,34 @@ def automatico(db: Session) -> bool:
     return apis.modo(db, "CND") != "desligado" and (ler_config(db, "certidoes_federal_auto") or "1") == "1"
 
 
-def _situacao(tipo_certidao: str) -> str:
-    t = (tipo_certidao or "").lower()
-    if "efeito" in t:
+def _texto_pdf(pdf: bytes) -> str:
+    try:
+        import io
+        from pypdf import PdfReader
+        return " ".join((pg.extract_text() or "") for pg in PdfReader(io.BytesIO(pdf)).pages[:2])
+    except Exception:  # noqa: BLE001 — PDF ilegível: decide pelo código
+        return ""
+
+
+def _situacao(tipo_certidao, pdf: bytes = b"") -> str:
+    """A API devolve TipoCertidao como código; o título do PDF é a fonte mais segura."""
+    t = " ".join(_texto_pdf(pdf).split()).upper()
+    if "POSITIVA COM EFEITOS DE NEGATIVA" in t or "POSITIVA COM EFEITO DE NEGATIVA" in t:
         return "Positiva com Efeitos de Negativa"
-    if "negativa" in t:
+    if "CERTIDÃO NEGATIVA" in t or "CERTIDAO NEGATIVA" in t:
         return "Negativa"
-    return (tipo_certidao or "Positiva")[:60]
+    if "CERTIDÃO POSITIVA" in t or "CERTIDAO POSITIVA" in t:
+        return "Positiva"
+    v = str(tipo_certidao or "").strip().lower()
+    if "efeito" in v:
+        return "Positiva com Efeitos de Negativa"
+    if "negativa" in v:
+        return "Negativa"
+    if v == "1":
+        return "Negativa"
+    if v == "2":
+        return "Positiva com Efeitos de Negativa"
+    return f"Conferir (tipo {v})" if v else "Conferir"
 
 
 def federal_atual(db: Session, p: models.Prestador) -> models.Certidao | None:
@@ -79,7 +100,7 @@ def emitir(db: Session, p: models.Prestador, usuario: str = "", agora: datetime 
     destino.write_bytes(r.pdf)
     c.tipo_id, c.tipo_nome, c.tipo = "RFB", NOME_FEDERAL, "FEDERAL"
     c.emissao, c.vencimento = r.emissao or agora.date(), r.validade
-    c.situacao, c.disponivel, c.no_pack, c.consultado_em = _situacao(r.tipo_certidao), True, True, agora
+    c.situacao, c.disponivel, c.no_pack, c.consultado_em = _situacao(r.tipo_certidao, r.pdf), True, True, agora
     c.avisos = "Emitida pela API Consulta CND (Serpro)"
     c.arquivo, c.sha256, c.erro = str(destino.relative_to(DATA_DIR)), hashlib.sha256(r.pdf).hexdigest(), ""
     db.flush()
