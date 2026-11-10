@@ -107,6 +107,10 @@ def enviar_email(db: Session, para: list[str], assunto: str, corpo: str,
                 s.send_message(msg, to_addrs=destinatarios)
     except smtplib.SMTPAuthenticationError as e:
         raise ErroEmail("Usuário ou senha do e-mail recusados. No Gmail, use uma 'senha de app'.") from e
+    except (smtplib.SMTPServerDisconnected, ConnectionResetError, ssl.SSLError) as e:
+        dica = (" Tente porta 465 com segurança SSL (algum antivírus ou firewall do servidor costuma bloquear a 587)."
+                if seguranca != "SSL" else " Confira se o antivírus/firewall do servidor libera a porta 465.")
+        raise ErroEmail(f"Falha ao enviar e-mail: o servidor {host} fechou a conexão ({e}).{dica}") from e
     except (smtplib.SMTPException, OSError) as e:
         raise ErroEmail(f"Falha ao enviar e-mail: {e}") from e
 
