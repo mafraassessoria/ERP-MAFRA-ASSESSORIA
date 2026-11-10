@@ -92,27 +92,35 @@ def enviar_email(db: Session, para: list[str], assunto: str, corpo: str,
         msg.add_attachment(a.read_bytes(), maintype=tipo[0], subtype=tipo[1], filename=a.name)
     destinatarios = para + copia
     contexto = ssl.create_default_context()
+    etapa = "conectar"
     try:
         if seguranca == "SSL":
-            with smtplib.SMTP_SSL(host, porta, context=contexto, timeout=30) as s:
-                if usuario:
-                    s.login(usuario, _senha_smtp(db))
-                s.send_message(msg, to_addrs=destinatarios)
+            s = smtplib.SMTP_SSL(host, porta, context=contexto, timeout=30)
         else:
-            with smtplib.SMTP(host, porta, timeout=30) as s:
-                if seguranca == "STARTTLS":
-                    s.starttls(context=contexto)
-                if usuario:
-                    s.login(usuario, _senha_smtp(db))
-                s.send_message(msg, to_addrs=destinatarios)
+            s = smtplib.SMTP(host, porta, timeout=30)
+        with s:
+            etapa = "cumprimentar o servidor"
+            s.ehlo()
+            if seguranca == "STARTTLS":
+                etapa = "iniciar a criptografia (STARTTLS)"
+                s.starttls(context=contexto)
+                s.ehlo()
+            if usuario:
+                etapa = "fazer login"
+                s.login(usuario, _senha_smtp(db))
+            etapa = "enviar a mensagem"
+            s.send_message(msg, to_addrs=destinatarios)
     except smtplib.SMTPAuthenticationError as e:
-        raise ErroEmail("Usuário ou senha do e-mail recusados. No Gmail, use uma 'senha de app'.") from e
+        raise ErroEmail("Usuário ou senha do e-mail recusados. No Gmail, use uma 'senha de app' (16 letras), não a senha normal.") from e
     except (smtplib.SMTPServerDisconnected, ConnectionResetError, ssl.SSLError) as e:
-        dica = (" Tente porta 465 com segurança SSL (algum antivírus ou firewall do servidor costuma bloquear a 587)."
-                if seguranca != "SSL" else " Confira se o antivírus/firewall do servidor libera a porta 465.")
-        raise ErroEmail(f"Falha ao enviar e-mail: o servidor {host} fechou a conexão ({e}).{dica}") from e
+        dica = {"conectar": " Algo no servidor (antivírus com proteção de e-mail ou firewall) está bloqueando a conexão.",
+                "cumprimentar o servidor": " Algo no servidor (antivírus com proteção de e-mail ou firewall) está interceptando a conexão.",
+                "iniciar a criptografia (STARTTLS)": " Tente porta 465 com SSL.",
+                "fazer login": " O Gmail encerrou no login: confira o usuário e a senha de app.",
+                "enviar a mensagem": " O servidor recusou a mensagem: confira o e-mail do remetente (deve ser o mesmo do usuário) e os destinatários."}.get(etapa, "")
+        raise ErroEmail(f"Falha ao enviar e-mail na etapa \"{etapa}\": {host}:{porta} fechou a conexão ({type(e).__name__}: {e}).{dica}") from e
     except (smtplib.SMTPException, OSError) as e:
-        raise ErroEmail(f"Falha ao enviar e-mail: {e}") from e
+        raise ErroEmail(f"Falha ao enviar e-mail na etapa \"{etapa}\": {type(e).__name__}: {e}") from e
 
 
 def enviar_nota_por_email(db: Session, nota: models.NotaFiscal, para: list[str]) -> None:
