@@ -49,10 +49,40 @@ def guias(request: Request, situacao: str = "ABERTA", empresa: int = 0, tipo: st
                   hoje=date.today(), modo=sv.modo(db), ec=_ec_estado(db))
 
 
+async def _enviar_ec_auto(request, db, u, guias: list) -> str:
+    """Envio automático ao e-Contador logo depois de gerar (se ligado). Devolve um texto curto para a mensagem.
+    Sem sessão do e-Contador: as guias ficam pendentes para envio manual."""
+    from ..econtador import gravacoes as ecg, sessao as ecs
+    from ..econtador.web import ErroSessao, ErroWeb
+    if not guias or not ecg.automatico(db, "econtador_enviar_guias_auto"):
+        return ""
+    try:
+        cli = ecs.cliente(db)
+        mapa = await run_in_threadpool(cli.empresas)
+    except (ErroSessao, ErroWeb) as e:
+        for g in guias:
+            g.ec_erro = f"Envio automático não feito: {e}"
+        db.commit()
+        return " · e-Contador desconectado: envie depois pelo botão (conecte o e-Contador)"
+    feitas, erros = 0, 0
+    for g in guias:
+        try:
+            doc = await run_in_threadpool(ecg.enviar_guia, db, g, u.login, cli, mapa)
+            auditar(db, request, u, "EC_ENVIAR_GUIA", "prestador", g.prestador_id, f"guia {g.id} → documento {doc} (automático)")
+            db.commit()
+            feitas += 1
+        except (ErroSessao, ErroWeb) as e:
+            g.ec_erro = str(e)
+            db.commit()
+            erros += 1
+    return f" · {feitas} enviada(s) ao e-Contador" + (f", {erros} com erro (ver a guia)" if erros else "")
+
+
 def _ec_estado(db):
     from ..econtador import gravacoes as ecg, sessao as ecs
     st = ecs.estado(db)
     st["baixa_auto"] = ecg.automatico(db, "econtador_baixa_guias_auto")
+    st["envio_auto"] = ecg.automatico(db, "econtador_enviar_guias_auto")
     st["pagas_pendentes"] = db.scalar(select(func.count(models.GuiaRF.id)).where(
         models.GuiaRF.situacao == "PAGA", models.GuiaRF.ec_doc_id != "", models.GuiaRF.ec_baixada_em.is_(None),
         models.GuiaRF.ec_excluida_em.is_(None))) or 0
@@ -78,6 +108,7 @@ async def guias_gerar(request: Request, db: Session = Depends(get_db), u=Depends
                 g.erro = (g.erro + " " if g.erro else "") + f"Entrega: {e}"
         auditar(db, request, u, "GUIA_GERAR", "prestador", p.id, f"{tipo} {comp} {g.numero_documento} {g.valor}")
         db.commit()
+        msg += await _enviar_ec_auto(request, db, u, [g])
         flash(request, msg + ".")
         if g.erro:
             flash(request, g.erro, "erro")
@@ -93,7 +124,7 @@ async def guias_parcelas(request: Request, db: Session = Depends(get_db), u=Depe
     comp = f"{date.today():%Y-%m}"
     itens = db.scalars(select(models.MonitorItem).where(models.MonitorItem.item == "PARCELAMENTO",
                                                         models.MonitorItem.status == "COM")).all()
-    feitas, erros, parar = 0, [], False
+    feitas, erros, parar, geradas = 0, [], False, []
     ativo = templates.env.tests["parc_ativo"]
     for m in itens:
         p = m.prestador
@@ -114,6 +145,7 @@ async def guias_parcelas(request: Request, db: Session = Depends(get_db), u=Depe
                     except (ValueError, OSError) as e:
                         g.erro = f"Entrega: {e}"
                 db.commit()
+                geradas.append(g)
                 feitas += 1
             except sv.ErroConsulta as e:
                 db.rollback()
@@ -123,7 +155,7 @@ async def guias_parcelas(request: Request, db: Session = Depends(get_db), u=Depe
                     break
     auditar(db, request, u, "GUIA_PARCELAS_MES", "prestador", None, f"{comp}: {feitas} gerada(s); {erros[:10]}")
     db.commit()
-    flash(request, f"Parcelas de {comp}: {feitas} guia(s) gerada(s).")
+    flash(request, f"Parcelas de {comp}: {feitas} guia(s) gerada(s)" + await _enviar_ec_auto(request, db, u, geradas) + ".")
     for e in erros[:8]:
         flash(request, e, "erro")
     return _redir("/guias")
@@ -229,6 +261,7 @@ async def guias_config(request: Request, db: Session = Depends(get_db), u=Depend
     form = await request.form()
     if "form_ec" in form:
         gravar_config(db, "econtador_baixa_guias_auto", "1" if form.get("econtador_baixa_guias_auto") == "1" else "0")
+        gravar_config(db, "econtador_enviar_guias_auto", "1" if form.get("econtador_enviar_guias_auto") == "1" else "0")
     else:
         gravar_config(db, "guias_entregar", "1" if form.get("guias_entregar") == "1" else "")
     db.commit()

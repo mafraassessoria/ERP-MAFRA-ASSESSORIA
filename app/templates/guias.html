@@ -41,6 +41,7 @@
       <a class="botao {{ 'secundario' if ec.tem }}" href="/econtador/conectar?volta=/guias%23econtador">{{ 'Reconectar' if ec.tem else 'Conectar e-Contador' }}</a>
       {% if ec.pagas_pendentes %}<form method="post" action="/guias/econtador/baixar" class="em-linha"><button class="secundario" {{ 'disabled' if not ec.tem }}>Dar baixa no e-Contador ({{ ec.pagas_pendentes }})</button></form>{% endif %}
       {% if usuario.perfil == 'ADMIN' %}<form method="post" action="/configuracoes/guias" class="em-linha"><input type="hidden" name="form_ec" value="1">
+        <label class="rf-radio"><input type="checkbox" name="econtador_enviar_guias_auto" value="1" {{ 'checked' if ec.envio_auto }} onchange="this.form.submit()"> Enviar ao e-Contador automaticamente assim que a guia é gerada</label>
         <label class="rf-radio"><input type="checkbox" name="econtador_baixa_guias_auto" value="1" {{ 'checked' if ec.baixa_auto }} onchange="this.form.submit()"> Baixa automática no e-Contador depois da conferência de pagamentos</label></form>{% endif %}
     </div></div>
 </section>
