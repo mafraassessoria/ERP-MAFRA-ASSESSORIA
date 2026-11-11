@@ -315,3 +315,11 @@ fieldset.bloco-form legend { font-weight:600; color:var(--azul); font-size:.9rem
 /* Tabela de notas na tela da empresa: a própria empresa em cinza, a outra parte em destaque */
 table.notas td.propria { color:var(--sutil); }
 .atraso-parc { margin:.3rem 0; }
+
+/* Situação fiscal: nome da empresa em negrito sem sublinhado; débitos em tabela */
+a.nome-empresa { text-decoration:none; font-weight:600; color:var(--texto); }
+a.nome-empresa:hover { text-decoration:underline; color:var(--azul); }
+table.debitos { width:auto; margin:.3rem 0 .4rem; font-size:.8rem; border-collapse:collapse; }
+table.debitos th, table.debitos td { padding:.15rem .6rem; border-bottom:1px solid var(--borda); white-space:nowrap; }
+table.debitos th { background:#eef3f8; font-weight:600; }
+table.debitos .num { text-align:right; font-variant-numeric:tabular-nums; }

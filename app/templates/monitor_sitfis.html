@@ -38,7 +38,7 @@
     <thead><tr><th>Empresa</th><th>Pendências</th><th>Certidão</th><th>Consulta</th></tr></thead>
     <tbody>{% for x in itens %}{% set m = x.m %}{% set d = x.d %}
       <tr data-busca="{{ (m.prestador.codigo_interno or '') ~ ' ' ~ m.prestador.razao_social ~ ' ' ~ m.prestador.cnpj }}">
-        <td><a href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
+        <td><a class="nome-empresa" href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
         <td>
           {% for e in x.etiquetas %}<span class="etiqueta erro">{{ e.texto }}</span> {% endfor %}
           {% if d.indisponiveis %}<span class="etiqueta" title="{{ d.indisponiveis|join(' · ') }}">{{ d.indisponiveis|length }} base(s) sem resposta</span>{% endif %}
@@ -46,7 +46,10 @@
           {% if m.status == 'ERRO' %}<span class="sutil">{{ m.resumo }}</span>{% endif %}
           {% if not x.etiquetas and not d.indisponiveis and not d.suspensas and m.status == 'REGULAR' %}<span class="sutil">—</span>{% endif %}
           {% if d.detalhes %}<details class="det-sitfis"><summary>detalhes</summary>
-            {% for p in d.detalhes %}<div><b>{{ p.titulo }}</b>{% for l in p.linhas %}<br><small>{{ l }}</small>{% endfor %}</div>{% endfor %}
+            {% for p in d.detalhes %}<div><b>{{ p.titulo }}</b>
+              {% if p.tabela %}<table class="debitos"><thead><tr>{% for c in p.tabela.cab %}<th class="{{ 'num' if loop.index > 3 and c not in ('Situação',) }}">{{ c }}</th>{% endfor %}</tr></thead>
+                <tbody>{% for l in p.tabela.linhas %}<tr>{% for v in l %}<td class="{{ 'num' if loop.index > 3 and p.tabela.cab[loop.index0] not in ('Situação',) }}">{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+              {% else %}{% for l in p.linhas %}<br><small>{{ l }}</small>{% endfor %}{% endif %}</div>{% endfor %}
           </details>{% endif %}
         </td>
         <td>{% if x.cert[1] %}<span class="etiqueta {{ x.cert[0] }}">{{ x.cert[1] }}</span>{% else %}<span class="sutil">—</span>{% endif %}</td>

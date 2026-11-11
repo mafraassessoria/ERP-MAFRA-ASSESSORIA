@@ -153,7 +153,8 @@ def _texto_pdf_string(b: bytes) -> str:
     return b.decode("cp1252", errors="replace")
 
 
-def linhas_pdf(caminho) -> list[str]:
+def celulas_pdf(caminho) -> list[list[tuple[float, str]]]:
+    """Linhas do PDF como listas de células (x, texto): blocos com a mesma altura formam uma linha."""
     if caminho is None:
         return []
     try:
@@ -161,7 +162,7 @@ def linhas_pdf(caminho) -> list[str]:
         paginas = PdfReader(str(caminho)).pages
     except Exception:  # noqa: BLE001
         return []
-    out: list[str] = []
+    out: list[list[tuple[float, str]]] = []
     for pg in paginas:
         try:
             dados = pg.get_contents().get_data()
@@ -170,20 +171,55 @@ def linhas_pdf(caminho) -> list[str]:
         y_ant, atual = None, []
         for bloco in re.findall(rb"BT(.*?)ET", dados, re.S):
             partes = [_texto_pdf_string(m.group(0)) for m in _TJ.finditer(bloco)]
-            texto = "".join(partes).strip()
+            texto = re.sub(r"\s+", " ", "".join(partes)).strip()
             if not texto:
                 continue
             tm = _TM.search(bloco)
             y = tm.group(2) if tm else None
+            try:
+                x = float(tm.group(1)) if tm else 0.0
+            except ValueError:
+                x = 0.0
             if y is not None and y == y_ant:
-                atual.append(texto)
+                atual.append((x, texto))
             else:
                 if atual:
-                    out.append(" ".join(atual))
-                atual, y_ant = [texto], y
+                    out.append(atual)
+                atual, y_ant = [(x, texto)], y
         if atual:
-            out.append(" ".join(atual))
-    return [re.sub(r"\s+", " ", l).strip() for l in out]
+            out.append(atual)
+    return out
+
+
+def linhas_pdf(caminho) -> list[str]:
+    return [" ".join(t for _, t in cel) for cel in celulas_pdf(caminho)]
+
+
+_NUMERO_CEL = re.compile(r"^[\d.,]+$")
+
+
+def tabela_de(celulas: list[list[tuple[float, str]]]) -> dict | None:
+    """Monta a tabela de débitos de uma seção: o cabeçalho é a linha que começa por "Receita"; cada valor vai para a
+    coluna pela posição (números são alinhados à direita: usa a borda direita estimada)."""
+    cab_i = next((i for i, row in enumerate(celulas) if len(row) >= 3 and row[0][1].lower().startswith("receita")), None)
+    if cab_i is None:
+        return None
+    cab = celulas[cab_i]
+    xs = [x for x, _ in cab]
+    linhas = []
+    for row in celulas[cab_i + 1:]:
+        if len(row) < 2:
+            continue
+        valores = [""] * len(cab)
+        for x, t in row:
+            ref = x + len(t) * 5.0 if _NUMERO_CEL.match(t) else x
+            if _NUMERO_CEL.match(t):
+                col = max([i for i, cx in enumerate(xs) if cx <= ref + 1] or [0])
+            else:
+                col = min(range(len(xs)), key=lambda i: abs(xs[i] - x))
+            valores[col] = (valores[col] + " " + t).strip()
+        linhas.append(valores)
+    return {"cab": [t for _, t in cab], "linhas": linhas} if linhas else None
 
 
 _IGNORAR = re.compile(r"^(MINIST|SECRETARIA|PROCURADORIA|INFORMA|Por meio do|Autor pedido|P[áa]gina:|CNPJ:|CPF:|Final do Relat|\d\d/\d\d/\d{4} \d\d:)", re.I)
@@ -196,14 +232,15 @@ def ler_sitfis(caminho) -> dict:
     - exigibilidade suspensa (informativa: não impede certidão positiva com efeitos de negativa);
     - base indisponível (a Receita não respondeu aquela base naquele momento — não é pendência).
     """
-    linhas = linhas_pdf(caminho)
+    celulas = celulas_pdf(caminho)
+    linhas = [" ".join(t for _, t in cel) for cel in celulas]
     r = {"status": "INDEFINIDO", "resumo": "", "pendencias": [], "detalhes": [], "suspensas": [],
          "indisponiveis": [], "certidao": "", "etiquetas": [], "cert_tipo": "", "cert_validade": ""}
     if not linhas:
         r["resumo"] = "Relatório baixado; leitura automática não concluiu — abrir o PDF"
         return r
     secoes, atual, bloco = [], None, ""
-    for l in linhas:
+    for l, cel in zip(linhas, celulas):
         if re.match(r"^_{3,}", l):                       # separador de grupo (Diagnóstico na RFB / PGFN) ou fim
             bloco = re.sub(r"_+", " ", l).strip()
             atual = None
@@ -211,7 +248,7 @@ def ler_sitfis(caminho) -> dict:
         m = re.match(r"^(.*?\S)\s*_{3,}\s*$", l)
         if m:
             titulo = m.group(1)
-            atual = None if _NAO_SECAO.match(titulo) else {"titulo": titulo, "linhas": [], "grupo": bloco}
+            atual = None if _NAO_SECAO.match(titulo) else {"titulo": titulo, "linhas": [], "celulas": [], "grupo": bloco}
             if atual is not None:
                 secoes.append(atual)
             elif titulo.lower().startswith("certid"):
@@ -224,6 +261,7 @@ def ler_sitfis(caminho) -> dict:
                 r["certidao"] = re.sub(r"\s{2,}", " ", l)
             continue
         atual["linhas"].append(l)
+        atual["celulas"].append(cel)
     for s in secoes:
         t = re.sub(r"^Pend[êe]ncia\s*[-–]\s*", "", s["titulo"])
         if any("BASE INDISPON" in x.upper() for x in s["linhas"]):
@@ -232,7 +270,8 @@ def ler_sitfis(caminho) -> dict:
             r["suspensas"].append(t)
         else:
             r["pendencias"].append(t)
-            r["detalhes"].append({"titulo": t, "linhas": s["linhas"][:40]})
+            tab = tabela_de(s["celulas"])
+            r["detalhes"].append({"titulo": t, "linhas": s["linhas"][:40], **({"tabela": tab} if tab else {})})
             r["etiquetas"].append(etiqueta_pendencia(t, s["linhas"]))
     sem_pend = re.search(r"n[ãa]o foram detectadas pend[êe]ncias", " ".join(linhas), re.I)
     cert = ""
