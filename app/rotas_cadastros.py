@@ -154,6 +154,8 @@ async def prestadores_lote(request: Request, db: Session = Depends(get_db), u=De
         "aderente_nao": ("municipio_aderente", False, "município aderente ao Emissor Nacional: não"),
         "auto_sim": ("importar_automaticamente", True, "importação automática ativada"),
         "auto_nao": ("importar_automaticamente", False, "importação automática desativada"),
+        "email_sim": ("enviar_email_automatico", True, "envio automático da nota por e-mail ligado"),
+        "email_nao": ("enviar_email_automatico", False, "envio automático da nota por e-mail desligado"),
         "modo_importacao": ("modo", "IMPORTACAO", "modo: somente importação"),
         "modo_emissao": ("modo", "EMISSAO", "modo: emissão pelo escritório"),
         "nfse_sim": ("usa_nfse", True, "módulo NFS-e ligado"), "nfse_nao": ("usa_nfse", False, "módulo NFS-e desligado"),

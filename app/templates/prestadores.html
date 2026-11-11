@@ -40,6 +40,8 @@
       <option value="procuracao_nao">Usar certificado da própria empresa</option>
       <option value="auto_sim">Ativar importação automática</option>
       <option value="auto_nao">Desativar importação automática</option>
+      <option value="email_sim">Ligar envio automático da nota por e-mail ao tomador</option>
+      <option value="email_nao">Desligar envio automático da nota por e-mail</option>
     </optgroup>
     <optgroup label="Módulos">
       {% for k, v in MODULOS_EMPRESA.items() %}{% set c = k[4:] %}<option value="{{ c }}_sim">Ligar {{ v }}</option><option value="{{ c }}_nao">Desligar {{ v }}</option>{% endfor %}
