@@ -104,7 +104,7 @@ def prestador_sair(request: Request, u=Depends(usuario_atual)):
 @router.get("/prestadores")
 def prestadores(request: Request, q: str = "", modo: str = "", situacao: str = "", modulo: str = "",
                 db: Session = Depends(get_db), u=Depends(usuario_atual)):
-    stmt = select(models.Prestador).order_by(models.Prestador.razao_social)
+    stmt = select(models.Prestador).order_by(*models.ordem_prestador_sql())
     if modo in models.MODOS:
         stmt = stmt.where(models.Prestador.modo == modo, models.Prestador.usa_nfse.is_(True))
     if modulo in MODULOS_EMPRESA:

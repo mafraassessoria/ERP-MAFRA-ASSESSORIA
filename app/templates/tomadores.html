@@ -16,7 +16,7 @@
   <tr class="{{ '' if t.ativo else 'inativo' }}">
     <td class="linha" title="{{ t.nome }}"><a href="/tomadores/{{ t.id }}/editar">{{ t.nome }}</a></td>
     <td class="linha">{{ t.documento|doc }}</td>
-    <td class="linha" title="{{ t.prestador.razao_social }}"><a href="/prestadores/{{ t.prestador_id }}?aba=cadastros#tomadores">{{ t.prestador.razao_social }}</a></td>
+    <td class="linha" title="{{ t.prestador.razao_social }}"><a class="nome-empresa" href="/prestadores/{{ t.prestador_id }}?aba=cadastros#tomadores">{{ t.prestador.nome_exibicao }}</a></td>
     <td class="linha">{{ t.municipio }}{% if t.uf %}/{{ t.uf }}{% endif %}</td>
     <td class="linha">{{ t.email }}</td>
   </tr>

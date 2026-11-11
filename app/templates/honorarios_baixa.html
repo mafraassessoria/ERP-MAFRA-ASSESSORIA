@@ -14,7 +14,7 @@
   <tbody>{% for i in itens %}{% set r = i.rec %}{% set st = SIT[i.situacao] %}
   <tr>
     <td>{% if i.situacao in ('PRONTO', 'JA_PAGO') %}<input type="checkbox" name="par" value="{{ r.id }}:{{ i.doc.id }}" checked>{% endif %}</td>
-    <td><b>{{ r.codigo_empresa }}</b> · {{ r.nome }}</td>
+    <td><b>{{ r.codigo_empresa|cod5 }} · {{ r.nome }}</b></td>
     <td>{{ r.titulo }}</td>
     <td>{{ r.periodo_inicio|data if r.periodo_inicio }}{% if r.periodo_fim %} a {{ r.periodo_fim|data }}{% endif %}</td>
     <td>{{ r.pagamento|data if r.pagamento else '—' }}</td>

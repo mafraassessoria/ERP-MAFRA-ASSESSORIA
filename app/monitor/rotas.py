@@ -175,7 +175,8 @@ def monitor_pagamentos(request: Request, mes: str = "", atraso: int = 0, q: str 
         lista = [x for x in lista if x.em_atraso]
     if q:
         t = q.strip().upper()
-        lista = [x for x in lista if t in x.prestador.razao_social.upper() or t == (x.prestador.codigo_interno or "")]
+        lista = [x for x in lista if t in x.prestador.razao_social.upper() or t.lstrip("0") == (x.prestador.codigo_interno or "")]
+    lista = sorted(lista, key=lambda x: x.prestador.ordem)
     return render(request, "monitor_pagamentos.html", lista=lista, mes=mes, atraso=atraso, q=q,
                   total=sum(x.valor for x in lista), n_atraso=sum(1 for x in lista if x.em_atraso))
 

@@ -142,7 +142,7 @@ def receita_geral(request: Request, db: Session = Depends(get_db), u=Depends(usu
                           .where(models.Prestador.usa_receita.is_(True)).order_by(models.ConsultaReceita.id.desc()).limit(40)).all()
     prestadores = db.scalars(select(models.Prestador).where(models.Prestador.ativo.is_(True),
                                                             models.Prestador.usa_receita.is_(True))
-                             .order_by(models.Prestador.razao_social)).all()
+                             .order_by(*models.ordem_prestador_sql())).all()
     return render(request, "receita_geral.html", recentes=recentes, prestadores=prestadores,
                   servicos_lote=[s for s in SERVICOS if s.lote], sit=_situacao_modulo(db), POR_CODIGO=POR_CODIGO,
                   lotes=sorted(_LOTES.values(), key=lambda x: x["inicio"], reverse=True)[:5])
@@ -152,7 +152,7 @@ def _alvos(db: Session, s, form) -> list[models.Prestador]:
     escolha = form.get("empresas") or "todas"
     ids = [int(x) for x in form.getlist("ids") if str(x).isdigit()]
     stmt = select(models.Prestador).where(models.Prestador.ativo.is_(True), models.Prestador.usa_receita.is_(True)) \
-        .order_by(models.Prestador.razao_social)
+        .order_by(*models.ordem_prestador_sql())
     lista = db.scalars(stmt).all()
     if escolha == "marcadas":
         lista = [p for p in lista if p.id in ids]

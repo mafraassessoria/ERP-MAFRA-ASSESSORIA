@@ -11,7 +11,7 @@
   <input type="month" name="competencia" value="{{ comp }}">
   <select name="prestador_id">
     <option value="0">Todas as empresas</option>
-    {% for p in prestadores %}<option value="{{ p.id }}" {{ 'selected' if f.prestador_id == p.id }}>{{ p.razao_social }}</option>{% endfor %}
+    {% for p in prestadores %}<option value="{{ p.id }}" {{ 'selected' if f.prestador_id == p.id }}>{{ p.nome_exibicao }}</option>{% endfor %}
   </select>
   <button>Atualizar</button>
 </form>
@@ -25,7 +25,7 @@
   {% for p, r in linhas %}
   {% set c = controles.get(p.id) %}
   <tr>
-    <td><a href="/notas?prestador_id={{ p.id }}&competencia={{ comp }}">{{ p.razao_social }}</a><br><small class="sutil">{{ p.cnpj|doc }}</small></td>
+    <td><a class="nome-empresa" href="/notas?prestador_id={{ p.id }}&competencia={{ comp }}">{{ p.nome_exibicao }}</a><br><small class="sutil">{{ p.cnpj|doc }}</small></td>
     <td>{{ r.emitidas }}</td><td class="num">{{ r.valor_emitido|moeda }}</td><td class="num">{{ r.iss_emitido|moeda }}</td><td class="num">{{ r.iss_retido_prest|moeda }}</td>
     <td>{{ r.canceladas }}</td><td class="num">{{ r.valor_cancelado|moeda }}</td>
     <td>{{ r.tomadas }}</td><td class="num">{{ r.valor_tomado|moeda }}</td><td class="num">{{ r.iss_retido_tomado|moeda }}</td>

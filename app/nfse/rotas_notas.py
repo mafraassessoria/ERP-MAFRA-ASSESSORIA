@@ -72,7 +72,7 @@ def notas(request: Request, prestador_id: int = 0, situacao: str = "", competenc
     stmt = _filtrar(**f)
     lista = db.scalars(stmt.limit(500)).all()
     qtd_total = db.scalar(select(func.count()).select_from(stmt.order_by(None).subquery()))
-    prestadores = db.scalars(select(models.Prestador).order_by(models.Prestador.razao_social)).all()
+    prestadores = db.scalars(select(models.Prestador).order_by(*models.ordem_prestador_sql())).all()
     total = sum((n.valor_servicos for n in lista if n.situacao == "AUTORIZADA" and n.papel == "PRESTADO"), Decimal("0"))
     qs = urlencode({k: v for k, v in f.items() if v})
     return render(request, "notas.html", lista=lista, prestadores=prestadores, total=total, f=f,

@@ -35,7 +35,7 @@
     <tbody>{% for r in lista %}
       <tr>
         <td>{% if (not r.nota_id and r.prestador_id) or not r.ec_baixado_em %}<input type="checkbox" name="ids" value="{{ r.id }}" class="rec-id">{% endif %}</td>
-        <td><b>{{ r.codigo_empresa }}</b> · {{ r.nome }}{% if not r.prestador_id %} <span class="etiqueta erro" title="Cadastre a empresa com este código interno">sem cadastro</span>{% endif %}</td>
+        <td><b>{{ r.codigo_empresa|cod5 }} · {{ r.nome }}</b>{% if not r.prestador_id %} <span class="etiqueta erro" title="Cadastre a empresa com este código interno">sem cadastro</span>{% endif %}</td>
         <td>{{ r.titulo }}</td><td>{{ r.categoria }}</td>
         <td>{{ r.periodo_inicio.strftime('%m/%Y') if r.periodo_inicio else '—' }}</td>
         <td>{{ r.vencimento|data if r.vencimento else '—' }}</td>
@@ -57,7 +57,7 @@
     <div class="tres-colunas">
       <label>Empresa do escritório (emite as notas)
         <select name="honorarios_prestador_id"><option value="">— escolha —</option>
-          {% for p in emissoras %}<option value="{{ p.id }}" {{ 'selected' if esc and esc.id == p.id }}>{{ p.razao_social }}</option>{% endfor %}</select></label>
+          {% for p in emissoras %}<option value="{{ p.id }}" {{ 'selected' if esc and esc.id == p.id }}>{{ p.nome_exibicao }}</option>{% endfor %}</select></label>
       <label>Código de tributação nacional
         <input name="honorarios_ctribnac" value="{{ cfg.honorarios_ctribnac }}" list="cods-trib" placeholder="padrão: 1º código da empresa"></label>
       <label>NBS <input name="honorarios_nbs" value="{{ cfg.honorarios_nbs }}" list="cods-nbs" placeholder="padrão: 1º NBS da empresa"></label>

@@ -19,7 +19,7 @@
   <form method="post" action="/guias/gerar" class="rf-campos">
     <label>Empresa <select name="prestador_id" class="combo" required>
       <option value="">— escolha —</option>
-      {% for p in empresas %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.codigo_interno ~ ' · ' if p.codigo_interno }}{{ p.razao_social }} ({{ REGIMES_CURTO[p.regime] }})</option>{% endfor %}
+      {% for p in empresas %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.nome_exibicao }} ({{ REGIMES_CURTO[p.regime] }})</option>{% endfor %}
     </select></label>
     <label>Tipo <select name="tipo">{% for k, v in TIPOS.items() %}<option value="{{ k }}">{{ v[0] }}</option>{% endfor %}</select></label>
     <label>Competência / parcela <input type="month" name="competencia" required></label>
@@ -49,7 +49,7 @@
 <form class="busca filtros" method="get">
   <select name="situacao"><option value="">Todas</option>{% for k, v in SITUACOES.items() %}<option value="{{ k }}" {{ 'selected' if k == situacao }}>{{ v[0] }}</option>{% endfor %}</select>
   <select name="tipo"><option value="">Todos os tipos</option>{% for k, v in TIPOS.items() %}<option value="{{ k }}" {{ 'selected' if k == tipo }}>{{ v[0] }}</option>{% endfor %}</select>
-  <select name="empresa"><option value="0">Todas as empresas</option>{% for p in empresas %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.razao_social }}</option>{% endfor %}</select>
+  <select name="empresa"><option value="0">Todas as empresas</option>{% for p in empresas %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.nome_exibicao }}</option>{% endfor %}</select>
   <button>Filtrar</button><span class="sutil" style="margin-left:auto">{{ lista|length }} guia(s)</span>
 </form>
 <form method="post" action="/guias/econtador/enviar" id="form-ec-enviar">
@@ -62,7 +62,7 @@
   <tbody>{% for g in lista %}{% set st = SITUACOES[g.situacao] %}
     <tr class="{{ 'inativo' if g.situacao == 'SUBSTITUIDA' }}">
       <td>{% if g.situacao == 'ABERTA' and not (g.ec_doc_id and not g.ec_excluida_em) %}<input type="checkbox" class="guia-ec" name="ids" value="{{ g.id }}" form="form-ec-enviar">{% endif %}</td>
-      <td><a href="/prestadores/{{ g.prestador_id }}/receita">{% if g.prestador.codigo_interno %}<b>{{ g.prestador.codigo_interno }}</b> · {% endif %}{{ g.prestador.razao_social }}</a></td>
+      <td><a class="nome-empresa" href="/prestadores/{{ g.prestador_id }}/receita">{{ g.prestador.nome_exibicao }}</a></td>
       <td>{{ TIPOS[g.tipo][0] }}<br><small class="sutil">gerada {{ g.gerada_em|datahora }} · {{ g.gerada_por }}</small></td>
       <td>{{ g.competencia[5:] }}/{{ g.competencia[:4] }}{% if g.parcela %}<br><small class="sutil">parcela {{ g.parcela.split("/")[0] }} de {{ g.parcela.split("/")[1] }}{% if g.numero_parcelamento %} · parc. nº {{ g.numero_parcelamento }}{% endif %}</small>{% endif %}</td>
       <td class="num">{{ g.valor|moeda }}</td>

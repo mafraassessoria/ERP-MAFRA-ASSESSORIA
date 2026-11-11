@@ -22,7 +22,7 @@
 <table class="compacta">
   <thead><tr><th>Empresa</th><th>{{ 'Parcelamento ativo' if item == 'PARCELAMENTO' else 'Situação' }}</th><th>Resumo</th><th>Atualizado</th><th></th></tr></thead>
   <tbody>{% for m in lista %}{% set st = status_de(m.status) %}{% set d = detalhe(m) %}
-    <tr><td><a class="nome-empresa" href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
+    <tr><td><a class="nome-empresa" href="/prestadores/{{ m.prestador_id }}/receita">{{ m.prestador.nome_exibicao }}</a></td>
       <td><span class="etiqueta {{ st[1] }}">{{ st[0] }}</span></td>
       <td>{{ m.resumo }}
         {% set at = atrasos.get(m.prestador_id) if atrasos else none %}

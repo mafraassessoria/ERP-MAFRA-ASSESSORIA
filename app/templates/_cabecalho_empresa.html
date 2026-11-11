@@ -1,6 +1,6 @@
 <div class="linha-titulo">
   <div>
-    <h1>{% if p.codigo_interno %}<span class="sutil">{{ p.codigo_interno }} ·</span> {% endif %}{{ p.razao_social }}</h1>
+    <h1>{% if p.codigo_interno %}<span class="sutil">{{ p.codigo_fmt }} ·</span> {% endif %}{{ p.razao_social }}</h1>
     <p class="sutil">{{ p.cnpj|doc }} · {{ REGIMES[p.regime] }}{% if p.usa_nfse %} · {{ MODOS[p.modo] }}{% endif %}
       {% for m in p.modulos %}<span class="etiqueta mini">{{ m }}</span> {% endfor %}
       {% if not p.ativo %}<span class="etiqueta erro">inativo</span>{% endif %}</p>

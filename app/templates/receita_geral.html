@@ -41,7 +41,7 @@
     <details id="lote-lista" class="oculto"><summary>Marcar empresas ({{ prestadores|length }} ativas)</summary>
       <p><label class="em-linha"><input type="checkbox" id="marcar-todas"> marcar todas</label></p>
       <div class="rolagem" style="max-height:320px">{% for p in prestadores %}
-        <label class="em-linha" style="display:block"><input type="checkbox" name="ids" value="{{ p.id }}" class="lote-id"> {{ p.codigo_interno ~ ' · ' if p.codigo_interno }}{{ p.razao_social }} <small class="sutil">{{ p.cnpj|doc }} · {{ p.regime }}</small></label>{% endfor %}</div>
+        <label class="em-linha" style="display:block"><input type="checkbox" name="ids" value="{{ p.id }}" class="lote-id"> {{ p.nome_exibicao }} <small class="sutil">{{ p.cnpj|doc }} · {{ p.regime }}</small></label>{% endfor %}</div>
     </details>
   </form>
   {% if lotes %}<h3>Lotes recentes</h3><ul>{% for l in lotes %}

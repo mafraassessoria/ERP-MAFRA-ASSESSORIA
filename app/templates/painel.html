@@ -36,7 +36,7 @@
   <table class="compacta">
     <tr><th>Empresa</th><th>Pendência</th></tr>
     {% for p, texto, nota_id in detalhes_nfse %}
-    <tr><td><a href="/prestadores/{{ p.id }}">{{ p.codigo_interno ~ ' · ' if p.codigo_interno }}{{ p.razao_social }}</a></td>
+    <tr><td><a class="nome-empresa" href="/prestadores/{{ p.id }}">{{ p.nome_exibicao }}</a></td>
         <td>{% if nota_id %}<a href="/notas/{{ nota_id }}">{{ texto }}</a>{% else %}{{ texto }}{% endif %}</td></tr>
     {% endfor %}
   </table>

@@ -4,7 +4,7 @@
   <label class="f-prestador">Empresa
     <select name="prestador_id" class="combo" data-placeholder="Todas — digite para filtrar">
       <option value="0">Todas</option>
-      {% for x in prestadores %}<option value="{{ x.id }}" {{ 'selected' if f.prestador_id == x.id }}>{% if x.codigo_interno %}{{ x.codigo_interno }} · {% endif %}{{ x.razao_social }}</option>{% endfor %}
+      {% for x in prestadores %}<option value="{{ x.id }}" {{ 'selected' if f.prestador_id == x.id }}>{{ x.nome_exibicao }}</option>{% endfor %}
     </select></label>{% endif %}
   <label>Situação
     <select name="situacao">

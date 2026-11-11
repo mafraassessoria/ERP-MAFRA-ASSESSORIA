@@ -204,8 +204,7 @@ def linhas(db: Session, prestador_id: int | None = None) -> list[dict]:
 
 
 def _cod_ord(p: models.Prestador):
-    c = (p.codigo_interno or "").strip()
-    return (0, int(c), "") if c.isdigit() else (1, 0, p.razao_social)
+    return p.ordem
 
 
 # ---- coleta --------------------------------------------------------------------------------

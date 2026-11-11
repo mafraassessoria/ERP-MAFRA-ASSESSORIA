@@ -45,7 +45,7 @@ def honorarios(request: Request, mes: str = "", situacao: str = "", q: str = "",
     esc = hs.escritorio(db)
     codigos = db.scalars(select(models.CodigoEmpresa).where(models.CodigoEmpresa.prestador_id == esc.id)).all() if esc else []
     emissoras = db.scalars(select(models.Prestador).where(models.Prestador.ativo.is_(True), models.Prestador.usa_nfse.is_(True),
-                                                          models.Prestador.modo == "EMISSAO").order_by(models.Prestador.razao_social)).all()
+                                                          models.Prestador.modo == "EMISSAO").order_by(*models.ordem_prestador_sql())).all()
     return render(request, "honorarios.html", lista=lista, mes=mes, situacao=situacao, q=q, esc=esc, emissoras=emissoras,
                   codigos=codigos, cfg={k: ler_config(db, k) for k in ("honorarios_ctribnac", "honorarios_nbs", "honorarios_descricao")},
                   descricao_padrao=hs.DESCRICAO_PADRAO, exemplo=hs.descricao(ini, ler_config(db, "honorarios_descricao")),

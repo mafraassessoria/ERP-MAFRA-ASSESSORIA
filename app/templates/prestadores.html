@@ -64,8 +64,8 @@
   {% set c = p.certificado_ativo %}
   <tr class="{{ '' if p.ativo else 'inativo' }}">
     <td><input type="checkbox" name="ids" value="{{ p.id }}" class="sel"></td>
-    <td class="linha" data-valor="{{ p.codigo_interno }}">{{ p.codigo_interno }}</td>
-    <td class="linha" title="{{ p.razao_social }}"><a href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a></td>
+    <td class="linha" data-valor="{{ p.ordem[1] if p.ordem[0] == 0 else 999999 }}">{{ p.codigo_fmt }}</td>
+    <td class="linha" title="{{ p.razao_social }}"><a class="nome-empresa" href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a></td>
     <td class="linha">{{ p.cnpj|doc }}</td>
     <td class="linha" title="{{ REGIMES[p.regime] }}">{{ REGIMES_CURTO[p.regime] }}</td>
     <td class="linha" title="{{ p.modulos|join(', ') }}">{% if p.usa_nfse %}{{ 'Emissão' if p.modo == 'EMISSAO' else 'Importação' }}{% else %}<span class="sutil">sem NFS-e</span>{% endif %}

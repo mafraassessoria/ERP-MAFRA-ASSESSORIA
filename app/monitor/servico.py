@@ -113,7 +113,7 @@ def empresas(db: Session, cod: str, ids: list[int] | None = None) -> list[models
     stmt = select(models.Prestador).where(models.Prestador.ativo.is_(True), models.Prestador.usa_receita.is_(True))
     if ids:
         stmt = stmt.where(models.Prestador.id.in_(ids))
-    return [p for p in db.scalars(stmt.order_by(models.Prestador.razao_social)) if r.aplica(p)]
+    return [p for p in db.scalars(stmt.order_by(*models.ordem_prestador_sql())) if r.aplica(p)]
 
 
 def custo_estimado(db: Session, cod: str, n_empresas: int) -> Decimal:
@@ -274,7 +274,7 @@ def itens(db: Session, item: str, referencia: str | None = None) -> list[models.
             if m.prestador_id not in ult or m.atualizado_em > ult[m.prestador_id].atualizado_em:
                 ult[m.prestador_id] = m
         lista = list(ult.values())
-    return sorted(lista, key=lambda m: m.prestador.razao_social)
+    return sorted(lista, key=lambda m: m.prestador.ordem)
 
 
 def painel(db: Session) -> dict:

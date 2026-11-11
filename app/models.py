@@ -123,8 +123,30 @@ class Auditoria(Base):
 
 # ---- Prestadores (clientes da contabilidade) --------------------------------
 
+def ordem_prestador_sql():
+    """ORDER BY pelo código interno numérico crescente (como no e-Contador); sem código vai para o fim, por nome."""
+    from sqlalchemy import case, func
+    c = Prestador.codigo_interno
+    return (case((func.coalesce(c, "") == "", 1), else_=0), func.length(c), c, Prestador.razao_social)
+
+
 class Prestador(Timestamps, Base):
     __tablename__ = "prestadores"
+
+    @property
+    def codigo_fmt(self) -> str:
+        """Código interno no formato do e-Contador: 1 -> 00001."""
+        c = (self.codigo_interno or "").strip()
+        return c.zfill(5) if c.isdigit() else c
+
+    @property
+    def nome_exibicao(self) -> str:
+        return f"{self.codigo_fmt} · {self.razao_social}" if self.codigo_fmt else self.razao_social
+
+    @property
+    def ordem(self) -> tuple:
+        c = (self.codigo_interno or "").strip()
+        return (0, int(c), "") if c.isdigit() else (1, 0, self.razao_social or "")
     id: Mapped[int] = mapped_column(primary_key=True)
     codigo_interno: Mapped[str] = mapped_column(String(20), default="")  # nº da empresa no escritório
     cnpj: Mapped[str] = mapped_column(String(14), unique=True, index=True)

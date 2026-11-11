@@ -26,7 +26,7 @@
 <form class="busca filtros filtro-auto" method="get">
   <div class="filtro-empresa"><select name="empresa" class="combo" data-placeholder="Empresa: digite o nome ou o código (vazio = todas)">
     <option value="">Todas as empresas</option>
-    {% for p in empresas_lista %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.codigo_interno ~ ' · ' if p.codigo_interno }}{{ p.razao_social }}</option>{% endfor %}
+    {% for p in empresas_lista %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.nome_exibicao }}</option>{% endfor %}
   </select></div>
   {% if q %}<input name="q" value="{{ q }}" placeholder="Empresa, código ou CNPJ">{% endif %}
   <select name="tipo"><option value="">Todos os tipos</option>{% for t in tipos %}<option {{ 'selected' if t == tipo }}>{{ t }}</option>{% endfor %}</select>
@@ -48,7 +48,7 @@
   <table class="compacta matriz-cert">
     <thead><tr><th>Empresa</th>{% for f in colunas %}<th>{{ rotulos_familia[f] }}</th>{% endfor %}</tr></thead>
     <tbody>{% for l in matriz %}<tr>
-      <td><a href="/prestadores/{{ l.p.id }}/certidoes">{% if l.p.codigo_interno %}<b>{{ l.p.codigo_interno }}</b> · {% endif %}{{ l.p.razao_social }}</a></td>
+      <td><a class="nome-empresa" href="/prestadores/{{ l.p.id }}/certidoes">{{ l.p.nome_exibicao }}</a></td>
       {% for f in colunas %}{% set r = l.celulas.get(f) %}
       <td>{% if r %}<span class="quadro {{ r.classe }}" title="{{ r.c.tipo_nome }} — {{ r.rotulo }}{{ (' · validade ' ~ (r.c.vencimento|data)) if r.c.vencimento }}{{ (' · ' ~ r.acao) if r.acao and r.estado not in ('VALIDA',) }}">{{ r.rotulo }}{% if r.c.vencimento and r.estado in ('VALIDA', 'VENCE_LOGO', 'VENCIDA') %}<small>{{ r.c.vencimento|data }}</small>{% endif %}</span>{% else %}<span class="sutil">—</span>{% endif %}</td>
       {% endfor %}</tr>{% else %}<tr><td class="sutil">Nenhuma empresa com estes filtros.</td></tr>{% endfor %}</tbody>

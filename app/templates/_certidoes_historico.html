@@ -5,7 +5,7 @@
   {% for h in hist %}{% set c = h.c %}
     {% set novo_grupo = loop.first or hist[loop.index0 - 1].c.tipo_nome != c.tipo_nome or hist[loop.index0 - 1].c.prestador_id != c.prestador_id %}
     <tr class="{{ 'inicio-grupo' if novo_grupo and not loop.first }}">
-      {% if mostrar_empresa %}<td>{% if novo_grupo %}<a class="nome-empresa" href="/prestadores/{{ c.prestador_id }}/certidoes">{% if c.prestador.codigo_interno %}{{ c.prestador.codigo_interno }} · {% endif %}{{ c.prestador.razao_social }}</a>{% endif %}</td>{% endif %}
+      {% if mostrar_empresa %}<td>{% if novo_grupo %}<a class="nome-empresa" href="/prestadores/{{ c.prestador_id }}/certidoes">{{ c.prestador.nome_exibicao }}</a>{% endif %}</td>{% endif %}
       <td>{% if novo_grupo %}{{ c.tipo_nome }}{% endif %}<br><small class="sutil">registro {{ c.pack_id }}</small></td>
       <td>{{ c.emissao|data if c.emissao else '—' }}</td>
       <td>{{ c.vencimento|data if c.vencimento else '—' }}</td>

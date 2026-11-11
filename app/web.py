@@ -36,6 +36,7 @@ def _ativo_parc(x) -> bool:
 
 
 templates.env.filters["data8"] = _data8
+templates.env.filters["cod5"] = lambda c: str(c).strip().zfill(5) if str(c or "").strip().isdigit() else (c or "")
 templates.env.filters["data_iso"] = lambda v: (f"{str(v)[8:10]}/{str(v)[5:7]}/{str(v)[:4]}" if v and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(v)[:10]) else (v or ""))
 templates.env.filters["parc_ativos_primeiro"] = lambda l: sorted(l or [], key=lambda x: (not _ativo_parc(x), str(x.get("pedido", ""))), reverse=False)
 templates.env.tests["parc_ativo"] = _ativo_parc

@@ -295,7 +295,7 @@ def importar_todos(db: Session, usuario: str = "agendador", pausa_s: float = 2.0
     prestadores = db.scalars(select(models.Prestador).where(
         models.Prestador.ativo.is_(True), models.Prestador.usa_nfse.is_(True),
         models.Prestador.importar_automaticamente.is_(True))
-        .order_by(models.Prestador.razao_social)).all()
+        .order_by(*models.ordem_prestador_sql())).all()
     for i, p in enumerate(prestadores):
         if not p.importar_por_procuracao and p.certificado_ativo is None:
             continue

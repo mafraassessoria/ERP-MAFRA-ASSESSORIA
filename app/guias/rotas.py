@@ -40,8 +40,9 @@ def guias(request: Request, situacao: str = "ABERTA", empresa: int = 0, tipo: st
     if tipo:
         stmt = stmt.where(models.GuiaRF.tipo == tipo)
     lista = db.scalars(stmt.limit(500)).all()
+    lista = sorted(lista, key=lambda g: g.prestador.ordem)   # por código da empresa; dentro dela, mais nova primeiro
     empresas = db.scalars(select(models.Prestador).where(models.Prestador.ativo.is_(True), models.Prestador.usa_receita.is_(True))
-                          .order_by(models.Prestador.razao_social)).all()
+                          .order_by(*models.ordem_prestador_sql())).all()
     com_parc = db.scalars(select(models.MonitorItem).where(models.MonitorItem.item == "PARCELAMENTO",
                                                            models.MonitorItem.status == "COM")).all()
     return render(request, "guias.html", lista=lista, empresas=empresas, situacao=situacao, empresa=empresa, tipo=tipo,

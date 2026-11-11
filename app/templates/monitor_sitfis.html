@@ -37,8 +37,8 @@
     <colgroup><col style="width:28%"><col style="width:44%"><col style="width:15%"><col style="width:13%"></colgroup>
     <thead><tr><th>Empresa</th><th>Pendências</th><th>Certidão</th><th>Consulta</th></tr></thead>
     <tbody>{% for x in itens %}{% set m = x.m %}{% set d = x.d %}
-      <tr data-busca="{{ (m.prestador.codigo_interno or '') ~ ' ' ~ m.prestador.razao_social ~ ' ' ~ m.prestador.cnpj }}">
-        <td><a class="nome-empresa" href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
+      <tr data-busca="{{ (m.prestador.codigo_fmt or '') ~ ' ' ~ (m.prestador.codigo_interno or '') ~ ' ' ~ m.prestador.razao_social ~ ' ' ~ m.prestador.cnpj }}">
+        <td><a class="nome-empresa" href="/prestadores/{{ m.prestador_id }}/receita">{{ m.prestador.nome_exibicao }}</a></td>
         <td>
           {% for e in x.etiquetas %}<span class="etiqueta erro">{{ e.texto }}</span> {% endfor %}
           {% if d.indisponiveis %}<span class="etiqueta" title="{{ d.indisponiveis|join(' · ') }}">{{ d.indisponiveis|length }} base(s) sem resposta</span>{% endif %}

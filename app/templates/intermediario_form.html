@@ -2,7 +2,7 @@
 {% block titulo %}Intermediário{% endblock %}
 {% block conteudo %}
 <h1>{{ 'Editar intermediário' if i.id else 'Novo intermediário' }}</h1>
-<p class="sutil">Prestador: <a href="/prestadores/{{ p.id }}?aba=cadastros#intermediarios">{{ p.razao_social }}</a> ·
+<p class="sutil">Prestador: <a class="nome-empresa" href="/prestadores/{{ p.id }}?aba=cadastros#intermediarios">{{ p.nome_exibicao }}</a> ·
   O intermediário é quem intermediou a operação e, quando for o caso, reteve o ISS.</p>
 <form class="cartao" method="post" action="/prestadores/{{ p.id }}/intermediarios/salvar">
   <input type="hidden" name="id" value="{{ i.id or '' }}">

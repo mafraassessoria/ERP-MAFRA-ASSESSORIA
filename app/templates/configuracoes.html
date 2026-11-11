@@ -24,7 +24,7 @@
     <label>Empresa do escritório (procurador) — certificado usado para importar "por procuração"
       <select name="prestador_procurador_id">
         <option value="">— nenhuma —</option>
-        {% for p in prestadores %}<option value="{{ p.id }}" {{ 'selected' if cfg.prestador_procurador_id == p.id|string }}>{{ p.razao_social }} · {{ p.cnpj|doc }}</option>{% endfor %}
+        {% for p in prestadores %}<option value="{{ p.id }}" {{ 'selected' if cfg.prestador_procurador_id == p.id|string }}>{{ p.nome_exibicao }} · {{ p.cnpj|doc }}</option>{% endfor %}
       </select></label>
     <p class="sutil">Para clientes que não entregam o certificado: cadastre o escritório como prestador (modo "somente importação"), envie o
       e-CNPJ do escritório e escolha-o aqui. Cada cliente precisa conceder procuração eletrônica ao escritório para a NFS-e.</p>

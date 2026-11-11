@@ -36,7 +36,7 @@ def configuracoes(request: Request, db: Session = Depends(get_db), u=Depends(adm
     cfg = {c: ler_config(db, c) for c in CAMPOS_SMTP + ("pasta_copia_xml", "prestador_procurador_id")}
     cfg["tem_senha"] = bool(ler_config(db, "smtp_senha_cripto"))
     cfg["obra_subitens"] = ler_config(db, "obra_subitens") or models.OBRA_SUBITENS_PADRAO
-    prestadores = db.scalars(select(models.Prestador).order_by(models.Prestador.razao_social)).all()
+    prestadores = db.scalars(select(models.Prestador).order_by(*models.ordem_prestador_sql())).all()
     tab = {
         "ctribnac": db.scalar(select(func.count()).select_from(models.CodigoTributacao)),
         "ctribnac_oficial": db.scalar(select(func.count()).select_from(models.CodigoTributacao).where(models.CodigoTributacao.oficial.is_(True))),
@@ -217,7 +217,7 @@ def relatorios(request: Request, competencia: str = "", prestador_id: int = 0, h
     linhas = sorted(resumo.items(), key=lambda kv: kv[0].razao_social)
     total = {k: sum((v[k] for _, v in linhas), zero if not isinstance(v0, int) else 0)
              for k, v0 in (linhas[0][1].items() if linhas else [])}
-    prestadores = db.scalars(select(models.Prestador).order_by(models.Prestador.razao_social)).all()
+    prestadores = db.scalars(select(models.Prestador).order_by(*models.ordem_prestador_sql())).all()
     controles = {c.prestador_id: c for c in db.scalars(select(models.ControleNSU)).all()}
     return render(request, "relatorios.html", linhas=linhas, total=total, comp=comp, prestadores=prestadores,
                   f=dict(prestador_id=prestador_id, homologacao=homologacao), controles=controles)

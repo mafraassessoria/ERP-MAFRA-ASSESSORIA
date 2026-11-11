@@ -2,7 +2,7 @@
 {% block titulo %}Tomador{% endblock %}
 {% block conteudo %}
 <h1>{{ 'Editar tomador' if t.id else 'Novo tomador' }}</h1>
-<p class="sutil">Prestador: <a href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a></p>
+<p class="sutil">Prestador: <a class="nome-empresa" href="/prestadores/{{ p.id }}">{{ p.nome_exibicao }}</a></p>
 <form class="cartao" method="post" action="/prestadores/{{ p.id }}/tomadores/salvar">
   <input type="hidden" name="id" value="{{ t.id or '' }}">
   <input type="hidden" name="volta" value="{{ volta or '' }}">

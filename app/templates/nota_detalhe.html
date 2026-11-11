@@ -5,7 +5,7 @@
   <div>
     <h1>{% if n.numero_nfse %}NFS-e nº {{ n.numero_nfse }}{% else %}Nota (rascunho #{{ n.id }}){% endif %}
       <span class="etiqueta situacao-{{ n.situacao|lower }}">{{ SITUACOES_NOTA[n.situacao] }}</span></h1>
-    <p class="sutil"><a href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a> · {{ p.cnpj|doc }} ·
+    <p class="sutil"><a class="nome-empresa" href="/prestadores/{{ p.id }}">{{ p.nome_exibicao }}</a> · {{ p.cnpj|doc }} ·
 </p>
   </div>
   <div class="acoes">

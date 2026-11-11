@@ -14,7 +14,7 @@
     <input type="hidden" name="servico" value="{{ s.codigo }}">
     {% for k, v in valores.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
     <div class="rolagem" style="max-height:360px"><table class="compacta"><thead><tr><th></th><th>Empresa</th><th>CNPJ</th><th>Regime</th></tr></thead><tbody>
-    {% for p in alvos %}<tr><td><input type="checkbox" name="ids" value="{{ p.id }}" checked></td><td>{{ p.razao_social }}</td><td>{{ p.cnpj|doc }}</td><td>{{ p.regime }}</td></tr>{% endfor %}
+    {% for p in alvos %}<tr><td><input type="checkbox" name="ids" value="{{ p.id }}" checked></td><td><b>{{ p.nome_exibicao }}</b></td><td>{{ p.cnpj|doc }}</td><td>{{ p.regime }}</td></tr>{% endfor %}
     </tbody></table></div>
     <p><button>Confirmar e iniciar</button> <a class="botao secundario" href="/receita#lote">Voltar</a></p>
   </form>

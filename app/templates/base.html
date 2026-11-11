@@ -41,7 +41,7 @@
 {% endif %}
 {% if empresa_sel %}
 <div class="barra-empresa">
-  <span class="nome">{% if empresa_sel.codigo_interno %}<b>{{ empresa_sel.codigo_interno }}</b> · {% endif %}{{ empresa_sel.razao_social }}
+  <span class="nome"><b>{{ empresa_sel.nome_exibicao }}</b>
     <small>{{ empresa_sel.cnpj|doc }}</small></span>
   <nav>
     {% if empresa_sel.usa_nfse %}<a href="/prestadores/{{ empresa_sel.id }}?aba=notas">Notas</a>
