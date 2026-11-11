@@ -130,6 +130,8 @@
       <div class="tres-colunas">
         {% for t, v in serpro.precos.items() %}<label>{{ t }} <input name="serpro_preco_{{ t }}" value="{{ v }}" inputmode="decimal"></label>{% endfor %}
         <label>Limite de gasto mensal <input name="serpro_limite_mensal" value="{{ serpro.limite }}" inputmode="decimal"></label>
+        <label title="Períodos, pagamentos e declarações anteriores não são consultados (a apuração do mês anterior, que vence depois, entra). Vazio = sem corte.">Não consultar dados anteriores a
+          <input type="date" name="serpro_data_corte" value="{{ serpro.corte }}"></label>
       </div>
       <p class="sutil">Preencha com os valores da sua faixa no contrato. O sistema soma o custo de cada chamada e bloqueia quando o limite do mês é atingido.</p>
     </fieldset>

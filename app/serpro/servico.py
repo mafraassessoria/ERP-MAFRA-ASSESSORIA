@@ -6,7 +6,7 @@ import json
 import logging
 import re
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -25,6 +25,10 @@ PASTA = DATA_DIR / "receita"
 MODOS = {"desligado": "Desligado", "demonstracao": "Demonstração (ambiente de testes do Serpro, dados fictícios, sem custo)",
          "producao": "Produção (contrato com o Serpro, cobra por chamada)"}
 ESPERA_MAX_SITFIS = 60  # segundos aguardando o relatório ficar pronto
+
+
+class ErroCorte(Exception):
+    """Pedido de dado anterior à data de corte configurada (nada é chamado nem cobrado)."""
 
 
 class ErroConsulta(Exception):
@@ -182,12 +186,60 @@ def ultima_igual(db: Session, p: models.Prestador, s: Servico, valores: dict) ->
         models.ConsultaReceita.modo == modo(db)).order_by(models.ConsultaReceita.id.desc()).limit(1))
 
 
+CORTE_PADRAO = "2026-11-01"
+SERVICOS_PARCELA = ("parcsn_das", "parcmei_das")
+
+
+def data_corte(db: Session) -> date | None:
+    """Nenhum dado anterior a esta data é consultado no Serpro (pedido do escritório em 10/11/2026).
+    Regra "pelo movimento": a apuração do mês anterior ao corte (que vence depois dele) é permitida."""
+    reg = db.get(models.Configuracao, "serpro_data_corte")
+    v = (reg.valor or "") if reg is not None else CORTE_PADRAO
+    try:
+        return date.fromisoformat(v.strip()) if v.strip() else None
+    except ValueError:
+        return date.fromisoformat(CORTE_PADRAO)
+
+
+def aplicar_corte(db: Session, s, valores: dict) -> None:
+    corte = data_corte(db)
+    if not corte:
+        return
+    msg = f"Configurado para não consultar dados anteriores a {corte:%d/%m/%Y} (Configurações → Receita Federal)."
+    mes_corte = corte.strftime("%Y-%m")
+    mes_ant = (corte.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    for c in s.campos:
+        v = valores.get(c.nome) or ""
+        if not v:
+            continue
+        if c.tipo == "periodo":
+            minimo = mes_corte if s.codigo in SERVICOS_PARCELA else mes_ant
+            if v[:7] < minimo:
+                raise ErroCorte(msg)
+        elif c.tipo == "ano":
+            if v[:4].isdigit() and int(v[:4]) < int(mes_ant[:4]):
+                raise ErroCorte(msg)
+        elif c.tipo == "data" and c.nome in ("de", "ate"):
+            try:
+                d = date.fromisoformat(v[:10])
+            except ValueError:
+                continue
+            if d < corte:
+                if c.nome == "ate":
+                    raise ErroCorte(msg)
+                valores[c.nome] = corte.isoformat()     # período de pagamentos começa no corte
+
+
 def executar(db: Session, p: models.Prestador, codigo: str, valores: dict, usuario: str, *,
              lote: str = "", cli: ClienteIntegra | None = None, espera=time.sleep) -> models.ConsultaReceita:
     s = POR_CODIGO.get(codigo)
     if s is None:
         raise ErroConsulta("Serviço desconhecido.")
     valores = {c.nome: (valores.get(c.nome) or "").strip() for c in s.campos}
+    try:
+        aplicar_corte(db, s, valores)
+    except ErroCorte as e:
+        raise ErroConsulta(str(e)) from e
     try:
         dados = s.montar(valores)
     except (ValueError, TypeError) as e:

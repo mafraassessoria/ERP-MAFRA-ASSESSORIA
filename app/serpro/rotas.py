@@ -261,6 +261,8 @@ async def receita_config(request: Request, db: Session = Depends(get_db), u=Depe
         v = texto(form, f"serpro_preco_{tipo}", 12)
         if v:
             gravar_config(db, f"serpro_preco_{tipo}", v)
+    if "serpro_data_corte" in form:
+        gravar_config(db, "serpro_data_corte", texto(form, "serpro_data_corte", 10))
     if texto(form, "serpro_limite_mensal", 15):
         gravar_config(db, "serpro_limite_mensal", texto(form, "serpro_limite_mensal", 15))
     auditar(db, request, u, "CONFIG_RECEITA", "configuracao", None, f"modo={m}")
@@ -360,4 +362,5 @@ def contexto_config(db: Session) -> dict:
     return {**contexto_apis(db), "serpro": {"modo": sv.modo(db), "tem_chaves": sv.tem_chaves(db), "precos": {
         t: ler_config(db, f"serpro_preco_{t}") or p for t, p in PRECOS_PADRAO.items()},
         "limite": ler_config(db, "serpro_limite_mensal") or "200,00", "gasto": sv.gasto_mes(db),
+        "corte": sv.data_corte(db).isoformat() if sv.data_corte(db) else "",
         "chamadas": sv.chamadas_mes(db), "escritorio": sv.escritorio(db)}, "SERPRO_MODOS": sv.MODOS}

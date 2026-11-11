@@ -107,6 +107,12 @@ def _dados(c: models.ConsultaReceita):
         return None
 
 
+def _ref_minima(db) -> str:
+    """Primeiro mês acompanhado, pela data de corte do Serpro (a apuração do mês anterior ao corte entra)."""
+    corte = sv.data_corte(db)
+    return (corte.replace(day=1) - timedelta(days=1)).strftime("%Y-%m") if corte else "0000-00"
+
+
 def _consultar(db, p, codigo, valores, usuario, lote, cli):
     return sv.executar(db, p, codigo, valores, usuario, lote=lote, cli=cli)
 
@@ -242,8 +248,11 @@ def pgdasd(db, p, usuario, lote, cli, hoje: date):
         if per and any(isinstance(v, (list, dict)) for v in d.values()):
             entregues.add(per)
     ultimo = None
+    minimo = _ref_minima(db)
     for mes in range(1, int(pa[5:]) + 1):
         ref = f"{ano}-{mes:02d}"
+        if ref < minimo:
+            continue
         st = "ENTREGUE" if ref in entregues else "NAO_ENTREGUE"
         ultimo = gravar(db, p, "PGDASD", ref, st, "Declaração transmitida" if st == "ENTREGUE" else "Sem declaração na Receita",
                         consulta=c)
@@ -256,7 +265,7 @@ def dctfweb(db, p, usuario, lote, cli, hoje: date):
     pendentes = db.scalars(select(models.MonitorItem.referencia).where(
         models.MonitorItem.prestador_id == p.id, models.MonitorItem.item == "DCTFWEB",
         models.MonitorItem.status.in_(("NAO_ENTREGUE", "ERRO")), models.MonitorItem.referencia < pa,
-        models.MonitorItem.referencia >= f"{hoje - timedelta(days=186):%Y-%m}")).all()
+        models.MonitorItem.referencia >= max(f"{hoje - timedelta(days=186):%Y-%m}", _ref_minima(db)))).all()
     ultimo = None
     for ref in [pa] + sorted(pendentes, reverse=True)[:3]:
         c = _consultar(db, p, "dctf_recibo", {"categoria": "GERAL_MENSAL", "periodo": ref}, usuario, lote, cli)
@@ -280,8 +289,11 @@ def mit(db, p, usuario, lote, cli, hoje: date):
         if per:
             sit[per] = str(campo(d, "situacao", "situacaoApuracao", padrao="")).strip()
     ultimo = None
+    minimo = _ref_minima(db)
     for mes in range(1, int(pa[5:]) + 1):
         ref = f"{pa[:4]}-{mes:02d}"
+        if ref < minimo:
+            continue
         s = sit.get(ref)
         st = "ENTREGUE" if s and re.search(r"encerrad|transmitid|entregue", s, re.I) else "NAO_ENTREGUE"
         ultimo = gravar(db, p, "MIT", ref, st, s or "Sem apuração encerrada", consulta=c)
@@ -290,6 +302,8 @@ def mit(db, p, usuario, lote, cli, hoje: date):
 
 def defis(db, p, usuario, lote, cli, hoje: date):
     ano = str(hoje.year - 1)
+    if ano < _ref_minima(db)[:4]:
+        return None      # DEFIS do ano anterior ao corte não é acompanhada
     c = _consultar(db, p, "defis_lista", {}, usuario, lote, cli)
     if not c.ok and not _nao_encontrado(c.mensagens):
         return gravar(db, p, "DEFIS", ano, "ERRO", c.mensagens or "Sem resposta", consulta=c)
