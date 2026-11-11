@@ -18,7 +18,7 @@
   <a class="cartao mon-quadro" href="/monitor/item/{{ cod }}">
     <h2>{{ titulo }} {% if d.ref %}<small class="sutil">{{ d.ref }}</small>{% endif %}</h2>
     <div class="mon-num">{{ d.total }}<small> empresa(s)</small></div>
-    <div class="mon-partes">{% for st in partes %}<span class="etiqueta {{ STATUS[st][1] }}">{{ STATUS[st][0] }}: {{ d.cont.get(st, 0) }}</span>{% endfor %}
+    <div class="mon-partes">{% for st in partes %}{% set r = status_de(cod, st) %}<span class="etiqueta {{ r[1] }}">{{ r[0] }}: {{ d.cont.get(st, 0) }}</span>{% endfor %}
       {% if d.cont.get('ERRO') %}<span class="etiqueta erro">Erro: {{ d.cont.get('ERRO') }}</span>{% endif %}</div>
   </a>
 {% endmacro %}

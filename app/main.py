@@ -55,6 +55,7 @@ def _inicio():
     _ajustes_unicos()
     _limpar_demonstracao()
     _reler_sitfis()
+    _ajuste_texto_parcelamentos()
     from .agendador import iniciar as iniciar_agendador
     iniciar_agendador()
 
@@ -97,6 +98,19 @@ def _reler_sitfis():
         except Exception:  # noqa: BLE001
             db.rollback()
             logging.getLogger("emissor").exception("releitura SITFIS")
+
+
+def _ajuste_texto_parcelamentos():
+    """Uma vez: resumos antigos dos parcelamentos ("em andamento") passam a dizer "ativo(s)"."""
+    from .db import SessionLocal
+    chave = "ajuste_2026_11_parcelamentos_ativos"
+    with SessionLocal() as db:
+        if db.get(models.Configuracao, chave) is not None:
+            return
+        for m in db.query(models.MonitorItem).filter(models.MonitorItem.item == "PARCELAMENTO").all():
+            m.resumo = (m.resumo or "").replace(" em andamento de ", " ativo(s) de ")
+        db.add(models.Configuracao(chave=chave, valor=datetime.now().isoformat()))
+        db.commit()
 
 
 def _ajustes_unicos():

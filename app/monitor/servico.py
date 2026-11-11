@@ -223,6 +223,31 @@ STATUS = {
     "NAO_ENTREGUE": ("Não entregue", "erro"), "COM": ("Com", "aviso"), "SEM": ("Sem", "ok"), "NOVAS": ("Não lidas", "aviso"),
     "ERRO": ("Erro na consulta", "erro"), "INDEFINIDO": ("Conferir", "aviso"),
 }
+# Situações que cada acompanhamento pode ter (o filtro mostra só estas; Erro/Conferir só quando existirem)
+STATUS_POR_ITEM = {
+    "SITFIS": ["PENDENCIA", "INDEFINIDO", "REGULAR", "ERRO"],
+    "PARCELAMENTO": ["COM", "SEM", "ERRO"],
+    "CAIXA": ["NOVAS", "SEM", "ERRO"],
+    "PAGAMENTOS": ["COM", "SEM", "ERRO"],
+    "PGDASD": ["ENTREGUE", "NAO_ENTREGUE", "ERRO"], "DCTFWEB": ["ENTREGUE", "NAO_ENTREGUE", "ERRO"],
+    "MIT": ["ENTREGUE", "NAO_ENTREGUE", "ERRO"], "DEFIS": ["ENTREGUE", "NAO_ENTREGUE", "ERRO"],
+}
+# Rótulos próprios de um acompanhamento (Parcelamentos: tem parcelamento ativo? Sim / Não)
+ROTULO_STATUS_ITEM = {"PARCELAMENTO": {"COM": ("Sim", "aviso"), "SEM": ("Não", "ok")}}
+
+
+def status_de(item: str, status: str) -> tuple[str, str]:
+    return ROTULO_STATUS_ITEM.get(item, {}).get(status) or STATUS.get(status, (status, ""))
+
+
+def opcoes_status(item: str, presentes) -> list[tuple[str, str]]:
+    """(código, rótulo) para o filtro: as situações aplicáveis ao item; Erro e Conferir só se houver."""
+    presentes = set(presentes)
+    cods = [c for c in STATUS_POR_ITEM.get(item, list(STATUS)) if c not in ("ERRO", "INDEFINIDO") or c in presentes]
+    cods += sorted(c for c in presentes if c not in cods)
+    return [(c, status_de(item, c)[0]) for c in cods]
+
+
 ROTULO_ITEM = {"SITFIS": "Situação fiscal", "PARCELAMENTO": "Parcelamentos", "CAIXA": "Caixa postal", "PAGAMENTOS": "Pagamentos",
                "PGDASD": "PGDAS-D", "DCTFWEB": "DCTFWeb", "MIT": "MIT", "DEFIS": "DEFIS"}
 

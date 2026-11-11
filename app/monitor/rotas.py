@@ -38,7 +38,7 @@ def _rotinas_ctx(db: Session) -> list[dict]:
 
 @router.get("/monitor")
 def monitor_painel(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
-    return render(request, "monitor_painel.html", pn=ms.painel(db), rotinas=_rotinas_ctx(db), execucao=ms.situacao(),
+    return render(request, "monitor_painel.html", pn=ms.painel(db), status_de=ms.status_de, rotinas=_rotinas_ctx(db), execucao=ms.situacao(),
                   STATUS=ms.STATUS, ROTULO=ms.ROTULO_ITEM, modo=sv.modo(db), DIAS=ms.DIAS)
 
 
@@ -51,12 +51,14 @@ def monitor_item(item: str, request: Request, ref: str | None = None, status: st
     if item == "SITFIS":
         return _tela_sitfis(request, db, u, status, request.query_params.get("tipo", ""), request.query_params.get("cert", ""))
     lista = ms.itens(db, item, ref)
+    opcoes = ms.opcoes_status(item, {m.status for m in lista})
     if status:
         lista = [m for m in lista if m.status == status]
     refs = sorted({r for r in db.scalars(select(models.MonitorItem.referencia).where(models.MonitorItem.item == item))}, reverse=True)
     return render(request, "monitor_item.html", item=item, titulo_item=ms.ROTULO_ITEM[item], lista=lista, ref=ref, refs=refs[:24],
                   status=status, STATUS=ms.STATUS, detalhe=lambda m: json.loads(m.detalhe) if m.detalhe else {},
-                  atrasos=ms.atrasos_sitfis(db) if item == "PARCELAMENTO" else {})
+                  atrasos=ms.atrasos_sitfis(db) if item == "PARCELAMENTO" else {}, opcoes=opcoes,
+                  status_de=lambda st: ms.status_de(item, st))
 
 
 # ---- Situação fiscal: tela própria (contadores, grupos, etiquetas, certidão) ----------------------
@@ -195,4 +197,4 @@ def resumo_empresa(db: Session, pid: int) -> list[dict]:
     for m in itens:
         if m.item not in ult or (m.referencia, m.atualizado_em) > (ult[m.item].referencia, ult[m.item].atualizado_em):
             ult[m.item] = m
-    return [dict(m=ult[k], nome=ms.ROTULO_ITEM[k], st=ms.STATUS.get(ult[k].status, (ult[k].status, ""))) for k in ms.ROTULO_ITEM if k in ult]
+    return [dict(m=ult[k], nome=ms.ROTULO_ITEM[k], st=ms.status_de(k, ult[k].status)) for k in ms.ROTULO_ITEM if k in ult]

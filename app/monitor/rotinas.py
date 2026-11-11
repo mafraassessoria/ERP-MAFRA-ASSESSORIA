@@ -397,7 +397,7 @@ def parcelamentos(db, p, usuario, lote, cli, hoje: date):
         return gravar(db, p, "PARCELAMENTO", "", "SEM", "Nenhum parcelamento", consulta=ultima)
     origens = sorted({x["origem"] for x in ativos})
     return gravar(db, p, "PARCELAMENTO", "", "COM" if ativos else "SEM",
-                  f"{len(ativos)} em andamento de {len(lista)} pedido(s)" + (f" ({', '.join(origens)})" if origens else ""),
+                  f"{len(ativos)} ativo(s) de {len(lista)} pedido(s)" + (f" ({', '.join(origens)})" if origens else ""),
                   {"pedidos": lista, "erros": erros}, ultima)
 
 

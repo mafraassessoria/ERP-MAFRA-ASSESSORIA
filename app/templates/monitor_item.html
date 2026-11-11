@@ -3,16 +3,16 @@
 {% block main_classe %}larga{% endblock %}
 {% block conteudo %}
 <div class="linha-titulo"><h1>{{ titulo_item }}{% if ref %} <small class="sutil">{{ ref }}</small>{% endif %}</h1><a class="botao secundario" href="/monitor">Voltar ao painel</a></div>
-<form class="busca filtros" method="get">
+<form class="busca filtros filtro-auto" method="get">
   {% if refs and refs != [''] %}<select name="ref">{% for r in refs %}<option {{ 'selected' if r == ref }}>{{ r }}</option>{% endfor %}</select>{% endif %}
-  <select name="status"><option value="">Todos</option>{% for k, v in STATUS.items() %}<option value="{{ k }}" {{ 'selected' if k == status }}>{{ v[0] }}</option>{% endfor %}</select>
-  <button>Filtrar</button><span class="sutil" style="margin-left:auto">{{ lista|length }} empresa(s)</span>
+  <select name="status"><option value="">Todos</option>{% for k, rot in opcoes %}<option value="{{ k }}" {{ 'selected' if k == status }}>{{ rot }}</option>{% endfor %}</select>
+  {% if status %}<a href="?{{ 'ref=' ~ ref if ref }}">limpar</a>{% endif %}<span class="sutil" style="margin-left:auto">{{ lista|length }} empresa(s)</span>
 </form>
 <section class="cartao">
 <table class="compacta">
-  <thead><tr><th>Empresa</th><th>Situação</th><th>Resumo</th><th>Atualizado</th><th></th></tr></thead>
-  <tbody>{% for m in lista %}{% set st = STATUS.get(m.status, (m.status, '')) %}{% set d = detalhe(m) %}
-    <tr><td><a href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
+  <thead><tr><th>Empresa</th><th>{{ 'Parcelamento ativo' if item == 'PARCELAMENTO' else 'Situação' }}</th><th>Resumo</th><th>Atualizado</th><th></th></tr></thead>
+  <tbody>{% for m in lista %}{% set st = status_de(m.status) %}{% set d = detalhe(m) %}
+    <tr><td><a class="nome-empresa" href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
       <td><span class="etiqueta {{ st[1] }}">{{ st[0] }}</span></td>
       <td>{{ m.resumo }}
         {% set at = atrasos.get(m.prestador_id) if atrasos else none %}
@@ -21,7 +21,7 @@
         {% elif d.pendencias %}<details><summary>pendências</summary><ul>{% for x in d.pendencias %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
         {% if d.indisponiveis %}<details><summary>bases indisponíveis ({{ d.indisponiveis|length }})</summary><p class="sutil">A Receita não respondeu estas bases no momento da consulta; não são pendências. Consultar de novo em horário comercial.</p><ul>{% for x in d.indisponiveis %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
         {% if d.suspensas %}<details><summary>exigibilidade suspensa ({{ d.suspensas|length }})</summary><ul>{% for x in d.suspensas %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
-        {% if d.pedidos %}<details><summary>pedidos ({{ d.pedidos|select('parc_ativo')|list|length }} em andamento de {{ d.pedidos|length }})</summary><ul>{% for x in d.pedidos|parc_ativos_primeiro %}<li class="{{ '' if x is parc_ativo else 'sutil' }}">{% if x is parc_ativo %}<b>{% endif %}{{ x.origem ~ ' ' if x.origem }}nº {{ x.numero }} · {{ x.situacao }}{% if x is parc_ativo %}</b>{% endif %}{% if x.pedido %} · pedido {{ x.pedido|data8 }}{% endif %}{% if x.data_situacao and x.data_situacao != x.pedido %} · situação desde {{ x.data_situacao|data8 }}{% endif %}</li>{% endfor %}</ul></details>{% endif %}
+        {% if d.pedidos %}<details><summary>pedidos ({{ d.pedidos|select('parc_ativo')|list|length }} ativo(s) de {{ d.pedidos|length }})</summary><ul>{% for x in d.pedidos|parc_ativos_primeiro %}<li class="{{ '' if x is parc_ativo else 'sutil' }}">{% if x is parc_ativo %}<b>{% endif %}{{ x.origem ~ ' ' if x.origem }}nº {{ x.numero }} · {{ x.situacao }}{% if x is parc_ativo %}</b>{% endif %}{% if x.pedido %} · pedido {{ x.pedido|data8 }}{% endif %}{% if x.data_situacao and x.data_situacao != x.pedido %} · situação desde {{ x.data_situacao|data8 }}{% endif %}</li>{% endfor %}</ul></details>{% endif %}
         {% if d.mensagens %}<details><summary>mensagens</summary><ul>{% for x in d.mensagens %}<li>{{ '' if x.lida else '● ' }}{{ x.enviada }} · {{ x.assunto }}</li>{% endfor %}</ul></details>{% endif %}</td>
       <td><small>{{ m.atualizado_em|datahora }}</small></td>
       <td>{% if m.consulta_id %}<a href="/prestadores/{{ m.prestador_id }}/receita?ver={{ m.consulta_id }}#resultado">consulta</a>{% endif %}</td></tr>
