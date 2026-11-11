@@ -328,3 +328,7 @@ table.debitos .num { text-align:right; font-variant-numeric:tabular-nums; }
 details.historico-bloco > summary { cursor:pointer; padding:.2rem 0 .5rem; }
 table.historico-cert tr.inicio-grupo td { border-top:2px solid var(--borda); }
 table.historico-cert td { color:#4a5563; }
+/* Parcelas em aberto: botão na mesma linha */
+table.parcelas form { display:inline; margin:0; padding:0; }
+table.parcelas td { vertical-align:middle; }
+table.parcelas button.mini { padding:.1rem .6rem; font-size:.8rem; margin:0; }
