@@ -150,7 +150,7 @@ _TM = re.compile(rb"([-\d.]+)\s+([-\d.]+)\s+Tm")
 def _texto_pdf_string(b: bytes) -> str:
     b = b[b.index(b"(") + 1:b.rindex(b")")]
     b = re.sub(rb"\\([()\\])", rb"\1", b)
-    return b.decode("latin-1")
+    return b.decode("cp1252", errors="replace")
 
 
 def linhas_pdf(caminho) -> list[str]:
