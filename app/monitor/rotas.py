@@ -55,7 +55,8 @@ def monitor_item(item: str, request: Request, ref: str | None = None, status: st
         lista = [m for m in lista if m.status == status]
     refs = sorted({r for r in db.scalars(select(models.MonitorItem.referencia).where(models.MonitorItem.item == item))}, reverse=True)
     return render(request, "monitor_item.html", item=item, titulo_item=ms.ROTULO_ITEM[item], lista=lista, ref=ref, refs=refs[:24],
-                  status=status, STATUS=ms.STATUS, detalhe=lambda m: json.loads(m.detalhe) if m.detalhe else {})
+                  status=status, STATUS=ms.STATUS, detalhe=lambda m: json.loads(m.detalhe) if m.detalhe else {},
+                  atrasos=ms.atrasos_sitfis(db) if item == "PARCELAMENTO" else {})
 
 
 # ---- Situação fiscal: tela própria (contadores, grupos, etiquetas, certidão) ----------------------

@@ -78,7 +78,8 @@ def receita_empresa(pid: int, request: Request, ver: int = 0, db: Session = Depe
     from ..monitor.rotas import resumo_empresa
     from ..monitor.rotinas import ROTINAS
     return render(request, "receita_empresa.html", p=p, aba="receita", monitor=resumo_empresa(db, pid),
-                  rotinas_empresa=[r for r in ROTINAS if r.aplica(p)], grupos=grupos, historico=historico,
+                  rotinas_empresa=[r for r in ROTINAS if r.aplica(p)],
+                  atraso_parc=__import__("app.monitor.servico", fromlist=["x"]).atrasos_sitfis(db, pid).get(pid), grupos=grupos, historico=historico,
                   aberta=aberta, dados_abertos=_carregar(aberta), custos=custos, POR_CODIGO=POR_CODIGO,
                   sit=_situacao_modulo(db))
 

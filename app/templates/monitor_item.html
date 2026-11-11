@@ -15,6 +15,8 @@
     <tr><td><a href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
       <td><span class="etiqueta {{ st[1] }}">{{ st[0] }}</span></td>
       <td>{{ m.resumo }}
+        {% set at = atrasos.get(m.prestador_id) if atrasos else none %}
+        {% if at %}<div class="atraso-parc">{% for nome, n in at.itens %}<span class="etiqueta {{ 'erro' if n else 'aviso' }}">{{ nome }}: {{ (n ~ ' parcela(s) em atraso') if n is not none else 'pendência na situação fiscal' }}</span> {% endfor %}<small class="sutil">segundo a situação fiscal de {{ at.quando|datahora }}</small></div>{% endif %}
         {% if d.detalhes %}<details><summary>pendências</summary><ul>{% for x in d.detalhes %}<li><b>{{ x.titulo }}</b>{% if x.linhas %}<br><small class="sutil">{{ x.linhas|join(' · ') }}</small>{% endif %}</li>{% endfor %}</ul></details>
         {% elif d.pendencias %}<details><summary>pendências</summary><ul>{% for x in d.pendencias %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
         {% if d.indisponiveis %}<details><summary>bases indisponíveis ({{ d.indisponiveis|length }})</summary><p class="sutil">A Receita não respondeu estas bases no momento da consulta; não são pendências. Consultar de novo em horário comercial.</p><ul>{% for x in d.indisponiveis %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}

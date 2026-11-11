@@ -314,3 +314,4 @@ fieldset.bloco-form legend { font-weight:600; color:var(--azul); font-size:.9rem
 
 /* Tabela de notas na tela da empresa: a própria empresa em cinza, a outra parte em destaque */
 table.notas td.propria { color:var(--sutil); }
+.atraso-parc { margin:.3rem 0; }

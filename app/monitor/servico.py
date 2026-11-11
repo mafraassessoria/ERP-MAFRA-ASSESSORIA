@@ -263,3 +263,30 @@ def painel(db: Session) -> dict:
     out["pagamentos_mes"] = dict(total=len(pgs), atraso=sum(1 for p in pgs if p.em_atraso),
                                  valor=sum((p.valor for p in pgs), Decimal("0")))
     return out
+
+
+
+def atrasos_sitfis(db: Session, prestador_id: int | None = None) -> dict[int, dict]:
+    """Parcelas em atraso informadas na última situação fiscal (sem custo extra): {prestador_id: {itens, quando}}.
+    itens = [(parcelamento, número de parcelas em atraso)]."""
+    import json as _json
+    import re as _re
+    stmt = select(models.MonitorItem).where(models.MonitorItem.item == "SITFIS")
+    if prestador_id:
+        stmt = stmt.where(models.MonitorItem.prestador_id == prestador_id)
+    out = {}
+    for m in db.scalars(stmt):
+        try:
+            d = _json.loads(m.detalhe) if m.detalhe else {}
+        except ValueError:
+            continue
+        itens = []
+        for x in d.get("detalhes") or []:
+            tit = str(x.get("titulo", ""))
+            if not tit.lower().startswith("parcelamento"):
+                continue
+            n = _re.search(r"Parcelas em atraso\s+(\d+)", " ".join(str(l) for l in x.get("linhas") or []), _re.I)
+            itens.append((_re.sub(r"^Parcelamento\s*", "", tit).strip("() ") or tit, int(n.group(1)) if n else None))
+        if itens:
+            out[m.prestador_id] = {"itens": itens, "quando": m.atualizado_em}
+    return out
