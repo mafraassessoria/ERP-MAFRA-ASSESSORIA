@@ -3,11 +3,21 @@
 {% block main_classe %}larga{% endblock %}
 {% block conteudo %}
 <div class="linha-titulo"><h1>{{ titulo_item }}{% if ref %} <small class="sutil">{{ ref }}</small>{% endif %}</h1><a class="botao secundario" href="/monitor">Voltar ao painel</a></div>
-<form class="busca filtros filtro-auto" method="get">
-  {% if refs and refs != [''] %}<select name="ref">{% for r in refs %}<option {{ 'selected' if r == ref }}>{{ r }}</option>{% endfor %}</select>{% endif %}
-  <select name="status"><option value="">Todos</option>{% for k, rot in opcoes %}<option value="{{ k }}" {{ 'selected' if k == status }}>{{ rot }}</option>{% endfor %}</select>
-  {% if status %}<a href="?{{ 'ref=' ~ ref if ref }}">limpar</a>{% endif %}<span class="sutil" style="margin-left:auto">{{ lista|length }} empresa(s)</span>
-</form>
+<div class="barra-sitfis">
+  <form class="busca filtros filtro-auto" method="get">
+    {% if refs and refs != [''] %}<select name="ref">{% for r in refs %}<option {{ 'selected' if r == ref }}>{{ r }}</option>{% endfor %}</select>{% endif %}
+    <select name="status"><option value="">Todos</option>{% for k, rot in opcoes %}<option value="{{ k }}" {{ 'selected' if k == status }}>{{ rot }}</option>{% endfor %}</select>
+    {% if status %}<a href="?{{ 'ref=' ~ ref if ref }}">limpar</a>{% endif %}
+    <span class="sutil" style="margin-left:auto">{{ lista|length }} empresa(s)</span>
+  </form>
+  {% if item == 'PARCELAMENTO' and e_admin and n_ativos %}
+  <form method="post" action="/monitor/parcelamentos/atualizar-ativos"
+        onsubmit="return confirm('Atualizar as {{ n_ativos }} empresa(s) com parcelamento ativo (pedidos e parcelas em aberto)? Custo estimado R$ {{ custo_ativos|moeda }}.')">
+    <button class="secundario" {{ 'disabled' if execucao.rodando }}>Atualizar parcelas das {{ n_ativos }} com parcelamento ativo · R$ {{ custo_ativos|moeda }}</button>
+  </form>
+  {% endif %}
+</div>
+{% if execucao.rodando %}<p class="msg aviso">Rotina em andamento: {{ execucao.rotina }} — {{ execucao.feitas }}/{{ execucao.total }}. Atualize a página para acompanhar.</p>{% endif %}
 <section class="cartao">
 <table class="compacta">
   <thead><tr><th>Empresa</th><th>{{ 'Parcelamento ativo' if item == 'PARCELAMENTO' else 'Situação' }}</th><th>Resumo</th><th>Atualizado</th><th></th></tr></thead>

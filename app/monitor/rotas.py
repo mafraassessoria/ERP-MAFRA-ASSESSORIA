@@ -52,13 +52,41 @@ def monitor_item(item: str, request: Request, ref: str | None = None, status: st
         return _tela_sitfis(request, db, u, status, request.query_params.get("tipo", ""), request.query_params.get("cert", ""))
     lista = ms.itens(db, item, ref)
     opcoes = ms.opcoes_status(item, {m.status for m in lista})
+    ativos_parc = [m.prestador_id for m in lista if m.status == "COM"] if item == "PARCELAMENTO" else []
     if status:
         lista = [m for m in lista if m.status == status]
     refs = sorted({r for r in db.scalars(select(models.MonitorItem.referencia).where(models.MonitorItem.item == item))}, reverse=True)
     return render(request, "monitor_item.html", item=item, titulo_item=ms.ROTULO_ITEM[item], lista=lista, ref=ref, refs=refs[:24],
                   status=status, STATUS=ms.STATUS, detalhe=lambda m: json.loads(m.detalhe) if m.detalhe else {},
                   atrasos=ms.atrasos_sitfis(db) if item == "PARCELAMENTO" else {}, opcoes=opcoes,
+                  n_ativos=len(ativos_parc), custo_ativos=_custo_parc_ativos(db, len(ativos_parc)),
+                  e_admin=getattr(u, "perfil", "") == "ADMIN", execucao=ms.situacao(),
                   status_de=lambda st: ms.status_de(item, st))
+
+
+def _custo_parc_ativos(db, n: int):
+    """Pedidos + parcelas (uma consulta de cada) por empresa com parcelamento ativo."""
+    from ..serpro.catalogo import POR_CODIGO
+    if not n or sv.modo(db) != "producao":
+        return 0
+    return (sv.custo_previsto(db, POR_CODIGO["parcsn_pedidos"]) + sv.custo_previsto(db, POR_CODIGO["parcsn_parcelas"])) * n
+
+
+@router.post("/monitor/parcelamentos/atualizar-ativos")
+async def parcelamentos_atualizar_ativos(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    """Roda Parcelamentos só nas empresas com parcelamento ativo (traz as parcelas em aberto sem reconsultar todas)."""
+    ids = [m.prestador_id for m in ms.itens(db, "PARCELAMENTO", "") if m.status == "COM"]
+    if not ids:
+        flash(request, "Nenhuma empresa com parcelamento ativo.")
+        return _redir("/monitor/item/PARCELAMENTO")
+    try:
+        sv.cliente(db)
+        ms.executar_em_segundo_plano("PARCELAMENTO", u.login, ids)
+    except (sv.ErroConsulta, ValueError) as e:
+        flash(request, str(e), "erro")
+        return _redir("/monitor/item/PARCELAMENTO")
+    flash(request, f"Parcelamentos: atualizando {len(ids)} empresa(s) com parcelamento ativo. Atualize a página em 1 ou 2 minutos.")
+    return _redir("/monitor/item/PARCELAMENTO?status=COM")
 
 
 # ---- Situação fiscal: tela própria (contadores, grupos, etiquetas, certidão) ----------------------
