@@ -36,9 +36,36 @@ DIAS_SEMANA = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "dom
 
 ESTADOS = {
     "VALIDA": ("Válida", "ok"), "VENCE_LOGO": ("Vence em breve", "aviso"), "VENCIDA": ("Vencida", "erro"),
-    "POSITIVA": ("Positiva — conferir", "erro"), "INDISPONIVEL": ("Sem arquivo no Pack", "aviso"),
+    "POSITIVA": ("Positiva", "erro"), "IMPEDIMENTO": ("Com impedimento", "erro"), "NAO_EMITIDA": ("Não emitida", "aviso"),
+    "INDISPONIVEL": ("Sem arquivo no Pack", "aviso"),
     "SEM_VALIDADE": ("Sem validade — conferir", "aviso"), "SUBSTITUIDA": ("Substituída por outra mais nova", ""),
 }
+
+# Próximo passo sugerido para cada estado (coluna "O que fazer"); por tipo quando faz diferença.
+PROBLEMAS = ("POSITIVA", "IMPEDIMENTO")   # filtro "Positiva ou com impedimento"
+
+
+def o_que_fazer(estado_: str, tipo: str = "") -> str:
+    if estado_ == "NAO_EMITIDA":
+        if tipo.startswith("FALENCIA"):
+            return "Emitir de novo no Pack ou no site do TJ"
+        return "Emitir de novo no Pack ou no site do órgão"
+    if estado_ == "IMPEDIMENTO":
+        return "Ver a pendência no FGTS (Caixa/FGTS Digital) e regularizar" if tipo == "FGTS" else "Ver o impedimento no órgão e regularizar"
+    if estado_ == "POSITIVA":
+        if tipo == "FEDERAL":
+            return "Abrir o PDF; tratar os débitos (ver Situação fiscal)"
+        return "Abrir o PDF e tratar o débito apontado"
+    if estado_ == "VENCIDA":
+        return "Renovar a certidão"
+    if estado_ == "VENCE_LOGO":
+        return "Renovar antes do vencimento"
+    if estado_ == "INDISPONIVEL":
+        return "Aguardar o Pack baixar ou emitir no site"
+    if estado_ == "SEM_VALIDADE":
+        return "Abrir o PDF e conferir a validade"
+    return ""
+
 
 _execucao = {"rodando": False, "inicio": None, "fim": None, "feitas": 0, "total": 0, "erros": [], "resumo": "", "por": ""}
 _trava = threading.Lock()
@@ -86,6 +113,11 @@ def estado(c: models.Certidao, substituida: bool = False, hoje: date | None = No
     if not c.disponivel:
         return "INDISPONIVEL"   # "Ainda não baixada", "Não Emitida"… — o Pack não tem o arquivo
     if c.situacao and c.situacao not in T.SITUACOES_OK:
+        sit = c.situacao.lower()
+        if "não emitida" in sit or "nao emitida" in sit:
+            return "NAO_EMITIDA"
+        if "impedimento" in sit:
+            return "IMPEDIMENTO"
         return "POSITIVA"
     if not c.vencimento:
         return "SEM_VALIDADE"
@@ -122,7 +154,8 @@ def linhas(db: Session, prestador_id: int | None = None) -> list[dict]:
     out = []
     for c in certs:
         e = estado(c, c.id in subst)
-        out.append(dict(c=c, estado=e, rotulo=ESTADOS[e][0], classe=ESTADOS[e][1], substituida=c.id in subst))
+        out.append(dict(c=c, estado=e, rotulo=ESTADOS[e][0], classe=ESTADOS[e][1], substituida=c.id in subst,
+                        acao="" if c.id in subst else o_que_fazer(e, c.tipo or "")))
     out.sort(key=lambda r: (_cod_ord(r["c"].prestador), r["substituida"], r["c"].tipo_nome, -(_ordem(r["c"])[0].toordinal())))
     return out
 

@@ -18,7 +18,7 @@
 
 <div class="rf-cartoes">
   <a class="cartao-num {{ 'ativo' if not estado }}" href="/certidoes"><b>{{ total }}</b><span>Atuais</span></a>
-  {% for k in ('VALIDA', 'VENCE_LOGO', 'VENCIDA', 'POSITIVA', 'INDISPONIVEL', 'SEM_VALIDADE') %}
+  {% for k in ('VALIDA', 'VENCE_LOGO', 'VENCIDA', 'POSITIVA', 'IMPEDIMENTO', 'NAO_EMITIDA', 'INDISPONIVEL', 'SEM_VALIDADE') %}
   <a class="cartao-num {{ ESTADOS[k][1] }} {{ 'ativo' if estado == k }}" href="/certidoes?estado={{ k }}"><b>{{ contagem.get(k, 0) }}</b><span>{{ ESTADOS[k][0] }}</span></a>
   {% endfor %}
 </div>
@@ -30,13 +30,29 @@
   </select></div>
   {% if q %}<input name="q" value="{{ q }}" placeholder="Empresa, código ou CNPJ">{% endif %}
   <select name="tipo"><option value="">Todos os tipos</option>{% for t in tipos %}<option {{ 'selected' if t == tipo }}>{{ t }}</option>{% endfor %}</select>
-  <select name="estado"><option value="">Todos os estados</option>{% for k, v in ESTADOS.items() %}<option value="{{ k }}" {{ 'selected' if k == estado }}>{{ v[0] }}</option>{% endfor %}</select>
+  <select name="estado"><option value="">Todos os estados</option><option value="PROBLEMA" {{ 'selected' if estado == 'PROBLEMA' }}>Positiva ou com impedimento</option>{% for k, v in ESTADOS.items() %}<option value="{{ k }}" {{ 'selected' if k == estado }}>{{ v[0] }}</option>{% endfor %}</select>
   <label class="check" {% if empresa %}title="Com uma empresa escolhida, todas as certidões dela aparecem"{% endif %}><input type="checkbox" name="todas" value="1" {{ 'checked' if todas or empresa }} {{ 'disabled' if empresa }}> incluir substituídas</label>
   <noscript><button>Filtrar</button></noscript>{% if q or tipo or estado or todas or empresa %} <a href="/certidoes">limpar filtros</a>{% endif %}
-  <span class="sutil" style="margin-left:auto">{{ lista|length }} certidão(ões)</span>
+  {% if visao == 'empresa' %}<input type="hidden" name="visao" value="empresa">{% endif %}
+  <span class="sutil" style="margin-left:auto">{{ (matriz|length ~ ' empresa(s)') if matriz is not none else (lista|length ~ ' certidão(ões)') }}</span>
+  <span class="alternar-visao">
+    <a class="{{ 'ativo' if visao != 'empresa' }}" href="/certidoes?{{ qs }}">Lista</a>
+    <a class="{{ 'ativo' if visao == 'empresa' }}" href="/certidoes?{{ qs ~ ('&' if qs) }}visao=empresa">Por empresa</a>
+  </span>
 </form>
 <section class="cartao">
+  {% if matriz is not none %}
+  <table class="compacta matriz-cert">
+    <thead><tr><th>Empresa</th>{% for f in colunas %}<th>{{ rotulos_familia[f] }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for l in matriz %}<tr>
+      <td><a href="/prestadores/{{ l.p.id }}/certidoes">{% if l.p.codigo_interno %}<b>{{ l.p.codigo_interno }}</b> · {% endif %}{{ l.p.razao_social }}</a></td>
+      {% for f in colunas %}{% set r = l.celulas.get(f) %}
+      <td>{% if r %}<span class="quadro {{ r.classe }}" title="{{ r.c.tipo_nome }} — {{ r.rotulo }}{{ (' · validade ' ~ (r.c.vencimento|data)) if r.c.vencimento }}{{ (' · ' ~ r.acao) if r.acao and r.estado not in ('VALIDA',) }}">{{ r.rotulo }}{% if r.c.vencimento and r.estado in ('VALIDA', 'VENCE_LOGO', 'VENCIDA') %}<small>{{ r.c.vencimento|data }}</small>{% endif %}</span>{% else %}<span class="sutil">—</span>{% endif %}</td>
+      {% endfor %}</tr>{% else %}<tr><td class="sutil">Nenhuma empresa com estes filtros.</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}
   {% set mostrar_empresa = True %}{% set volta = '/certidoes' %}
   {% include "_certidoes_tabela.html" %}
+  {% endif %}
 </section>
 {% endblock %}

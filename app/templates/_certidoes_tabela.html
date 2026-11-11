@@ -1,15 +1,16 @@
 {# Espera: lista (linhas de certidoes.servico.linhas), mostrar_empresa, volta #}
 <table class="compacta">
-  <thead><tr>{% if mostrar_empresa %}<th>Empresa</th>{% endif %}<th>Certidão</th><th>Emissão</th><th>Validade</th><th>Situação no Pack</th><th>Estado</th><th>Arquivo</th><th>Arquivador</th></tr></thead>
+  <thead><tr>{% if mostrar_empresa %}<th>Empresa</th>{% endif %}<th>Certidão</th><th>Emissão</th><th>Validade</th><th>Situação no Pack</th><th>Estado</th><th>O que fazer</th><th>Arquivo</th><th>Arquivador</th></tr></thead>
   <tbody>
   {% for r in lista %}{% set c = r.c %}
     <tr class="{{ 'inativo' if r.substituida }}">
       {% if mostrar_empresa %}<td><a href="/prestadores/{{ c.prestador_id }}/certidoes">{% if c.prestador.codigo_interno %}<b>{{ c.prestador.codigo_interno }}</b> · {% endif %}{{ c.prestador.razao_social }}</a></td>{% endif %}
-      <td>{{ c.tipo_nome }}<br><small class="sutil">registro {{ c.pack_id }}{% if not c.tipo %} · tipo não mapeado{% endif %}{% if c.avisos %} · {{ c.avisos if c.pack_id.startswith('RFB-') else 'data ilegível: ' ~ c.avisos }}{% endif %}</small></td>
+      <td>{{ c.tipo_nome }}<br><small class="sutil">registro {{ c.pack_id }}{% if not c.tipo %} · tipo não mapeado{% endif %}{% if c.avisos and r.estado not in ('NAO_EMITIDA', 'IMPEDIMENTO', 'INDISPONIVEL') %} · {{ c.avisos if c.pack_id.startswith('RFB-') else 'data ilegível: ' ~ c.avisos }}{% endif %}</small></td>
       <td>{{ c.emissao|data if c.emissao else '—' }}</td>
       <td>{{ c.vencimento|data if c.vencimento else '—' }}</td>
       <td>{{ c.situacao or '—' }}</td>
       <td><span class="etiqueta {{ r.classe }}">{{ r.rotulo }}</span></td>
+      <td>{% if r.acao and r.estado != 'VALIDA' %}<small>{{ r.acao }}</small>{% else %}<span class="sutil">—</span>{% endif %}</td>
       <td>{% if c.arquivo %}<a href="/certidoes/{{ c.id }}/arquivo" target="_blank">Abrir</a> · <a href="/certidoes/{{ c.id }}/arquivo?download=1">Baixar</a>{% else %}<span class="sutil">—</span>{% endif %}
         {% if c.erro %}<br><small class="erro-texto" title="{{ c.erro }}">{{ c.erro[:90] }}</small>{% endif %}</td>
       <td>{% if c.publicado_em %}<small title="{{ c.publicado_como }}">{{ c.publicado_em|datahora }}<br>{{ c.publicado_como.replace('/', '\\').split('\\')[-1][:70] }}</small>
@@ -18,7 +19,7 @@
           {% else %}<span class="sutil">—</span>{% endif %}</td>
     </tr>
   {% else %}
-    <tr><td colspan="8" class="sutil">Nenhuma certidão. {% if tem_token %}Use "Consultar o Pack CND".{% else %}Configure a chave do e-Contador em Configurações.{% endif %}</td></tr>
+    <tr><td colspan="9" class="sutil">Nenhuma certidão. {% if tem_token %}Use "Consultar o Pack CND".{% else %}Configure a chave do e-Contador em Configurações.{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table>

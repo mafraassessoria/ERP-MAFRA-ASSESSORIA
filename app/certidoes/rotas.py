@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from urllib.parse import urlencode
 
 import threading
 
@@ -37,7 +38,7 @@ def _ctx(db: Session) -> dict:
 
 @router.get("/certidoes")
 def certidoes_geral(request: Request, estado: str = "", q: str = "", tipo: str = "", todas: int = 0, empresa: str = "",
-                    db: Session = Depends(get_db), u=Depends(usuario_atual)):
+                    visao: str = "", db: Session = Depends(get_db), u=Depends(usuario_atual)):
     rows = cs.linhas(db)
     atuais = [r for r in rows if not r["substituida"] and r["c"].prestador.ativo]
     contagem = Counter(r["estado"] for r in atuais)
@@ -45,7 +46,9 @@ def certidoes_geral(request: Request, estado: str = "", q: str = "", tipo: str =
     lista = rows if (todas or eid) else atuais   # empresa escolhida: todas as certidões dela, inclusive substituídas
     if eid:
         lista = [r for r in lista if r["c"].prestador_id == eid]
-    if estado:
+    if estado == "PROBLEMA":
+        lista = [r for r in lista if r["estado"] in cs.PROBLEMAS]
+    elif estado:
         lista = [r for r in lista if r["estado"] == estado]
     if tipo:
         lista = [r for r in lista if r["c"].tipo_nome == tipo]
@@ -61,8 +64,46 @@ def certidoes_geral(request: Request, estado: str = "", q: str = "", tipo: str =
             vistos.add(p.id)
             empresas_lista.append(p)
     pendentes = len(cs.candidatas(db))
+    # com estado escolhido: agrupado por tipo de certidão; sem estado: por empresa (como antes)
+    if estado and not (todas or eid):
+        lista = sorted(lista, key=lambda r: (r["c"].tipo_nome, cs._cod_ord(r["c"].prestador)))
+    matriz = _matriz(lista, tipos) if visao == "empresa" else None
     return render(request, "certidoes_geral.html", lista=lista, contagem=contagem, total=len(atuais), estado=estado, q=q,
-                  tipo=tipo, todas=todas, tipos=tipos, empresa=eid, empresas_lista=empresas_lista, pendentes=pendentes, empresas=len(cs.empresas_alvo(db)), **_ctx(db))
+                  tipo=tipo, todas=todas, tipos=tipos, empresa=eid, empresas_lista=empresas_lista, pendentes=pendentes,
+                  empresas=len(cs.empresas_alvo(db)), visao=visao, matriz=matriz, colunas=_colunas(lista), rotulos_familia=ROTULO_FAMILIA,
+                  qs=urlencode([(k, v) for k, v in request.query_params.multi_items() if k != 'visao']), **_ctx(db))
+
+
+ORDEM_COLUNAS = ["FEDERAL", "ESTADUAL", "MUNICIPAL", "FGTS", "CNDT", "CEAT", "FALENCIA", ""]
+
+
+def _colunas(lista) -> list[str]:
+    """Famílias presentes (Federal, Estadual, Municipal, FGTS, CNDT, CEAT, Falência), na ordem fixa."""
+    from .tipos import familia
+    fams = {familia(r["c"].tipo or "") for r in lista if not r["substituida"]}
+    return [f for f in ORDEM_COLUNAS if f in fams]
+
+
+ROTULO_FAMILIA = {"FEDERAL": "Federal", "ESTADUAL": "Estadual", "MUNICIPAL": "Municipal", "FGTS": "FGTS", "CNDT": "Trabalhista (TST)",
+                  "CEAT": "Ações trab. (TRT)", "FALENCIA": "Falência", "": "Outras"}
+GRAVIDADE = {"VENCIDA": 0, "POSITIVA": 1, "IMPEDIMENTO": 1, "NAO_EMITIDA": 2, "INDISPONIVEL": 3, "SEM_VALIDADE": 3, "VENCE_LOGO": 4, "VALIDA": 5}
+
+
+def _matriz(lista, tipos) -> list[dict]:
+    """Uma linha por empresa; em cada família, a pior certidão atual (se houver mais de uma, como municipais)."""
+    from .tipos import familia
+    por: dict[int, dict] = {}
+    for r in lista:
+        if r["substituida"]:
+            continue
+        p = r["c"].prestador
+        linha = por.setdefault(p.id, {"p": p, "celulas": {}, "pior": 9})
+        fam = familia(r["c"].tipo or "")
+        atual = linha["celulas"].get(fam)
+        if atual is None or GRAVIDADE.get(r["estado"], 6) < GRAVIDADE.get(atual["estado"], 6):
+            linha["celulas"][fam] = r
+        linha["pior"] = min(linha["pior"], GRAVIDADE.get(r["estado"], 6))
+    return sorted(por.values(), key=lambda l: (l["pior"], cs._cod_ord(l["p"])))
 
 
 @router.get("/prestadores/{pid}/certidoes")

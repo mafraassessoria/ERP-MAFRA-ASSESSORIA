@@ -161,14 +161,17 @@ def montar(db: Session, u: models.Usuario) -> dict:
         fed_mes = db.scalar(select(func.count(models.ConsultaAPI.id)).where(
             models.ConsultaAPI.produto == "CND", models.ConsultaAPI.ok.is_(True),
             models.ConsultaAPI.data_hora >= datetime.combine(ini_mes, datetime.min.time()))) or 0
-        ruins = ce["VENCIDA"] + ce["POSITIVA"]
-        acao("erro", ruins, "certidão(ões) vencida(s) ou positiva(s)", "/certidoes?estado=VENCIDA")
+        acao("erro", ce["VENCIDA"], "certidão(ões) vencida(s)", "/certidoes?estado=VENCIDA")
+        acao("erro", ce["POSITIVA"] + ce["IMPEDIMENTO"], "certidão(ões) positiva(s) ou com impedimento", "/certidoes?estado=PROBLEMA")
+        acao("aviso", ce["NAO_EMITIDA"], "certidão(ões) não emitida(s) pelo Pack", "/certidoes?estado=NAO_EMITIDA")
         acao("aviso", ce["VENCE_LOGO"], "certidão(ões) vencem em até 15 dias", "/certidoes?estado=VENCE_LOGO")
         cartoes.append(dict(titulo="Certidões", icone="📜", link="/certidoes", linhas=[
             _linha("Válidas", ce["VALIDA"], "/certidoes?estado=VALIDA", "ok"),
             _linha("Vencem em até 15 dias", ce["VENCE_LOGO"], "/certidoes?estado=VENCE_LOGO", "aviso" if ce["VENCE_LOGO"] else ""),
             _linha("Vencidas", ce["VENCIDA"], "/certidoes?estado=VENCIDA", "erro" if ce["VENCIDA"] else ""),
-            _linha("Positivas — conferir", ce["POSITIVA"], "/certidoes?estado=POSITIVA", "erro" if ce["POSITIVA"] else ""),
+            _linha("Positivas", ce["POSITIVA"], "/certidoes?estado=POSITIVA", "erro" if ce["POSITIVA"] else ""),
+            _linha("Com impedimento", ce["IMPEDIMENTO"], "/certidoes?estado=IMPEDIMENTO", "erro" if ce["IMPEDIMENTO"] else ""),
+            _linha("Não emitidas", ce["NAO_EMITIDA"], "/certidoes?estado=NAO_EMITIDA", "aviso" if ce["NAO_EMITIDA"] else ""),
             _linha("Federais emitidas na Receita no mês", fed_mes, "/certidoes"),
             _linha("Última consulta", _quando(cs._execucao.get("fim")) if cs._execucao.get("fim") else "—", "/certidoes"),
         ]))

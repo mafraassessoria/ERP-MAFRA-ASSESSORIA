@@ -300,3 +300,17 @@ details.det-sitfis small { color:var(--sutil); font-family:ui-monospace, Consola
 .grade-12 .com-botao input { min-width:13.5em; font-variant-numeric:tabular-nums; }
 fieldset.bloco-form { border:none; border-top:1px solid var(--borda); border-radius:0; margin:0 0 .4rem; padding:.6rem 0 0; }
 fieldset.bloco-form legend { font-weight:600; color:var(--azul); font-size:.9rem; padding-right:.5rem; }
+
+/* Certidões: visão por empresa */
+.alternar-visao { display:inline-flex; border:1px solid var(--borda); border-radius:6px; overflow:hidden; }
+.alternar-visao a { padding:.3rem .8rem; text-decoration:none; color:var(--texto); }
+.alternar-visao a.ativo { background:var(--azul); color:#fff; }
+.matriz-cert td { vertical-align:middle; }
+.matriz-cert .quadro { display:inline-block; min-width:7.5em; padding:.2rem .5rem; border-radius:5px; font-size:.8rem; line-height:1.25; background:#eef0f3; color:#5b6573; }
+.matriz-cert .quadro small { display:block; font-size:.72rem; opacity:.85; }
+.matriz-cert .quadro.ok { background:#e5f4ea; color:#1e6b3a; }
+.matriz-cert .quadro.aviso { background:#fff4dc; color:#8a5a00; }
+.matriz-cert .quadro.erro { background:#fde8e8; color:#a12626; }
+
+/* Tabela de notas na tela da empresa: a própria empresa em cinza, a outra parte em destaque */
+table.notas td.propria { color:var(--sutil); }

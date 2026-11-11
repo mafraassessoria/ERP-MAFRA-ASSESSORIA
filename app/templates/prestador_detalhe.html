@@ -12,7 +12,7 @@
     · Total prestado autorizado: <b>R$ {{ total|moeda }}</b></p>
   {% if lista %}<div class="export-filtro"><span class="tipos-export" title="O que vai no ZIP"><label><input type="checkbox" class="exp-pdf" checked> PDF</label><label><input type="checkbox" class="exp-xml" checked> XML</label></span><a class="botao secundario exportar-zip" href="/notas/exportar.zip?prestador_id={{ p.id }}&{{ qs }}">Exportar todas do filtro (ZIP)</a></div>{% endif %}
 </div>
-{% set mostrar_prestador = False %}{% set permitir_clonar = p.emite_nfse %}{% set selecionavel = True %}
+{% set mostrar_prestador = True %}{% set doc_empresa = p.cnpj %}{% set permitir_clonar = p.emite_nfse %}{% set selecionavel = True %}
 {% set volta_sel = '/prestadores/%d?aba=notas%s' % (p.id, ('&' ~ qs) if qs else '') %}
 {% include "_tabela_notas.html" %}
 

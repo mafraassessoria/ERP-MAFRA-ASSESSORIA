@@ -1,4 +1,5 @@
-{# Tabela de notas. Variáveis: lista, mostrar_prestador, permitir_clonar, selecionavel (bool) #}
+{# Tabela de notas. Variáveis: lista, mostrar_prestador, permitir_clonar, selecionavel (bool), doc_empresa (opcional:
+   na tela da empresa, a própria empresa aparece em cinza e a outra parte em destaque) #}
 {% set tem_iss = lista|selectattr('iss_retido')|list|length > 0 %}
 {% set tem_inss = lista|selectattr('ret_inss')|list|length > 0 %}
 {% set ns_num = namespace(m=8) %}{% for n in lista %}{% set t = (n.numero_nfse or ('rascunho #%d' % n.id))|length %}{% if t > ns_num.m %}{% set ns_num.m = t %}{% endif %}{% endfor %}
@@ -16,8 +17,9 @@
   <tr>
     {% if selecionavel %}<td><input type="checkbox" name="ids" value="{{ n.id }}" class="sel-nota" form="form-sel-notas"></td>{% endif %}
     <td class="linha"><a href="/notas/{{ n.id }}">{{ n.numero_nfse or ('rascunho #%d' % n.id) }}</a></td>
-    {% if mostrar_prestador %}<td class="linha" title="{{ n.nome_prestador }} · {{ (n.emitente_documento or n.prestador.cnpj)|doc }}">{{ n.nome_prestador }}</td>{% endif %}
-    <td class="linha" title="{{ n.tomador_nome }}{% if n.tomador_documento %} · {{ n.tomador_documento|doc }}{% endif %}">{{ n.tomador_nome }}</td>
+    {% set doc_prest = n.emitente_documento or n.prestador.cnpj %}
+    {% if mostrar_prestador %}<td class="linha {{ 'propria' if doc_empresa and doc_prest == doc_empresa }}" title="{{ n.nome_prestador }} · {{ doc_prest|doc }}">{{ n.nome_prestador }}</td>{% endif %}
+    <td class="linha {{ 'propria' if doc_empresa and n.tomador_documento == doc_empresa }}" title="{{ n.tomador_nome }}{% if n.tomador_documento %} · {{ n.tomador_documento|doc }}{% endif %}">{{ n.tomador_nome }}</td>
     <td class="linha">{{ 'Prestada' if n.papel == 'PRESTADO' else 'Tomada' }}{% if n.origem == 'IMPORTADA' %} <span class="etiqueta mini" title="Importada do ADN">ADN</span>{% endif %}</td>
     <td class="linha">{{ n.competencia|data }}</td>
     <td class="linha num">{{ n.valor_servicos|moeda }}</td>
