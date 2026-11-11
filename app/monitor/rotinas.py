@@ -316,22 +316,50 @@ def ler_pdf(caminho) -> str:
         return ""
 
 
+def _sitfis_indica_parcmei(db, p) -> bool:
+    """A última situação fiscal mostra parcelamento de MEI (empresa que já foi MEI pode ter PARCMEI estando no Simples)."""
+    it = db.scalar(select(models.MonitorItem).where(models.MonitorItem.prestador_id == p.id, models.MonitorItem.item == "SITFIS"))
+    if not it or not it.detalhe:
+        return False
+    try:
+        d = json.loads(it.detalhe)
+    except ValueError:
+        return False
+    for x in d.get("detalhes") or []:
+        if "PARCMEI" in str(x.get("titulo", "")) and any("MEI" in str(l) for l in x.get("linhas") or []):
+            return True
+    return False
+
+
 def parcelamentos(db, p, usuario, lote, cli, hoje: date):
-    codigo = "parcmei_pedidos" if p.regime == "MEI" else "parcsn_pedidos"
-    c = _consultar(db, p, codigo, {}, usuario, lote, cli)
-    if not c.ok:
-        if _nao_encontrado(c.mensagens):
-            return gravar(db, p, "PARCELAMENTO", "", "SEM", "Nenhum parcelamento", consulta=c)
-        return gravar(db, p, "PARCELAMENTO", "", "ERRO", c.mensagens or "Sem resposta", consulta=c)
-    lista = [dict(numero=campo(d, "numero", "numeroParcelamento"), situacao=campo(d, "situacao", padrao=""),
-                  pedido=campo(d, "dataDoPedido", "dataPedido"), data_situacao=campo(d, "dataDaSituacao", "dataSituacao"))
-             for d in dicts(_dados(c)) if campo(d, "numero", "numeroParcelamento") and campo(d, "situacao")]
+    codigos = ["parcmei_pedidos"] if p.regime == "MEI" else ["parcsn_pedidos"]
+    if p.regime != "MEI" and _sitfis_indica_parcmei(db, p):
+        codigos.append("parcmei_pedidos")
+    lista, erros, ultima = [], [], None
+    for codigo in codigos:
+        c = _consultar(db, p, codigo, {}, usuario, lote, cli)
+        ultima = ultima or c
+        origem = "MEI" if codigo.startswith("parcmei") else "Simples"
+        if not c.ok:
+            if not _nao_encontrado(c.mensagens):
+                erros.append(f"{origem}: {c.mensagens or 'sem resposta'}")
+            continue
+        ultima = c
+        for d in dicts(_dados(c)):
+            if campo(d, "numero", "numeroParcelamento") and campo(d, "situacao"):
+                lista.append(dict(numero=campo(d, "numero", "numeroParcelamento"), situacao=campo(d, "situacao", padrao=""),
+                                  pedido=campo(d, "dataDoPedido", "dataPedido"), data_situacao=campo(d, "dataDaSituacao", "dataSituacao"),
+                                  origem=origem))
+    if erros and not lista:
+        return gravar(db, p, "PARCELAMENTO", "", "ERRO", "; ".join(erros)[:300], consulta=ultima)
     ativos = [x for x in lista if re.search(r"parcelamento|ativo|em dia|deferido", str(x["situacao"]), re.I)
               and not re.search(r"encerrad|rescind|liquidad|sem efeito|cancelad", str(x["situacao"]), re.I)]
     if not lista:
-        return gravar(db, p, "PARCELAMENTO", "", "SEM", "Nenhum parcelamento", consulta=c)
+        return gravar(db, p, "PARCELAMENTO", "", "SEM", "Nenhum parcelamento", consulta=ultima)
+    origens = sorted({x["origem"] for x in ativos})
     return gravar(db, p, "PARCELAMENTO", "", "COM" if ativos else "SEM",
-                  f"{len(ativos)} em andamento de {len(lista)} pedido(s)", {"pedidos": lista}, c)
+                  f"{len(ativos)} em andamento de {len(lista)} pedido(s)" + (f" ({', '.join(origens)})" if origens else ""),
+                  {"pedidos": lista, "erros": erros}, ultima)
 
 
 def caixa_postal(db, p, usuario, lote, cli, hoje: date):
