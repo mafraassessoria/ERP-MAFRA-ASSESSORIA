@@ -23,6 +23,21 @@ def _nome_municipio(codigo):
 
 templates.env.filters["municipio"] = _nome_municipio
 templates.env.filters["data"] = lambda d: d.strftime("%d/%m/%Y") if d else ""
+def _data8(v):
+    """20260414 -> 14/04/2026 (datas da Receita no formato AAAAMMDD)."""
+    t = str(v or "")
+    return f"{t[6:8]}/{t[4:6]}/{t[:4]}" if re.fullmatch(r"\d{8}", t) else t
+
+
+def _ativo_parc(x) -> bool:
+    sit = str((x or {}).get("situacao", ""))
+    return bool(re.search(r"parcelamento|ativo|em dia|deferido", sit, re.I)) and not re.search(
+        r"encerrad|rescind|liquidad|sem efeito|cancelad", sit, re.I)
+
+
+templates.env.filters["data8"] = _data8
+templates.env.filters["parc_ativos_primeiro"] = lambda l: sorted(l or [], key=lambda x: (not _ativo_parc(x), str(x.get("pedido", ""))), reverse=False)
+templates.env.tests["parc_ativo"] = _ativo_parc
 templates.env.filters["fromjson"] = lambda s: __import__("json").loads(s) if s else {}
 templates.env.filters["datahora"] = lambda d: d.strftime("%d/%m/%Y %H:%M") if d else ""
 templates.env.filters["moeda"] = (

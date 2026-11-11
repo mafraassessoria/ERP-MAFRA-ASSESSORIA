@@ -25,7 +25,7 @@
   <div class="mon-partes">{% for x in monitor %}<span class="etiqueta {{ x.st[1] }}" title="{{ x.m.resumo }} · {{ x.m.atualizado_em|datahora }}">{{ x.nome }}{% if x.m.referencia %} {{ x.m.referencia }}{% endif %}: {{ x.st[0] }}</span>{% endfor %}</div>
   {% for x in monitor if x.m.item == 'PARCELAMENTO' and x.m.detalhe %}{% set d = x.m.detalhe|fromjson %}
     {% if d.pedidos %}<table class="compacta" style="margin-top:.6rem"><tr><th>Parcelamento</th><th>Nº</th><th>Pedido</th><th>Situação</th><th>Desde</th></tr>
-    {% for pd in d.pedidos %}<tr><td>{{ pd.origem or '' }}</td><td>{{ pd.numero }}</td><td>{{ pd.pedido }}</td><td>{{ pd.situacao }}</td><td>{{ pd.data_situacao }}</td></tr>{% endfor %}</table>{% endif %}
+    {% for pd in d.pedidos|parc_ativos_primeiro %}<tr class="{{ '' if pd is parc_ativo else 'inativo' }}"><td>{{ pd.origem or '' }}</td><td>{{ pd.numero }}</td><td>{{ pd.pedido|data8 }}</td><td>{% if pd is parc_ativo %}<b>{{ pd.situacao }}</b>{% else %}{{ pd.situacao }}{% endif %}</td><td>{{ pd.data_situacao|data8 }}</td></tr>{% endfor %}</table>{% endif %}
   {% endfor %}
 </section>
 {% endif %}
