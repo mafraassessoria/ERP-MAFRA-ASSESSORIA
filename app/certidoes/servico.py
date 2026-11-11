@@ -145,6 +145,49 @@ def atuais(certs: list[models.Certidao]) -> tuple[list[models.Certidao], set[int
     return atual, subst
 
 
+def marcar_substituidas(db: Session, prestador_id: int | None = None) -> int:
+    """Grava no histórico quando e por qual certidão cada uma foi substituída (a data é a emissão da mais nova).
+    Idempotente; devolve quantas foram marcadas agora."""
+    stmt = select(models.Certidao)
+    if prestador_id:
+        stmt = stmt.where(models.Certidao.prestador_id == prestador_id)
+    certs = db.scalars(stmt).all()
+    atual, subst = atuais(certs)
+    por_tipo = {(c.prestador_id, c.tipo_nome): c for c in atual}
+    n = 0
+    for c in certs:
+        if c.id in subst and not c.substituida_por:
+            nova = por_tipo.get((c.prestador_id, c.tipo_nome))
+            if nova is not None and nova.id != c.id:
+                c.substituida_por = nova.pack_id
+                c.substituida_em = nova.emissao or (nova.alterado_em.date() if nova.alterado_em else None)
+            else:   # saiu do Pack sem outra no lugar
+                c.substituida_por = "-"
+                c.substituida_em = c.alterado_em.date() if c.alterado_em else None
+            n += 1
+        elif c.id not in subst and c.substituida_por:
+            c.substituida_por, c.substituida_em = "", None     # voltou a ser a atual
+    db.flush()
+    return n
+
+
+def historico(db: Session, prestador_id: int | None = None) -> list[dict]:
+    """Certidões substituídas, agrupáveis por empresa e tipo (mais nova primeiro)."""
+    stmt = select(models.Certidao)
+    if prestador_id:
+        stmt = stmt.where(models.Certidao.prestador_id == prestador_id)
+    certs = db.scalars(stmt).all()
+    _, subst = atuais(certs)
+    out = []
+    for c in certs:
+        if c.id not in subst:
+            continue
+        copia = bool(c.arquivo) and (DATA_DIR / c.arquivo).exists()
+        out.append(dict(c=c, copia=copia, situacao=c.situacao or "—"))
+    out.sort(key=lambda r: (_cod_ord(r["c"].prestador), r["c"].tipo_nome, [-x for x in (_ordem(r["c"])[0].toordinal(),)]))
+    return out
+
+
 def linhas(db: Session, prestador_id: int | None = None) -> list[dict]:
     stmt = select(models.Certidao)
     if prestador_id:
@@ -200,7 +243,7 @@ def coletar_empresa(db: Session, cli: ClienteEContador, p: models.Prestador, ago
         c.avisos = ", ".join(r["avisos"])
         c.no_pack, c.consultado_em = True, agora
         vistos.add(r["pack_id"])
-        if c.disponivel and not c.arquivo and (c.vencimento is None or c.vencimento >= hoje):
+        if c.disponivel and not c.arquivo:   # guarda cópia também das vencidas: vão para o histórico
             try:
                 raw, ext = cli.baixar(p.cnpj, c.pack_id, c.vencimento, c.situacao)
                 destino = PASTA / p.cnpj / f"{(p.codigo_interno or 'x').zfill(2)}-{c.pack_id}{ext}"
@@ -216,6 +259,7 @@ def coletar_empresa(db: Session, cli: ClienteEContador, p: models.Prestador, ago
         if c.pack_id not in vistos and not c.pack_id.startswith("RFB-"):   # federal emitida pela API não vem do Pack
             c.no_pack = False
     db.flush()
+    marcar_substituidas(db, p.id)
     return dict(certidoes=len(vistos), novas=novas, alteradas=alteradas, baixadas=baixadas)
 
 

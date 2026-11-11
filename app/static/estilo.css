@@ -323,3 +323,8 @@ table.debitos { width:auto; margin:.3rem 0 .4rem; font-size:.8rem; border-collap
 table.debitos th, table.debitos td { padding:.15rem .6rem; border-bottom:1px solid var(--borda); white-space:nowrap; }
 table.debitos th { background:#eef3f8; font-weight:600; }
 table.debitos .num { text-align:right; font-variant-numeric:tabular-nums; }
+
+/* Certidões: histórico */
+details.historico-bloco > summary { cursor:pointer; padding:.2rem 0 .5rem; }
+table.historico-cert tr.inicio-grupo td { border-top:2px solid var(--borda); }
+table.historico-cert td { color:#4a5563; }

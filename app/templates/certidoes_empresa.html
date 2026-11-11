@@ -26,4 +26,9 @@
   {% set mostrar_empresa = False %}{% set volta = '/prestadores/%d/certidoes' % p.id %}
   {% include "_certidoes_tabela.html" %}
 </section>
+<details class="cartao historico-bloco">
+  <summary><b>Histórico</b> <span class="sutil">· {{ hist|length }} certidão(ões) substituída(s), com a cópia guardada no ERP</span></summary>
+  {% set mostrar_empresa = False %}
+  {% include "_certidoes_historico.html" %}
+</details>
 {% endblock %}

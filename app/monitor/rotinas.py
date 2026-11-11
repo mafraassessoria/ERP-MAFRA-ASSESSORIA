@@ -396,9 +396,47 @@ def parcelamentos(db, p, usuario, lote, cli, hoje: date):
     if not lista:
         return gravar(db, p, "PARCELAMENTO", "", "SEM", "Nenhum parcelamento", consulta=ultima)
     origens = sorted({x["origem"] for x in ativos})
-    return gravar(db, p, "PARCELAMENTO", "", "COM" if ativos else "SEM",
-                  f"{len(ativos)} ativo(s) de {len(lista)} pedido(s)" + (f" ({', '.join(origens)})" if origens else ""),
-                  {"pedidos": lista, "erros": erros}, ultima)
+    parcelas = []
+    for origem in origens:      # só para os parcelamentos ativos: consulta as parcelas em aberto (1 consulta por tipo)
+        cp = _consultar(db, p, "parcmei_parcelas" if origem == "MEI" else "parcsn_parcelas", {}, usuario, lote, cli)
+        if not cp.ok:
+            if not _nao_encontrado(cp.mensagens):
+                erros.append(f"Parcelas {origem}: {cp.mensagens or 'sem resposta'}")
+            continue
+        parcelas += ler_parcelas(_dados(cp), origem, hoje, sv.data_corte(db))
+    em_atraso = sum(1 for x in parcelas if x["atraso"])
+    resumo = f"{len(ativos)} ativo(s) de {len(lista)} pedido(s)" + (f" ({', '.join(origens)})" if origens else "")
+    if parcelas:
+        resumo += f" · {len(parcelas)} parcela(s) em aberto" + (f", {em_atraso} em atraso" if em_atraso else "")
+    return gravar(db, p, "PARCELAMENTO", "", "COM" if ativos else "SEM", resumo,
+                  {"pedidos": lista, "erros": erros, "parcelas": parcelas}, ultima)
+
+
+def ultimo_dia_util(ano: int, mes: int) -> date:
+    """Vencimento da parcela do Simples/MEI: último dia útil do mês (sem contar feriados)."""
+    d = (date(ano + (mes == 12), mes % 12 + 1, 1) - timedelta(days=1))
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+
+def ler_parcelas(dados, origem: str, hoje: date, corte: date | None) -> list[dict]:
+    """Parcelas disponíveis para emitir (PARCELASPARAGERAR): parcela AAAAMM e valor."""
+    out, vistos = [], set()
+    for d in dicts(dados):
+        par = re.sub(r"\D", "", str(campo(d, "parcela", "numeroParcela", "periodoParcela", padrao="")))
+        if len(par) != 6 or par in vistos:
+            continue
+        vistos.add(par)
+        ano, mes = int(par[:4]), int(par[4:])
+        if not 1 <= mes <= 12:
+            continue
+        venc = ultimo_dia_util(ano, mes)
+        out.append(dict(origem=origem, parcela=f"{mes:02d}/{ano}", competencia=f"{ano}-{mes:02d}", vencimento=venc.isoformat(),
+                        valor=str(dinheiro(campo(d, "valorParcela", "valor", "valorTotal", padrao=0))),
+                        atraso=venc < hoje, pode_gerar=not corte or f"{ano}-{mes:02d}" >= corte.strftime("%Y-%m")))
+    out.sort(key=lambda x: (x["origem"], x["competencia"]))
+    return out
 
 
 def caixa_postal(db, p, usuario, lote, cli, hoje: date):

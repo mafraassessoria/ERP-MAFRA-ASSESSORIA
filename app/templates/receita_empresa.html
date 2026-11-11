@@ -27,6 +27,7 @@
   {% for x in monitor if x.m.item == 'PARCELAMENTO' and x.m.detalhe %}{% set d = x.m.detalhe|fromjson %}
     {% if d.pedidos %}<table class="compacta" style="margin-top:.6rem"><tr><th>Parcelamento</th><th>Nº</th><th>Pedido</th><th>Situação</th><th>Desde</th></tr>
     {% for pd in d.pedidos|parc_ativos_primeiro %}<tr class="{{ '' if pd is parc_ativo else 'inativo' }}"><td>{{ pd.origem or '' }}</td><td>{{ pd.numero }}</td><td>{{ pd.pedido|data8 }}</td><td>{% if pd is parc_ativo %}<b>{{ pd.situacao }}</b>{% else %}{{ pd.situacao }}{% endif %}</td><td>{{ pd.data_situacao|data8 }}</td></tr>{% endfor %}</table>{% endif %}
+    {% if d.parcelas %}{% set parcelas = d.parcelas %}{% set pid = p.id %}<h3 style="margin:.8rem 0 .2rem">Parcelas em aberto</h3>{% include "_parcelas_tabela.html" %}{% endif %}
   {% endfor %}
 </section>
 {% endif %}

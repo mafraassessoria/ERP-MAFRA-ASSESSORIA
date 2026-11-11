@@ -1,7 +1,7 @@
 """Backup do Emissor NFS-e.
 
 Gera um .zip com: banco de dados (cópia consistente, mesmo com o sistema rodando),
-pasta de documentos (XML/PDF) e a chave mestra (sem ela os certificados não abrem).
+pasta de documentos (XML/PDF), certidões, relatórios/guias da Receita e a chave mestra (sem ela os certificados não abrem).
 
 Uso:   python -m scripts.backup
 Agende 1x por dia (Agendador de Tarefas do Windows ou cron no Linux).
@@ -35,6 +35,9 @@ def _copiar_sqlite(destino: Path) -> None:
         raise RuntimeError(f"Cópia do banco falhou na verificação de integridade: {ok}")
 
 
+PASTAS_EXTRAS = ("certidoes", "receita")
+
+
 def fazer_backup() -> Path:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     carimbo = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -53,6 +56,13 @@ def fazer_backup() -> Path:
                 for f in XML_DIR.rglob("*"):
                     if f.is_file():
                         z.write(f, f"documentos/{f.relative_to(XML_DIR)}")
+            # certidões (atuais e histórico) e relatórios/guias da Receita (situação fiscal, DAS, comprovantes)
+            for pasta in PASTAS_EXTRAS:
+                origem = DATA_DIR / pasta
+                if origem.exists():
+                    for f in origem.rglob("*"):
+                        if f.is_file():
+                            z.write(f, f"{pasta}/{f.relative_to(origem).as_posix()}")
             z.writestr("info.txt", f"Backup gerado em {datetime.now():%d/%m/%Y %H:%M:%S}\nOrigem: {DATA_DIR}\n")
 
     # A chave mestra vai em arquivo SEPARADO, para poder ser guardada em outro lugar.

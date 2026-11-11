@@ -1,6 +1,8 @@
 """Tela de guias (vencidas e parcelamentos) e baixa."""
 from __future__ import annotations
 
+import json
+
 from datetime import date
 
 from fastapi import APIRouter, Depends, Request
@@ -13,7 +15,7 @@ from .. import models
 from ..configuracoes import gravar_config, ler_config
 from ..db import get_db
 from ..serpro import servico as sv
-from ..web import admin, auditar, flash, render, usuario_atual
+from ..web import templates, admin, auditar, flash, render, usuario_atual
 from . import servico as gs
 
 router = APIRouter()
@@ -91,30 +93,34 @@ async def guias_parcelas(request: Request, db: Session = Depends(get_db), u=Depe
     comp = f"{date.today():%Y-%m}"
     itens = db.scalars(select(models.MonitorItem).where(models.MonitorItem.item == "PARCELAMENTO",
                                                         models.MonitorItem.status == "COM")).all()
-    feitas, erros = 0, []
+    feitas, erros, parar = 0, [], False
+    ativo = templates.env.tests["parc_ativo"]
     for m in itens:
         p = m.prestador
-        if not p.ativo or not p.usa_receita:
+        if parar or not p.ativo or not p.usa_receita:
             continue
-        tipo = "PARC_MEI" if p.regime == "MEI" else "PARC_SN"
-        ja = db.scalar(select(models.GuiaRF).where(models.GuiaRF.prestador_id == p.id, models.GuiaRF.tipo == tipo,
-                                                   models.GuiaRF.competencia == comp, models.GuiaRF.situacao != "SUBSTITUIDA"))
-        if ja:
-            continue
-        try:
-            g = await run_in_threadpool(gs.gerar, db, p, tipo, comp, u.login)
-            if _entregar_auto(db):
-                try:
-                    gs.entregar(db, g)
-                except (ValueError, OSError) as e:
-                    g.erro = f"Entrega: {e}"
-            db.commit()
-            feitas += 1
-        except sv.ErroConsulta as e:
-            db.rollback()
-            erros.append(f"{p.razao_social}: {e}")
-            if "Limite de gasto" in str(e):
-                break
+        pedidos = (json.loads(m.detalhe) if m.detalhe else {}).get("pedidos") or []
+        origens = {x.get("origem") for x in pedidos if ativo(x)} or {"MEI" if p.regime == "MEI" else "Simples"}
+        for tipo in sorted("PARC_MEI" if o == "MEI" else "PARC_SN" for o in origens):   # Simples e/ou MEI
+            ja = db.scalar(select(models.GuiaRF).where(models.GuiaRF.prestador_id == p.id, models.GuiaRF.tipo == tipo,
+                                                       models.GuiaRF.competencia == comp, models.GuiaRF.situacao != "SUBSTITUIDA"))
+            if ja:
+                continue
+            try:
+                g = await run_in_threadpool(gs.gerar, db, p, tipo, comp, u.login)
+                if _entregar_auto(db):
+                    try:
+                        gs.entregar(db, g)
+                    except (ValueError, OSError) as e:
+                        g.erro = f"Entrega: {e}"
+                db.commit()
+                feitas += 1
+            except sv.ErroConsulta as e:
+                db.rollback()
+                erros.append(f"{p.razao_social}: {e}")
+                if "Limite de gasto" in str(e):
+                    parar = True
+                    break
     auditar(db, request, u, "GUIA_PARCELAS_MES", "prestador", None, f"{comp}: {feitas} gerada(s); {erros[:10]}")
     db.commit()
     flash(request, f"Parcelas de {comp}: {feitas} guia(s) gerada(s).")

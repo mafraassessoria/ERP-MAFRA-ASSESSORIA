@@ -56,6 +56,7 @@ def _inicio():
     _limpar_demonstracao()
     _reler_sitfis()
     _ajuste_texto_parcelamentos()
+    _marcar_historico_certidoes()
     from .agendador import iniciar as iniciar_agendador
     iniciar_agendador()
 
@@ -111,6 +112,19 @@ def _ajuste_texto_parcelamentos():
             m.resumo = (m.resumo or "").replace(" em andamento de ", " ativo(s) de ")
         db.add(models.Configuracao(chave=chave, valor=datetime.now().isoformat()))
         db.commit()
+
+
+def _marcar_historico_certidoes():
+    """A cada subida: marca no histórico as certidões substituídas (idempotente, só banco)."""
+    from .certidoes.servico import marcar_substituidas
+    from .db import SessionLocal
+    with SessionLocal() as db:
+        try:
+            marcar_substituidas(db)
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            logging.getLogger("emissor").exception("histórico das certidões")
 
 
 def _ajustes_unicos():

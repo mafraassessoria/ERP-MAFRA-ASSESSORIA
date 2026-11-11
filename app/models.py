@@ -570,6 +570,8 @@ class Certidao(Base):
     publicado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     publicado_como: Mapped[str] = mapped_column(String(300), default="")
     erro: Mapped[str] = mapped_column(Text, default="")
+    substituida_em: Mapped[date | None] = mapped_column(Date, nullable=True)      # histórico: quando saiu a mais nova
+    substituida_por: Mapped[str] = mapped_column(String(20), default="")          # pack_id da certidão que a substituiu
 
     prestador: Mapped["Prestador"] = relationship()
 

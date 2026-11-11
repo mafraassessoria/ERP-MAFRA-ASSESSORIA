@@ -18,7 +18,8 @@ TIPOS = {
     "DAS_MEI": ("DAS do MEI (vencido)", "pgmei_das", ("MEI",), False),
     "DARF_DCTFWEB": ("DARF da DCTFWeb", "dctf_guia", ("SIMPLES", "SIMPLES_EXCESSO", "REGULAR", "MEI"), False),
     "PARC_SN": ("Parcela do Simples", "parcsn_das", ("SIMPLES", "SIMPLES_EXCESSO"), True),
-    "PARC_MEI": ("Parcela do MEI", "parcmei_das", ("MEI",), True),
+    # empresa que já foi MEI pode ter parcelamento de MEI estando no Simples
+    "PARC_MEI": ("Parcela do MEI", "parcmei_das", ("MEI", "SIMPLES", "SIMPLES_EXCESSO"), True),
 }
 SITUACOES = {"ABERTA": ("Em aberto", "aviso"), "PAGA": ("Paga", "ok"), "SUBSTITUIDA": ("Substituída", "")}
 TIPO_PAGAMENTO = {"DAS": "DAS", "DAS_MEI": "DAS", "PARC_SN": "DAS", "PARC_MEI": "DAS", "DARF_DCTFWEB": "DARF"}

@@ -1,0 +1,14 @@
+{# Parcelas em aberto de um parcelamento. Espera: parcelas (lista do Monitor), pid (empresa), usuario #}
+<table class="debitos parcelas">
+  <thead><tr><th>Parcelamento</th><th>Parcela</th><th>Vencimento</th><th class="num">Valor</th><th>Situação</th>{% if usuario.perfil == 'ADMIN' %}<th></th>{% endif %}</tr></thead>
+  <tbody>{% for x in parcelas %}
+    <tr><td>{{ x.origem }}</td><td>{{ x.parcela }}</td><td>{{ x.vencimento|data_iso }}</td><td class="num">{{ x.valor|moeda }}</td>
+      <td>{% if x.atraso %}<span class="etiqueta erro">Em atraso</span>{% else %}<span class="etiqueta">A vencer</span>{% endif %}</td>
+      {% if usuario.perfil == 'ADMIN' %}<td>{% if x.pode_gerar %}
+        <form method="post" action="/guias/gerar" class="em-linha" onsubmit="return confirm('Gerar o DAS da parcela {{ x.parcela }} ({{ x.origem }})? A emissão é cobrada pelo Serpro.')">
+          <input type="hidden" name="prestador_id" value="{{ pid }}"><input type="hidden" name="tipo" value="{{ 'PARC_MEI' if x.origem == 'MEI' else 'PARC_SN' }}">
+          <input type="hidden" name="competencia" value="{{ x.competencia }}"><button class="secundario mini">Gerar DAS</button></form>
+      {% else %}<small class="sutil" title="Configurações → Receita Federal → data de corte">antes da data de corte</small>{% endif %}</td>{% endif %}
+    </tr>{% endfor %}</tbody>
+</table>
+<p class="sutil" style="font-size:.78rem;margin:.2rem 0 .4rem">Vencimento: último dia útil do mês da parcela.</p>

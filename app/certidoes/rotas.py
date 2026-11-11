@@ -43,7 +43,7 @@ def certidoes_geral(request: Request, estado: str = "", q: str = "", tipo: str =
     atuais = [r for r in rows if not r["substituida"] and r["c"].prestador.ativo]
     contagem = Counter(r["estado"] for r in atuais)
     eid = int(empresa) if empresa.isdigit() else 0
-    lista = rows if (todas or eid) else atuais   # empresa escolhida: todas as certidões dela, inclusive substituídas
+    lista = atuais   # substituídas ficam no Histórico (visao=historico)
     if eid:
         lista = [r for r in lista if r["c"].prestador_id == eid]
     if estado == "PROBLEMA":
@@ -65,12 +65,19 @@ def certidoes_geral(request: Request, estado: str = "", q: str = "", tipo: str =
             empresas_lista.append(p)
     pendentes = len(cs.candidatas(db))
     # com estado escolhido: agrupado por tipo de certidão; sem estado: por empresa (como antes)
-    if estado and not (todas or eid):
+    if estado:
         lista = sorted(lista, key=lambda r: (r["c"].tipo_nome, cs._cod_ord(r["c"].prestador)))
     matriz = _matriz(lista, tipos) if visao == "empresa" else None
+    hist = None
+    if visao == "historico":
+        hist = cs.historico(db)
+        if eid:
+            hist = [h for h in hist if h["c"].prestador_id == eid]
+        if tipo:
+            hist = [h for h in hist if h["c"].tipo_nome == tipo]
     return render(request, "certidoes_geral.html", lista=lista, contagem=contagem, total=len(atuais), estado=estado, q=q,
                   tipo=tipo, todas=todas, tipos=tipos, empresa=eid, empresas_lista=empresas_lista, pendentes=pendentes,
-                  empresas=len(cs.empresas_alvo(db)), visao=visao, matriz=matriz, colunas=_colunas(lista), rotulos_familia=ROTULO_FAMILIA,
+                  empresas=len(cs.empresas_alvo(db)), visao=visao, matriz=matriz, hist=hist, colunas=_colunas(lista), rotulos_familia=ROTULO_FAMILIA,
                   qs=urlencode([(k, v) for k, v in request.query_params.multi_items() if k != 'visao']), **_ctx(db))
 
 
@@ -114,7 +121,8 @@ def certidoes_empresa(pid: int, request: Request, db: Session = Depends(get_db),
     if not p.usa_cnd:
         flash(request, "O módulo Certidões está desligado para esta empresa (Dados e configurações → Módulos).", "erro")
         return _redir(f"/prestadores/{pid}?aba=config")
-    return render(request, "certidoes_empresa.html", p=p, aba="certidoes", lista=cs.linhas(db, pid),
+    return render(request, "certidoes_empresa.html", p=p, aba="certidoes",
+                  lista=[r for r in cs.linhas(db, pid) if not r["substituida"]], hist=cs.historico(db, pid),
                   fed_atual=federal.federal_atual(db, p), fed_tentativa=federal.ultima_tentativa(db, p), **_ctx(db))
 
 
