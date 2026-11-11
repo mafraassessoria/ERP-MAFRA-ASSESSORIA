@@ -48,12 +48,85 @@ def monitor_item(item: str, request: Request, ref: str | None = None, status: st
     if item not in ms.ROTULO_ITEM:
         return _redir("/monitor")
     ref = ms.referencia_padrao(item) if ref is None else ref.strip()
+    if item == "SITFIS":
+        return _tela_sitfis(request, db, u, status, request.query_params.get("tipo", ""), request.query_params.get("cert", ""))
     lista = ms.itens(db, item, ref)
     if status:
         lista = [m for m in lista if m.status == status]
     refs = sorted({r for r in db.scalars(select(models.MonitorItem.referencia).where(models.MonitorItem.item == item))}, reverse=True)
     return render(request, "monitor_item.html", item=item, titulo_item=ms.ROTULO_ITEM[item], lista=lista, ref=ref, refs=refs[:24],
                   status=status, STATUS=ms.STATUS, detalhe=lambda m: json.loads(m.detalhe) if m.detalhe else {})
+
+
+# ---- Situação fiscal: tela própria (contadores, grupos, etiquetas, certidão) ----------------------
+
+GRUPOS_SITFIS = [
+    ("PENDENCIA", "Com pendência", "erro", ""),
+    ("INDEFINIDO", "Conferir", "aviso", "A Receita não respondeu algumas bases (BASE INDISPONÍVEL); nas que responderam não há pendência. "
+                                         "Consultar de novo em horário comercial."),
+    ("ERRO", "Erro na consulta", "erro", "A consulta não trouxe o relatório (procuração, cadastro ou indisponibilidade)."),
+    ("REGULAR", "Regular", "ok", "Sem pendências na Receita e na PGFN."),
+]
+
+
+def situacao_certidao(d: dict, hoje: date | None = None) -> tuple[str, str]:
+    """(classe, texto) da certidão lida no relatório: vencida, vence em até 30 dias ou válida."""
+    from datetime import date as _d, timedelta as _t
+    hoje = hoje or _d.today()
+    tipo, val = d.get("cert_tipo") or "", d.get("cert_validade") or ""
+    if not tipo:
+        return ("", "")
+    try:
+        v = _d.fromisoformat(val)
+    except ValueError:
+        return ("", tipo)
+    if v < hoje:
+        return ("erro", f"{tipo} venceu {v:%d/%m/%Y}")
+    if v <= hoje + _t(days=30):
+        return ("aviso", f"{tipo} vence {v:%d/%m/%Y}")
+    return ("ok", f"{tipo} até {v:%d/%m/%Y}")
+
+
+def _tela_sitfis(request, db, u, status: str, tipo: str, cert: str):
+    todos = ms.itens(db, "SITFIS", "")
+    linhas = []
+    for m in todos:
+        d = json.loads(m.detalhe) if m.detalhe else {}
+        etiquetas = d.get("etiquetas") or [{"chave": x, "texto": x} for x in d.get("pendencias") or []]
+        linhas.append(dict(m=m, d=d, etiquetas=etiquetas, cert=situacao_certidao(d)))
+    cont = {g[0]: sum(1 for x in linhas if x["m"].status == g[0]) for g in GRUPOS_SITFIS}
+    vencidas = sum(1 for x in linhas if x["cert"][0] == "erro")
+    tipos = sorted({e["chave"] for x in linhas for e in x["etiquetas"]})
+    filtradas = linhas
+    if status:
+        filtradas = [x for x in filtradas if x["m"].status == status]
+    if tipo:
+        filtradas = [x for x in filtradas if any(e["chave"] == tipo for e in x["etiquetas"])]
+    if cert == "vencida":
+        filtradas = [x for x in filtradas if x["cert"][0] == "erro"]
+    grupos = [(g, [x for x in filtradas if x["m"].status == g[0]]) for g in GRUPOS_SITFIS]
+    grupos = [(g, l) for g, l in grupos if l]
+    conferir = [x["m"].prestador_id for x in linhas if x["m"].status == "INDEFINIDO"]
+    return render(request, "monitor_sitfis.html", grupos_sitfis=grupos, cont=cont, vencidas=vencidas, total=len(linhas),
+                  tipos=tipos, status=status, tipo=tipo, cert=cert, n_conferir=len(conferir),
+                  custo_conferir=ms.custo_estimado(db, "SITFIS", len(conferir)), filtrado=bool(status or tipo or cert),
+                  e_admin=getattr(u, "perfil", "") == "ADMIN", execucao=ms.situacao())
+
+
+@router.post("/monitor/sitfis/repetir-conferir")
+async def sitfis_repetir_conferir(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    ids = [m.prestador_id for m in ms.itens(db, "SITFIS", "") if m.status == "INDEFINIDO"]
+    if not ids:
+        flash(request, "Nenhuma empresa em 'Conferir'.")
+        return _redir("/monitor/item/SITFIS")
+    try:
+        sv.cliente(db)
+        ms.executar_em_segundo_plano("SITFIS", u.login, ids)
+    except (sv.ErroConsulta, ValueError) as e:
+        flash(request, str(e), "erro")
+        return _redir("/monitor/item/SITFIS")
+    flash(request, f"Situação fiscal: consultando de novo {len(ids)} empresa(s) em 'Conferir'. Atualize a página em alguns minutos.")
+    return _redir("/monitor/item/SITFIS")
 
 
 @router.get("/monitor/pagamentos")

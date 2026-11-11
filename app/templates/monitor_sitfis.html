@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block titulo %}Situação fiscal · Monitor e-CAC{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo"><h1>Situação fiscal</h1><a class="botao secundario" href="/monitor">Voltar ao painel</a></div>
+
+<div class="numeros sitfis-num">
+  <a class="cartao-num {{ 'ativo' if status == 'PENDENCIA' }}" href="?status=PENDENCIA"><b class="cor-erro">{{ cont.PENDENCIA }}</b><span>Com pendência</span></a>
+  <a class="cartao-num {{ 'ativo' if status == 'INDEFINIDO' }}" href="?status=INDEFINIDO"><b class="cor-aviso">{{ cont.INDEFINIDO }}</b><span>Conferir</span></a>
+  <a class="cartao-num {{ 'ativo' if status == 'REGULAR' }}" href="?status=REGULAR"><b class="cor-ok">{{ cont.REGULAR }}</b><span>Regular</span></a>
+  <a class="cartao-num {{ 'ativo' if cert == 'vencida' }}" href="?cert=vencida"><b class="cor-erro">{{ vencidas }}</b><span>Certidão vencida</span></a>
+  {% if cont.ERRO %}<a class="cartao-num {{ 'ativo' if status == 'ERRO' }}" href="?status=ERRO"><b class="cor-erro">{{ cont.ERRO }}</b><span>Erro na consulta</span></a>{% endif %}
+</div>
+
+<div class="barra-sitfis">
+  <form class="busca filtros filtro-auto" method="get">
+    <input type="search" id="busca-sitfis" placeholder="Buscar empresa (nome, código ou CNPJ)" autocomplete="off">
+    <select name="tipo"><option value="">Todas as pendências</option>{% for t in tipos %}<option {{ 'selected' if t == tipo }}>{{ t }}</option>{% endfor %}</select>
+    {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+    {% if cert %}<input type="hidden" name="cert" value="{{ cert }}">{% endif %}
+    {% if filtrado %}<a href="/monitor/item/SITFIS">limpar filtros</a>{% endif %}
+  </form>
+  {% if e_admin and n_conferir %}
+  <form method="post" action="/monitor/sitfis/repetir-conferir"
+        onsubmit="return confirm('Consultar de novo {{ n_conferir }} empresa(s) em Conferir? Custo estimado R$ {{ '%.2f'|format(custo_conferir)|replace('.', ',') }}.')">
+    <button class="secundario" {{ 'disabled' if execucao.rodando }}>Consultar de novo as {{ n_conferir }} "Conferir" · R$ {{ '%.2f'|format(custo_conferir)|replace('.', ',') }}</button>
+  </form>
+  {% endif %}
+</div>
+{% if execucao.rodando %}<p class="msg aviso">Rotina em andamento: {{ execucao.rotina }} — {{ execucao.feitas }}/{{ execucao.total }}. Atualize a página para acompanhar.</p>{% endif %}
+
+{% for g, itens in grupos_sitfis %}
+{% set aberto = g[0] != 'REGULAR' or status == 'REGULAR' %}
+<details class="cartao grupo-sitfis" {{ 'open' if aberto }}>
+  <summary><span class="etiqueta {{ g[2] }}">{{ g[1] }}</span> <b>{{ itens|length }}</b> empresa(s){% if g[3] %} <span class="sutil">· {{ g[3] }}</span>{% endif %}</summary>
+  <table class="compacta ordenavel tabela-sitfis">
+    <colgroup><col style="width:28%"><col style="width:44%"><col style="width:15%"><col style="width:13%"></colgroup>
+    <thead><tr><th>Empresa</th><th>Pendências</th><th>Certidão</th><th>Consulta</th></tr></thead>
+    <tbody>{% for x in itens %}{% set m = x.m %}{% set d = x.d %}
+      <tr data-busca="{{ (m.prestador.codigo_interno or '') ~ ' ' ~ m.prestador.razao_social ~ ' ' ~ m.prestador.cnpj }}">
+        <td><a href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
+        <td>
+          {% for e in x.etiquetas %}<span class="etiqueta erro">{{ e.texto }}</span> {% endfor %}
+          {% if d.indisponiveis %}<span class="etiqueta" title="{{ d.indisponiveis|join(' · ') }}">{{ d.indisponiveis|length }} base(s) sem resposta</span>{% endif %}
+          {% if d.suspensas %}<span class="etiqueta cinza" title="{{ d.suspensas|join(' · ') }}">{{ d.suspensas|length }} exig. suspensa</span>{% endif %}
+          {% if m.status == 'ERRO' %}<span class="sutil">{{ m.resumo }}</span>{% endif %}
+          {% if not x.etiquetas and not d.indisponiveis and not d.suspensas and m.status == 'REGULAR' %}<span class="sutil">—</span>{% endif %}
+          {% if d.detalhes %}<details class="det-sitfis"><summary>detalhes</summary>
+            {% for p in d.detalhes %}<div><b>{{ p.titulo }}</b>{% for l in p.linhas %}<br><small>{{ l }}</small>{% endfor %}</div>{% endfor %}
+          </details>{% endif %}
+        </td>
+        <td>{% if x.cert[1] %}<span class="etiqueta {{ x.cert[0] }}">{{ x.cert[1] }}</span>{% else %}<span class="sutil">—</span>{% endif %}</td>
+        <td><small>{{ m.atualizado_em|datahora }}</small>{% if m.consulta_id %}<br><a href="/receita/consultas/{{ m.consulta_id }}/arquivo/0" target="_blank">PDF</a> · <a href="/prestadores/{{ m.prestador_id }}/receita?ver={{ m.consulta_id }}#resultado">consulta</a>{% endif %}</td>
+      </tr>{% endfor %}</tbody>
+  </table>
+</details>
+{% else %}
+<section class="cartao"><p class="sutil">Nenhuma empresa {{ 'com estes filtros' if filtrado else 'consultada ainda. Rode a rotina no painel do Monitor.' }}</p></section>
+{% endfor %}
+
+<script>
+(function () {
+  var b = document.getElementById("busca-sitfis");
+  if (!b) return;
+  b.addEventListener("input", function () {
+    var t = b.value.toLocaleLowerCase("pt-BR").replace(/[.\/-]/g, "");
+    document.querySelectorAll(".tabela-sitfis tbody tr").forEach(function (tr) {
+      var s = (tr.getAttribute("data-busca") || "").toLocaleLowerCase("pt-BR").replace(/[.\/-]/g, "");
+      tr.style.display = !t || s.indexOf(t) >= 0 ? "" : "none";
+    });
+    if (t) document.querySelectorAll("details.grupo-sitfis").forEach(function (d) { d.open = true; });
+  });
+})();
+</script>
+{% endblock %}

@@ -273,3 +273,30 @@ td.num, th.num { text-align:right; }
 .mod-linha b { font-weight:600; white-space:nowrap; }
 .mod-linha b.erro { color:var(--verm); } .mod-linha b.aviso { color:var(--amar); } .mod-linha b.ok { color:var(--verde); }
 details.cartao summary { cursor:pointer; }
+
+/* Situação fiscal (Monitor) */
+.sitfis-num { grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); }
+.numeros a.cartao-num.ativo { border-color:var(--azul); box-shadow:0 0 0 1px var(--azul) inset; }
+.cor-erro { color:var(--verm) !important; } .cor-aviso { color:var(--amar) !important; } .cor-ok { color:var(--verde) !important; }
+.barra-sitfis { display:flex; align-items:center; gap:1rem; margin-bottom:1rem; }
+.barra-sitfis .busca { margin:0; flex:1; }
+.barra-sitfis .busca input[type=search] { width:320px; }
+details.grupo-sitfis > summary { cursor:pointer; font-size:1rem; padding:.2rem 0 .6rem; }
+details.grupo-sitfis > summary .etiqueta { font-size:.85rem; }
+.tabela-sitfis { table-layout:fixed; width:100%; }
+.tabela-sitfis td { vertical-align:top; }
+.tabela-sitfis .etiqueta { margin:0 .15rem .2rem 0; }
+.etiqueta.cinza { background:#eef0f3; color:#5b6573; }
+details.det-sitfis summary { cursor:pointer; color:var(--azul); font-size:.82rem; margin-top:.2rem; }
+details.det-sitfis div { margin:.35rem 0 .5rem; font-size:.85rem; }
+details.det-sitfis small { color:var(--sutil); font-family:ui-monospace, Consolas, monospace; }
+
+/* Formulários em grade de 12 colunas */
+.grade-12 { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:0 1rem; }
+.grade-12 > .c1 { grid-column:span 1; } .grade-12 > .c2 { grid-column:span 2; } .grade-12 > .c3 { grid-column:span 3; }
+.grade-12 > .c4 { grid-column:span 4; } .grade-12 > .c5 { grid-column:span 5; } .grade-12 > .c6 { grid-column:span 6; }
+.grade-12 > .c12 { grid-column:span 12; }
+@media (max-width:1100px) { .grade-12 > [class^="c"] { grid-column:span 6; } }
+.grade-12 .com-botao input { min-width:13.5em; font-variant-numeric:tabular-nums; }
+fieldset.bloco-form { border:none; border-top:1px solid var(--borda); border-radius:0; margin:0 0 .4rem; padding:.6rem 0 0; }
+fieldset.bloco-form legend { font-weight:600; color:var(--azul); font-size:.9rem; padding-right:.5rem; }

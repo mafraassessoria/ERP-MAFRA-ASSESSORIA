@@ -10,6 +10,7 @@
     v = (v || "").toString().trim();
     if (!v) return 0;
     if (v.indexOf(",") >= 0) v = v.replace(/\./g, "").replace(",", ".");
+    else if (/^\d{1,3}(\.\d{3})+$/.test(v)) v = v.replace(/\./g, "");
     var n = parseFloat(v);
     return isNaN(n) ? 0 : n;
   }

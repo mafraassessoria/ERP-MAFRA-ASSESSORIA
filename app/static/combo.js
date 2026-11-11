@@ -152,6 +152,37 @@
 document.addEventListener("change", function (e) {
   var f = e.target.form;
   if (!f || !f.classList.contains("filtro-auto")) return;
-  if (e.target.tagName === "INPUT" && e.target.type === "text") return;
+  if (e.target.tagName === "INPUT" && (e.target.type === "text" || e.target.type === "search")) return;
   f.submit();
 });
+
+// Campos de valor (class="dinheiro"): ao sair do campo, mostra com duas casas e separador de milhar (2530 -> 2.530,00).
+(function () {
+  function paraNumero(v) {
+    v = (v || "").toString().trim().replace(/^R\$\s*/, "").replace(/\s/g, "");
+    if (!v) return null;
+    if (v.indexOf(",") >= 0) v = v.replace(/\./g, "").replace(",", ".");
+    else if (/^\d{1,3}(\.\d{3})+$/.test(v)) v = v.replace(/\./g, "");   // 2.530 = dois mil e quinhentos e trinta
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+  function formatar(el) {
+    var n = paraNumero(el.value);
+    if (n === null) return;
+    var novo = n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (novo !== el.value) {
+      el.value = novo;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+  // alíquotas e totais aproximados podem ser percentuais com mais casas: não são formatados
+  var SELETOR = "input.dinheiro:not(#aliquota):not([name^=tot_trib_])";
+  document.addEventListener("focusout", function (e) {
+    if (e.target.matches && e.target.matches(SELETOR)) formatar(e.target);
+  });
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(SELETOR).forEach(function (el) { if (el.value) formatar(el); });
+  });
+  window.formatarDinheiro = formatar;
+})();

@@ -7,24 +7,35 @@
   <input type="hidden" name="id" value="{{ t.id or '' }}">
   <input type="hidden" name="volta" value="{{ volta or '' }}">
   <div class="aviso-consulta" style="display:none"></div>
-  <div class="grade">
-    <label>CPF/CNPJ * <span class="com-botao"><input name="documento" data-doc data-nome="nome" value="{{ t.documento|doc if t.documento else '' }}" required>
-      <button type="button" class="secundario" onclick="buscarCNPJ(this)">Buscar CPF/CNPJ</button></span></label>
-    <label data-nascimento>Data de nascimento <small class="sutil">(pessoa física — exigida pela consulta de CPF na Receita)</small>
+  <fieldset class="bloco-form"><legend>Identificação</legend>
+  <div class="grade-12">
+    <label class="c4">CPF/CNPJ * <span class="com-botao"><input name="documento" data-doc data-nome="nome" value="{{ t.documento|doc if t.documento else '' }}" required
+        placeholder="00.000.000/0000-00" maxlength="18">
+      <button type="button" class="secundario" onclick="buscarCNPJ(this)">Buscar</button></span></label>
+    <label class="c6">Nome / razão social * <input name="nome" value="{{ t.nome or '' }}" required></label>
+    <label class="c2" data-nascimento title="Pessoa física: exigida pela consulta de CPF na Receita">Data de nascimento <small class="sutil">(CPF)</small>
       <input type="date" name="data_nascimento" value="{{ t.data_nascimento.isoformat() if t.data_nascimento else '' }}"></label>
-    <label class="larga">Nome / razão social * <input name="nome" value="{{ t.nome or '' }}" required></label>
-    <label>Inscrição municipal <input name="inscricao_municipal" value="{{ t.inscricao_municipal or '' }}"></label>
-    <label>E-mail <input name="email" type="email" value="{{ t.email or '' }}"></label>
-    <label>Telefone <input name="telefone" value="{{ t.telefone or '' }}"></label>
-    <label>CEP <input name="cep" value="{{ t.cep or '' }}"></label>
-    <label class="larga">Logradouro <input name="logradouro" value="{{ t.logradouro or '' }}"></label>
-    <label>Número <input name="numero" value="{{ t.numero or '' }}"></label>
-    <label>Complemento <input name="complemento" value="{{ t.complemento or '' }}"></label>
-    <label>Bairro <input name="bairro" value="{{ t.bairro or '' }}"></label>
-    <label>Município <input name="municipio" value="{{ t.municipio or '' }}"></label>
-    <label>UF <input name="uf" value="{{ t.uf or '' }}" maxlength="2"></label>
-    <label>Código IBGE <input name="codigo_municipio_ibge" value="{{ t.codigo_municipio_ibge or '' }}" maxlength="7"></label>
   </div>
+  </fieldset>
+  <fieldset class="bloco-form"><legend>Contato e inscrição</legend>
+  <div class="grade-12">
+    <label class="c3">Inscrição municipal <input name="inscricao_municipal" value="{{ t.inscricao_municipal or '' }}"></label>
+    <label class="c6">E-mail <input name="email" type="email" value="{{ t.email or '' }}" placeholder="para envio automático da nota"></label>
+    <label class="c3">Telefone <input name="telefone" value="{{ t.telefone or '' }}"></label>
+  </div>
+  </fieldset>
+  <fieldset class="bloco-form"><legend>Endereço</legend>
+  <div class="grade-12">
+    <label class="c2">CEP <input name="cep" value="{{ t.cep or '' }}"></label>
+    <label class="c6">Logradouro <input name="logradouro" value="{{ t.logradouro or '' }}"></label>
+    <label class="c1">Número <input name="numero" value="{{ t.numero or '' }}"></label>
+    <label class="c3">Complemento <input name="complemento" value="{{ t.complemento or '' }}"></label>
+    <label class="c4">Bairro <input name="bairro" value="{{ t.bairro or '' }}"></label>
+    <label class="c5">Município <input name="municipio" value="{{ t.municipio or '' }}"></label>
+    <label class="c1">UF <input name="uf" value="{{ t.uf or '' }}" maxlength="2"></label>
+    <label class="c2">Código IBGE <input name="codigo_municipio_ibge" value="{{ t.codigo_municipio_ibge or '' }}" maxlength="7"></label>
+  </div>
+  </fieldset>
   <label class="check"><input type="checkbox" name="ativo" value="1" {{ 'checked' if t.ativo }}> Ativo</label>
   <div class="acoes"><button>Salvar</button><a href="{{ volta or ('/prestadores/%d?aba=cadastros#tomadores' % p.id) }}">Cancelar</a></div>
 </form>

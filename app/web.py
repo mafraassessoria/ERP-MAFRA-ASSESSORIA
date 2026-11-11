@@ -1,4 +1,5 @@
 """Utilidades comuns das telas: templates, mensagens, usuário logado e auditoria."""
+import re
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -134,8 +135,11 @@ def decimal_br(valor: str) -> Decimal:
     v = (valor or "").strip()
     if not v:
         return Decimal("0")
+    v = v.replace("R$", "").replace(" ", "")
     if "," in v:
         v = v.replace(".", "").replace(",", ".")
+    elif re.fullmatch(r"\d{1,3}(\.\d{3})+", v):   # "2.530" = 2530
+        v = v.replace(".", "")
     try:
         return Decimal(v)
     except InvalidOperation:

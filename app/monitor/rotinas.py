@@ -198,7 +198,7 @@ def ler_sitfis(caminho) -> dict:
     """
     linhas = linhas_pdf(caminho)
     r = {"status": "INDEFINIDO", "resumo": "", "pendencias": [], "detalhes": [], "suspensas": [],
-         "indisponiveis": [], "certidao": ""}
+         "indisponiveis": [], "certidao": "", "etiquetas": [], "cert_tipo": "", "cert_validade": ""}
     if not linhas:
         r["resumo"] = "Relatório baixado; leitura automática não concluiu — abrir o PDF"
         return r
@@ -233,12 +233,16 @@ def ler_sitfis(caminho) -> dict:
         else:
             r["pendencias"].append(t)
             r["detalhes"].append({"titulo": t, "linhas": s["linhas"][:40]})
+            r["etiquetas"].append(etiqueta_pendencia(t, s["linhas"]))
     sem_pend = re.search(r"n[ãa]o foram detectadas pend[êe]ncias", " ".join(linhas), re.I)
     cert = ""
     mc = re.match(r"Certid[ãa]o (Negativa|Positiva com Efeitos de Negativa|Positiva)", r["certidao"], re.I)
     if mc:
         cert = {"negativa": "CND", "positiva com efeitos de negativa": "CPEN", "positiva": "CPD"}.get(mc.group(1).lower(), "")
+        r["cert_tipo"] = cert
         v = re.search(r"Validade:\s*(\d\d/\d\d/\d{4})", r["certidao"])
+        if v:
+            r["cert_validade"] = data_br(v.group(1)).isoformat() if data_br(v.group(1)) else ""
         cert = f"{cert} válida até {v.group(1)}" if v else cert
     extra = []
     if r["indisponiveis"]:
@@ -261,6 +265,42 @@ def ler_sitfis(caminho) -> dict:
         r["resumo"] += " · " + " · ".join(extra)
     r["resumo"] = r["resumo"][:300]
     return r
+
+
+_DINHEIRO = re.compile(r"\b\d{1,3}(?:\.\d{3})*,\d{2}\b")
+
+
+def _brl(v: Decimal) -> str:
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def etiqueta_pendencia(titulo: str, linhas: list[str]) -> dict:
+    """Rótulo curto de uma pendência, com o número que importa (valor devido, parcelas em atraso, anos omissos)."""
+    junto = " ".join(linhas)
+    base = re.sub(r"\s*\((?:Sistema )?([A-Z/]+)\)", r" \1", titulo).strip()     # "Débito (SIEF)" -> "Débito SIEF"
+    chave = base
+    if re.search(r"^Parcelamento", titulo, re.I):
+        chave = "Parcelamento"
+        n = re.search(r"Parcelas em atraso\s+(\d+)", junto, re.I)
+        sist = re.search(r"\(([^)]+)\)", titulo)
+        texto = f"Parcelamento {sist.group(1) if sist else ''}".strip() + (f": {n.group(1)} em atraso" if n else "")
+        return {"chave": chave, "texto": texto}
+    if re.search(r"^Omiss", titulo, re.I):
+        chave = base
+        anos = sorted({a for a in re.findall(r"\b(20\d\d)\b", junto)})
+        pas = re.findall(r"\b(\d\d/20\d\d)\b", junto)
+        if anos and not pas:
+            return {"chave": chave, "texto": f"{base} {', '.join(anos)}"}
+        if pas:
+            return {"chave": chave, "texto": f"{base} ({len(pas)} período(s))"}
+        return {"chave": chave, "texto": base}
+    linhas_valor = [l for l in linhas if _DINHEIRO.search(l)]
+    if linhas_valor:
+        total = Decimal("0")
+        for l in linhas_valor:
+            total += dinheiro(_DINHEIRO.findall(l)[-1])
+        return {"chave": chave, "texto": f"{base} {_brl(total)}" + (f" ({len(linhas_valor)})" if len(linhas_valor) > 1 else "")}
+    return {"chave": chave, "texto": base}
 
 
 def ler_pdf(caminho) -> str:
