@@ -31,6 +31,13 @@ def automatico(db: Session, chave: str) -> bool:
 
 # ---- honorários -----------------------------------------------------------------------------
 
+def _empresa_do_recebimento(db: Session, rec) -> models.Prestador | None:
+    cod = str(rec.codigo_empresa or "").lstrip("0")
+    if not cod:
+        return None
+    return db.scalar(select(models.Prestador).where(models.Prestador.codigo_interno == cod))
+
+
 def revisar_honorarios(db: Session, ids: list[int], cli=None) -> list[dict]:
     cli = cli or sessao.cliente(db)
     saida = []
@@ -46,10 +53,14 @@ def revisar_honorarios(db: Session, ids: list[int], cli=None) -> list[dict]:
         if rec.recebido and rec.valor and rec.recebido != rec.valor:
             item["situacao"], item["detalhe"] = "PARCIAL", f"recebido R$ {rec.recebido} de R$ {rec.valor}"
             continue
-        docs = cli.localizar_cobranca(rec.titulo, rec.codigo_empresa)
+        emp = _empresa_do_recebimento(db, rec)
+        docs, diag = cli.localizar_cobranca_diag(rec.titulo, rec.codigo_empresa, empresa_id=(emp.id_econtador or "") if emp else "",
+                                                 valor=rec.valor, periodo=(rec.periodo_inicio, rec.periodo_fim))
         if not docs:
-            item["situacao"] = "NAO_ENCONTRADO"
+            item["situacao"], item["detalhe"] = "NAO_ENCONTRADO", diag
             continue
+        if diag:
+            item["detalhe"] = diag
         if len(docs) > 1:
             item["situacao"], item["detalhe"] = "VARIOS", ", ".join(d.id for d in docs)
             continue

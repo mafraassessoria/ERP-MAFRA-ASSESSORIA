@@ -185,14 +185,57 @@ class ClienteWeb:
 
     def localizar_cobranca(self, titulo: str, empresa_codigo: str) -> list[Documento]:
         """Cobranças cujo detalhe traz "Título: N" e a empresa do recebimento."""
-        achados = []
-        for d in self.listar(texto=str(titulo), categoria=CATEGORIA_COBRANCAS, paginas=5):
-            if d.empresa_codigo != str(empresa_codigo).lstrip("0"):
-                continue
-            det = self.visualizar(d.id)
-            if det.titulo == str(titulo):
-                achados.append(det)
-        return achados
+        return self.localizar_cobranca_diag(titulo, empresa_codigo)[0]
+
+    def localizar_cobranca_diag(self, titulo: str, empresa_codigo: str, empresa_id: str = "", valor: Decimal | None = None,
+                                periodo: tuple[date | None, date | None] = (None, None)) -> tuple[list[Documento], str]:
+        """Procura a cobrança em etapas e devolve (achados, diagnóstico legível quando não acha):
+        1) pelo número do título nas Cobranças; 2) pelo título em qualquer categoria;
+        3) nas Cobranças da empresa (EmpresaId do e-Contador), pelo valor e período."""
+        titulo, cod = str(titulo), str(empresa_codigo).lstrip("0")
+        notas, vistos = [], set()
+
+        def conferir(lista, rotulo):
+            achados, outras = [], []
+            for d in lista:
+                if d.id in vistos:
+                    continue
+                vistos.add(d.id)
+                det = self.visualizar(d.id)
+                if det.titulo == titulo and det.empresa_codigo == cod:
+                    achados.append(det)
+                elif det.titulo == titulo:
+                    outras.append(f"doc {det.id} na empresa {det.empresa_codigo} - {det.empresa_nome[:30]}")
+            notas.append(f"{rotulo}: {len(lista)} resultado(s)" + (f" — título {titulo} achado em outra empresa: {'; '.join(outras)}" if outras else ""))
+            return achados
+
+        achados = conferir(self.listar(texto=titulo, categoria=CATEGORIA_COBRANCAS, paginas=5), f"busca '{titulo}' em Cobranças")
+        if achados:
+            return achados, ""
+        achados = conferir(self.listar(texto=titulo, paginas=3), f"busca '{titulo}' em todas as categorias")
+        if achados:
+            return achados, ""
+        if empresa_id:
+            candidatos = []
+            lista = self.listar(categoria=CATEGORIA_COBRANCAS, empresa_id=empresa_id, paginas=3)
+            for d in lista:
+                if valor is not None and d.valor != valor:
+                    continue
+                det = self.visualizar(d.id)
+                if det.empresa_codigo != cod:      # o id do cadastro pode não ser o mesmo da tela: confere o código
+                    continue
+                ini, fim = det.periodo
+                if periodo[0] and periodo[1] and ini and fim and (ini, fim) != periodo:
+                    continue
+                candidatos.append(det)
+            notas.append(f"Cobranças da empresa no e-Contador: {len(lista)}, com o mesmo valor e período: {len(candidatos)}")
+            if len(candidatos) == 1:
+                return candidatos, "achada pelo valor e período (o número do título não aparece na cobrança)"
+            if candidatos:
+                return candidatos, ""
+        else:
+            notas.append("empresa sem ID do e-Contador no cadastro: busca pela empresa não feita")
+        return [], " · ".join(notas)
 
     # ---- gravação (sempre seguida de releitura) ------------------------------------------------
     def confirmar_pagamento(self, ids: list[str], data: date) -> list[str]:
