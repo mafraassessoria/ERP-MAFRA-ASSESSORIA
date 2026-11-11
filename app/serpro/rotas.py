@@ -76,7 +76,9 @@ def receita_empresa(pid: int, request: Request, ver: int = 0, db: Session = Depe
     precos = sv.precos(db)
     custos = {s.codigo: sum((precos.get(t, Decimal(0)) for t in sv.chamadas_previstas(s)), Decimal(0)) for s in servs}
     from ..monitor.rotas import resumo_empresa
-    return render(request, "receita_empresa.html", p=p, aba="receita", monitor=resumo_empresa(db, pid), grupos=grupos, historico=historico,
+    from ..monitor.rotinas import ROTINAS
+    return render(request, "receita_empresa.html", p=p, aba="receita", monitor=resumo_empresa(db, pid),
+                  rotinas_empresa=[r for r in ROTINAS if r.aplica(p)], grupos=grupos, historico=historico,
                   aberta=aberta, dados_abertos=_carregar(aberta), custos=custos, POR_CODIGO=POR_CODIGO,
                   sit=_situacao_modulo(db))
 

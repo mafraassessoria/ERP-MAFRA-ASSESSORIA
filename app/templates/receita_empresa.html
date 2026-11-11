@@ -13,10 +13,20 @@
   {% if sit.modo == 'producao' %}· gasto no mês R$ {{ '%.2f'|format(sit.gasto)|replace('.', ',') }} de R$ {{ '%.2f'|format(sit.limite)|replace('.', ',') }}{% endif %}
   · as consultas repetidas no mesmo dia abrem o resultado já guardado, sem novo custo.</p>
 
-{% if monitor %}
+{% if monitor or (usuario.perfil == 'ADMIN' and rotinas_empresa) %}
 <section class="cartao">
-  <h2>Acompanhamento (Monitor e-CAC)</h2>
+  <div class="linha-titulo"><h2>Acompanhamento (Monitor e-CAC)</h2>
+  {% if usuario.perfil == 'ADMIN' and rotinas_empresa %}
+  <form method="post" class="em-linha" onsubmit="this.action='/monitor/rotinas/' + this.rotina.value + '/rodar'; return confirm('Rodar ' + this.rotina.options[this.rotina.selectedIndex].text + ' só nesta empresa? A consulta é cobrada pelo Serpro.')">
+    <input type="hidden" name="prestador_id" value="{{ p.id }}">
+    <select name="rotina">{% for r in rotinas_empresa %}<option value="{{ r.codigo }}">{{ r.nome }}</option>{% endfor %}</select>
+    <button class="secundario mini">Rodar só nesta empresa</button>
+  </form>{% endif %}</div>
   <div class="mon-partes">{% for x in monitor %}<span class="etiqueta {{ x.st[1] }}" title="{{ x.m.resumo }} · {{ x.m.atualizado_em|datahora }}">{{ x.nome }}{% if x.m.referencia %} {{ x.m.referencia }}{% endif %}: {{ x.st[0] }}</span>{% endfor %}</div>
+  {% for x in monitor if x.m.item == 'PARCELAMENTO' and x.m.detalhe %}{% set d = x.m.detalhe|fromjson %}
+    {% if d.pedidos %}<table class="compacta" style="margin-top:.6rem"><tr><th>Parcelamento</th><th>Nº</th><th>Pedido</th><th>Situação</th><th>Desde</th></tr>
+    {% for pd in d.pedidos %}<tr><td>{{ pd.origem or '' }}</td><td>{{ pd.numero }}</td><td>{{ pd.pedido }}</td><td>{{ pd.situacao }}</td><td>{{ pd.data_situacao }}</td></tr>{% endfor %}</table>{% endif %}
+  {% endfor %}
 </section>
 {% endif %}
 <div class="rf-grade">

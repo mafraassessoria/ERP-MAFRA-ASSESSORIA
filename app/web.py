@@ -23,6 +23,7 @@ def _nome_municipio(codigo):
 
 templates.env.filters["municipio"] = _nome_municipio
 templates.env.filters["data"] = lambda d: d.strftime("%d/%m/%Y") if d else ""
+templates.env.filters["fromjson"] = lambda s: __import__("json").loads(s) if s else {}
 templates.env.filters["datahora"] = lambda d: d.strftime("%d/%m/%Y %H:%M") if d else ""
 templates.env.filters["moeda"] = (
     lambda v: f"{Decimal(v or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
