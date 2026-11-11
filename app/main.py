@@ -1,5 +1,6 @@
 """Aplicação web do ERP MAFRA ASSESSORIA (M & R Assessoria Contábil) — NFS-e, Receita Federal, e-Contador e certidões."""
 import logging
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from .honorarios.rotas import router as honorarios_router
 from .seguranca import (
     conferir_senha, criptografar, descriptografar, falhas_recentes, gerar_hash_senha, login_bloqueado, qr_svg,
     senha_forte, totp_conferir, totp_novo_segredo, totp_uri,
+    EMAIL_CODIGO_INTERVALO, EMAIL_CODIGO_MINUTOS, EMAIL_CODIGO_TENTATIVAS, email_codigo_novo, email_mascarado,
 )
 from .web import (
     PrecisaLogin, SemPermissao, admin, auditar, flash, ip_de, render, texto, usuario_atual,
@@ -276,10 +278,70 @@ async def login(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/login/codigo")
-def login_codigo_form(request: Request):
-    if not request.session.get("pre_uid"):
+def login_codigo_form(request: Request, db: Session = Depends(get_db)):
+    uid = request.session.get("pre_uid")
+    u = db.get(models.Usuario, uid) if uid else None
+    if not u:
         return RedirectResponse("/login", status_code=303)
-    return render(request, "login_codigo.html")
+    from .configuracoes import smtp_configurado
+    pode_email = bool(u.email_2fa) and smtp_configurado(db)
+    enviado = bool(u.email_codigo_hash and u.email_codigo_expira and u.email_codigo_expira > datetime.now())
+    return render(request, "login_codigo.html", pode_email=pode_email, email_mask=email_mascarado(u.email_2fa),
+                  email_enviado=enviado, minutos=EMAIL_CODIGO_MINUTOS)
+
+
+@app.post("/login/codigo/email")
+def login_codigo_email(request: Request, db: Session = Depends(get_db)):
+    """Sem o celular: manda um código de uso único para o e-mail cadastrado do usuário (vale 10 minutos)."""
+    from .configuracoes import ErroEmail, enviar_email, smtp_configurado
+    uid = request.session.get("pre_uid")
+    u = db.get(models.Usuario, uid) if uid else None
+    if not u or not u.ativo or not u.tem_2fa:
+        request.session.clear()
+        return RedirectResponse("/login", status_code=303)
+    if login_bloqueado(db, u.login):
+        request.session.clear()
+        flash(request, "Muitas tentativas erradas. Aguarde 15 minutos.", "erro")
+        return RedirectResponse("/login", status_code=303)
+    if not u.email_2fa or not smtp_configurado(db):
+        flash(request, "Código por e-mail não disponível para este usuário.", "erro")
+        return RedirectResponse("/login/codigo", status_code=303)
+    agora = datetime.now()
+    if u.email_codigo_enviado and (agora - u.email_codigo_enviado).total_seconds() < EMAIL_CODIGO_INTERVALO:
+        flash(request, "Um código acabou de ser enviado. Confira o e-mail (e a pasta de spam) ou aguarde 1 minuto para pedir outro.", "aviso")
+        return RedirectResponse("/login/codigo", status_code=303)
+    codigo = email_codigo_novo()
+    try:
+        enviar_email(db, [u.email_2fa], "Código de acesso ao ERP MAFRA ASSESSORIA",
+                     f"Seu código de acesso ao ERP MAFRA ASSESSORIA é: {codigo}\n\n"
+                     f"Ele vale por {EMAIL_CODIGO_MINUTOS} minutos e só pode ser usado uma vez.\n"
+                     f"Pedido em {agora:%d/%m/%Y %H:%M} para o usuário {u.login}, de {ip_de(request)}.\n\n"
+                     "Se não foi você, troque sua senha assim que possível.", sem_copia=True)
+    except ErroEmail as e:
+        flash(request, f"Não foi possível enviar o e-mail: {e}", "erro")
+        return RedirectResponse("/login/codigo", status_code=303)
+    u.email_codigo_hash = gerar_hash_senha(codigo)
+    u.email_codigo_expira = agora + timedelta(minutes=EMAIL_CODIGO_MINUTOS)
+    u.email_codigo_tentativas = 0
+    u.email_codigo_enviado = agora
+    auditar(db, request, u, "2FA_CODIGO_EMAIL", "usuario", u.id, email_mascarado(u.email_2fa))
+    db.commit()
+    flash(request, f"Código enviado para {email_mascarado(u.email_2fa)}. Vale por {EMAIL_CODIGO_MINUTOS} minutos.")
+    return RedirectResponse("/login/codigo", status_code=303)
+
+
+def _conferir_codigo_email(db: Session, u: models.Usuario, codigo: str) -> bool:
+    codigo = "".join(ch for ch in (codigo or "") if ch.isdigit())
+    if not (u.email_codigo_hash and u.email_codigo_expira) or len(codigo) != 6:
+        return False
+    if u.email_codigo_expira < datetime.now() or u.email_codigo_tentativas >= EMAIL_CODIGO_TENTATIVAS:
+        u.email_codigo_hash, u.email_codigo_expira = "", None
+        return False
+    if conferir_senha(codigo, u.email_codigo_hash):
+        u.email_codigo_hash, u.email_codigo_expira, u.email_codigo_tentativas = "", None, 0   # uso único
+        return True
+    u.email_codigo_tentativas += 1
+    return False
 
 
 @app.post("/login/codigo")
@@ -295,12 +357,15 @@ async def login_codigo(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     form = await request.form()
     passo = totp_conferir(descriptografar(u.totp_segredo.encode()).decode(), form.get("codigo", ""), u.totp_ultimo)
-    if not passo:
-        _falhou(request, db, u.login, codigo=True)
-        flash(request, "Código incorreto ou já usado. Use o código que aparece agora no aplicativo.", "erro")
-        return RedirectResponse("/login/codigo", status_code=303)
-    u.totp_ultimo = passo
-    return _entrar(request, db, u)
+    if passo:
+        u.totp_ultimo = passo
+        return _entrar(request, db, u)
+    if _conferir_codigo_email(db, u, form.get("codigo", "")):
+        auditar(db, request, u, "LOGIN_CODIGO_EMAIL", "usuario", u.id)
+        return _entrar(request, db, u)
+    _falhou(request, db, u.login, codigo=True)
+    flash(request, "Código incorreto, vencido ou já usado. Use o código atual do aplicativo ou o último enviado por e-mail.", "erro")
+    return RedirectResponse("/login/codigo", status_code=303)
 
 
 # ---- Verificação em duas etapas (cada usuário ativa a sua) ------------------------------------
@@ -312,8 +377,46 @@ def dois_fatores_form(request: Request, db: Session = Depends(get_db), u=Depends
         segredo = request.session.get("totp_novo") or totp_novo_segredo()
         request.session["totp_novo"] = segredo
     uri = totp_uri(segredo, u.login) if segredo else ""
+    from .configuracoes import smtp_configurado
+    sugestao = u.email_2fa or (EMAIL_2FA_PADRAO_ADMIN if u.perfil == "ADMIN" else "")
     return render(request, "dois_fatores.html", segredo=segredo, qr=qr_svg(uri) if uri else "",
-                  segredo_formatado=" ".join(segredo[i:i + 4] for i in range(0, len(segredo), 4)))
+                  segredo_formatado=" ".join(segredo[i:i + 4] for i in range(0, len(segredo), 4)),
+                  email_sugerido=sugestao, smtp_ok=smtp_configurado(db))
+
+
+EMAIL_2FA_PADRAO_ADMIN = "mafraassessoria1@gmail.com"
+
+
+@app.post("/minha-conta/2fa/email")
+async def dois_fatores_email(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    """Grava (ou remove) o e-mail do código alternativo. Exige o código atual do aplicativo e manda um e-mail de teste."""
+    from .configuracoes import ErroEmail, enviar_email
+    form = await request.form()
+    email = texto(form, "email_2fa").lower()
+    passo = u.tem_2fa and totp_conferir(descriptografar(u.totp_segredo.encode()).decode(), form.get("codigo", ""), u.totp_ultimo)
+    if not passo:
+        flash(request, "Para alterar o e-mail alternativo, informe o código atual do aplicativo.", "erro")
+        return RedirectResponse("/minha-conta/2fa", status_code=303)
+    if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        flash(request, "E-mail inválido.", "erro")
+        return RedirectResponse("/minha-conta/2fa", status_code=303)
+    u.totp_ultimo = passo
+    if email:
+        try:
+            enviar_email(db, [email], "ERP MAFRA ASSESSORIA: e-mail alternativo de acesso",
+                         f"Este e-mail foi cadastrado para receber o código de acesso do usuário {u.login} "
+                         "quando o celular não estiver à mão.\n\nSe não foi você, avise o administrador do sistema.", sem_copia=True)
+        except ErroEmail as e:
+            db.commit()
+            flash(request, f"E-mail não gravado: o teste de envio falhou ({e}).", "erro")
+            return RedirectResponse("/minha-conta/2fa", status_code=303)
+    u.email_2fa = email
+    u.email_codigo_hash, u.email_codigo_expira = "", None
+    auditar(db, request, u, "2FA_EMAIL", "usuario", u.id, email_mascarado(email) or "removido")
+    db.commit()
+    flash(request, f"E-mail alternativo gravado: {email_mascarado(email)}. Um e-mail de teste foi enviado." if email
+          else "E-mail alternativo removido.")
+    return RedirectResponse("/minha-conta/2fa", status_code=303)
 
 
 @app.post("/minha-conta/2fa/ativar")

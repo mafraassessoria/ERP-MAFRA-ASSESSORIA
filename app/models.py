@@ -97,6 +97,11 @@ class Usuario(Timestamps, Base):
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     totp_segredo: Mapped[str] = mapped_column(Text, default="")      # criptografado; vazio = sem verificação em duas etapas
     totp_ultimo: Mapped[int] = mapped_column(Integer, default=0)     # último passo aceito (impede reusar o mesmo código)
+    email_2fa: Mapped[str] = mapped_column(String(200), default="")   # e-mail para o código alternativo (sem o celular)
+    email_codigo_hash: Mapped[str] = mapped_column(String(255), default="")
+    email_codigo_expira: Mapped[datetime | None] = mapped_column(DateTime)
+    email_codigo_tentativas: Mapped[int] = mapped_column(Integer, default=0)
+    email_codigo_enviado: Mapped[datetime | None] = mapped_column(DateTime)
 
     @property
     def tem_2fa(self) -> bool:

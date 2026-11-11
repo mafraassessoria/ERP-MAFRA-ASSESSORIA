@@ -71,7 +71,7 @@ def smtp_configurado(db: Session) -> bool:
 
 
 def enviar_email(db: Session, para: list[str], assunto: str, corpo: str,
-                 anexos: list[Path] | None = None) -> None:
+                 anexos: list[Path] | None = None, sem_copia: bool = False) -> None:
     if not smtp_configurado(db):
         raise ErroEmail("E-mail não configurado. Um administrador deve preencher em Configurações.")
     host = ler_config(db, "smtp_host")
@@ -80,7 +80,7 @@ def enviar_email(db: Session, para: list[str], assunto: str, corpo: str,
     usuario = ler_config(db, "smtp_usuario")
     remetente = ler_config(db, "smtp_remetente_email")
     nome = ler_config(db, "smtp_remetente_nome", "")
-    copia = [e.strip() for e in ler_config(db, "email_copia_oculta").replace(";", ",").split(",") if e.strip()]
+    copia = [] if sem_copia else [e.strip() for e in ler_config(db, "email_copia_oculta").replace(";", ",").split(",") if e.strip()]
 
     msg = EmailMessage()
     msg["From"] = formataddr((nome, remetente)) if nome else remetente

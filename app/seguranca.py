@@ -117,3 +117,21 @@ def qr_svg(texto: str) -> str:
         return img.to_string(encoding="unicode")
     except Exception:  # noqa: BLE001 — sem a biblioteca: a chave em texto basta
         return ""
+
+
+# ---- Código alternativo por e-mail (quando o celular não está à mão) ---------------------------------
+EMAIL_CODIGO_MINUTOS = 10
+EMAIL_CODIGO_TENTATIVAS = 5
+EMAIL_CODIGO_INTERVALO = 60      # segundos entre dois envios
+
+
+def email_mascarado(email: str) -> str:
+    if "@" not in (email or ""):
+        return ""
+    nome, dom = email.split("@", 1)
+    return (nome[:2] + "•" * max(len(nome) - 3, 2) + nome[-1:]) + "@" + dom
+
+
+def email_codigo_novo() -> str:
+    import secrets
+    return f"{secrets.randbelow(1_000_000):06d}"

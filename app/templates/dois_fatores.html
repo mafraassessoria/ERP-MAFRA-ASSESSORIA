@@ -5,6 +5,15 @@
   <h1>Verificação em duas etapas</h1>
   {% if usuario.tem_2fa %}
   <p><span class="etiqueta ok">Ativada</span> A cada login, depois da senha, o sistema pede o código de 6 números do aplicativo.</p>
+  <form method="post" action="/minha-conta/2fa/email">
+    <h2>Código alternativo por e-mail</h2>
+    <p class="sutil">Se estiver sem o celular, a tela do código oferece mandar um código de uso único (vale 10 minutos) para este e-mail.
+      {% if usuario.email_2fa %}<br><span class="etiqueta ok">Cadastrado</span> {{ usuario.email_2fa }}{% else %}<br><span class="etiqueta aviso">Não cadastrado</span>{% endif %}</p>
+    {% if not smtp_ok %}<p class="msg erro">O envio de e-mail do sistema não está configurado (Configurações → E-mail).</p>{% endif %}
+    <label>E-mail <input name="email_2fa" type="email" value="{{ email_sugerido }}" placeholder="deixe vazio para remover"></label>
+    <label>Código atual do aplicativo <input name="codigo" inputmode="numeric" maxlength="7" required></label>
+    <button class="secundario">{{ 'Alterar e-mail' if usuario.email_2fa else 'Cadastrar e-mail' }}</button>
+  </form>
   <form method="post" action="/minha-conta/2fa/desativar">
     <h2>Desativar</h2>
     <label>Senha <input name="senha" type="password" required autocomplete="current-password"></label>
