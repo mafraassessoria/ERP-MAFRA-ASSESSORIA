@@ -129,11 +129,138 @@ def situacao_fiscal(db, p, usuario, lote, cli, hoje: date):
     c = _consultar(db, p, "sitfis", {}, usuario, lote, cli)
     if not c.ok or not c.lista_arquivos:
         return gravar(db, p, "SITFIS", "", "ERRO", c.mensagens or "Relatório não disponível", consulta=c)
-    texto = ler_pdf(sv.arquivo_absoluto(c.lista_arquivos[0]))
-    status, pend = classificar_sitfis(texto)
-    resumo = {"REGULAR": "Sem pendências", "PENDENCIA": f"{len(pend)} tipo(s) de pendência",
-              "INDEFINIDO": "Relatório baixado; leitura automática não concluiu — abrir o PDF"}[status]
-    return gravar(db, p, "SITFIS", "", status, resumo, {"pendencias": pend}, c)
+    return gravar_sitfis(db, p, c)
+
+
+def gravar_sitfis(db, p, c) -> models.MonitorItem:
+    """Lê o relatório (PDF) da consulta e grava o resultado no Monitor. Também usado para reler PDFs já baixados."""
+    caminho = sv.arquivo_absoluto(c.lista_arquivos[0]) if c.lista_arquivos else None
+    r = ler_sitfis(caminho)
+    return gravar(db, p, "SITFIS", "", r["status"], r["resumo"], r, c)
+
+
+# ---- Relatório de Situação Fiscal (SITFIS) ---------------------------------------------------
+# O PDF da Receita vem com a página girada; o texto é lido direto do conteúdo da página, linha a linha
+# (blocos com a mesma altura formam uma linha). Os títulos de seção terminam em "_____".
+
+_TJ = re.compile(rb"\((?:\\.|[^\\)])*\)\s*Tj")
+_TM = re.compile(rb"([-\d.]+)\s+([-\d.]+)\s+Tm")
+
+
+def _texto_pdf_string(b: bytes) -> str:
+    b = b[b.index(b"(") + 1:b.rindex(b")")]
+    b = re.sub(rb"\\([()\\])", rb"\1", b)
+    return b.decode("latin-1")
+
+
+def linhas_pdf(caminho) -> list[str]:
+    if caminho is None:
+        return []
+    try:
+        from pypdf import PdfReader
+        paginas = PdfReader(str(caminho)).pages
+    except Exception:  # noqa: BLE001
+        return []
+    out: list[str] = []
+    for pg in paginas:
+        try:
+            dados = pg.get_contents().get_data()
+        except Exception:  # noqa: BLE001
+            continue
+        y_ant, atual = None, []
+        for bloco in re.findall(rb"BT(.*?)ET", dados, re.S):
+            partes = [_texto_pdf_string(m.group(0)) for m in _TJ.finditer(bloco)]
+            texto = "".join(partes).strip()
+            if not texto:
+                continue
+            tm = _TM.search(bloco)
+            y = tm.group(2) if tm else None
+            if y is not None and y == y_ant:
+                atual.append(texto)
+            else:
+                if atual:
+                    out.append(" ".join(atual))
+                atual, y_ant = [texto], y
+        if atual:
+            out.append(" ".join(atual))
+    return [re.sub(r"\s+", " ", l).strip() for l in out]
+
+
+_IGNORAR = re.compile(r"^(MINIST|SECRETARIA|PROCURADORIA|INFORMA|Por meio do|Autor pedido|P[áa]gina:|CNPJ:|CPF:|Final do Relat|\d\d/\d\d/\d{4} \d\d:)", re.I)
+_NAO_SECAO = re.compile(r"^(Dados Cadastrais|S[óo]cios e Administradores|Certid[ãa]o Emitida)", re.I)
+
+
+def ler_sitfis(caminho) -> dict:
+    """Separa o relatório em seções e classifica cada uma:
+    - pendência real (débito, omissão, inscrição, parcelamento em atraso…);
+    - exigibilidade suspensa (informativa: não impede certidão positiva com efeitos de negativa);
+    - base indisponível (a Receita não respondeu aquela base naquele momento — não é pendência).
+    """
+    linhas = linhas_pdf(caminho)
+    r = {"status": "INDEFINIDO", "resumo": "", "pendencias": [], "detalhes": [], "suspensas": [],
+         "indisponiveis": [], "certidao": ""}
+    if not linhas:
+        r["resumo"] = "Relatório baixado; leitura automática não concluiu — abrir o PDF"
+        return r
+    secoes, atual, bloco = [], None, ""
+    for l in linhas:
+        if re.match(r"^_{3,}", l):                       # separador de grupo (Diagnóstico na RFB / PGFN) ou fim
+            bloco = re.sub(r"_+", " ", l).strip()
+            atual = None
+            continue
+        m = re.match(r"^(.*?\S)\s*_{3,}\s*$", l)
+        if m:
+            titulo = m.group(1)
+            atual = None if _NAO_SECAO.match(titulo) else {"titulo": titulo, "linhas": [], "grupo": bloco}
+            if atual is not None:
+                secoes.append(atual)
+            elif titulo.lower().startswith("certid"):
+                atual = {"certidao": True, "linhas": []}
+            continue
+        if atual is None or _IGNORAR.match(l):
+            continue
+        if atual.get("certidao"):
+            if re.match(r"^Certid[ãa]o (Negativa|Positiva)", l, re.I) and not r["certidao"]:
+                r["certidao"] = re.sub(r"\s{2,}", " ", l)
+            continue
+        atual["linhas"].append(l)
+    for s in secoes:
+        t = re.sub(r"^Pend[êe]ncia\s*[-–]\s*", "", s["titulo"])
+        if any("BASE INDISPON" in x.upper() for x in s["linhas"]):
+            r["indisponiveis"].append(t)
+        elif re.search(r"exigibilidade suspensa", t, re.I):
+            r["suspensas"].append(t)
+        else:
+            r["pendencias"].append(t)
+            r["detalhes"].append({"titulo": t, "linhas": s["linhas"][:40]})
+    sem_pend = re.search(r"n[ãa]o foram detectadas pend[êe]ncias", " ".join(linhas), re.I)
+    cert = ""
+    mc = re.match(r"Certid[ãa]o (Negativa|Positiva com Efeitos de Negativa|Positiva)", r["certidao"], re.I)
+    if mc:
+        cert = {"negativa": "CND", "positiva com efeitos de negativa": "CPEN", "positiva": "CPD"}.get(mc.group(1).lower(), "")
+        v = re.search(r"Validade:\s*(\d\d/\d\d/\d{4})", r["certidao"])
+        cert = f"{cert} válida até {v.group(1)}" if v else cert
+    extra = []
+    if r["indisponiveis"]:
+        extra.append(f"{len(r['indisponiveis'])} base(s) indisponível(is) na Receita")
+    if cert:
+        extra.append(cert)
+    if r["pendencias"]:
+        r["status"] = "PENDENCIA"
+        r["resumo"] = f"{len(r['pendencias'])} pendência(s): " + ", ".join(r["pendencias"][:4])
+    elif r["indisponiveis"]:
+        r["status"] = "INDEFINIDO"
+        r["resumo"] = "Nenhuma pendência encontrada, mas a Receita não respondeu todas as bases — consultar de novo em horário comercial"
+        extra = [x for x in extra if "indispon" not in x]
+    elif secoes or sem_pend:
+        r["status"] = "REGULAR"
+        r["resumo"] = "Sem pendências" + (f" ({len(r['suspensas'])} item(ns) com exigibilidade suspensa)" if r["suspensas"] else "")
+    else:
+        r["resumo"] = "Relatório baixado; leitura automática não concluiu — abrir o PDF"
+    if extra:
+        r["resumo"] += " · " + " · ".join(extra)
+    r["resumo"] = r["resumo"][:300]
+    return r
 
 
 def ler_pdf(caminho) -> str:
@@ -147,19 +274,6 @@ def ler_pdf(caminho) -> str:
         return "\n".join((pg.extract_text() or "") for pg in PdfReader(str(caminho)).pages)
     except Exception:  # noqa: BLE001
         return ""
-
-
-def classificar_sitfis(texto: str) -> tuple[str, list[str]]:
-    if not texto.strip():
-        return "INDEFINIDO", []
-    linhas = [re.sub(r"\s+", " ", l).strip() for l in texto.splitlines()]
-    pend = list(dict.fromkeys(l for l in linhas if re.match(r"^(Pend[êe]ncias?|Débito|Omiss[ãa]o)\b.{3,}", l, re.I)
-                              and not re.search(r"n[ãa]o foram detectad", l, re.I)))
-    if re.search(r"n[ãa]o foram detectad[ao]s pend[êe]ncias", texto, re.I) and not any(l.lower().startswith("pend") for l in pend):
-        return "REGULAR", []
-    if pend:
-        return "PENDENCIA", pend[:30]
-    return "INDEFINIDO", []
 
 
 def parcelamentos(db, p, usuario, lote, cli, hoje: date):

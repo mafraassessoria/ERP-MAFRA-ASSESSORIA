@@ -135,7 +135,8 @@ def receita_arquivo(cid: int, n: int, download: int = 0, db: Session = Depends(g
 
 @router.get("/receita")
 def receita_geral(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
-    recentes = db.scalars(select(models.ConsultaReceita).order_by(models.ConsultaReceita.id.desc()).limit(40)).all()
+    recentes = db.scalars(select(models.ConsultaReceita).join(models.Prestador, models.ConsultaReceita.prestador_id == models.Prestador.id)
+                          .where(models.Prestador.usa_receita.is_(True)).order_by(models.ConsultaReceita.id.desc()).limit(40)).all()
     prestadores = db.scalars(select(models.Prestador).where(models.Prestador.ativo.is_(True),
                                                             models.Prestador.usa_receita.is_(True))
                              .order_by(models.Prestador.razao_social)).all()
@@ -213,7 +214,8 @@ def _rodar_lote(lote: str, codigo: str, ids: list[int], valores: dict, usuario: 
             return
         for pid in ids:
             p = db.get(models.Prestador, pid)
-            if p is None:
+            if p is None or not p.ativo or not p.usa_receita:
+                info["total"] -= 1
                 continue
             try:
                 c = sv.executar(db, p, codigo, valores, usuario, lote=lote, cli=cli)
@@ -271,6 +273,11 @@ async def receita_config(request: Request, db: Session = Depends(get_db), u=Depe
         flash(request, "Modo produção ativado, mas faltam a Consumer Key e a Consumer Secret do Serpro.", "erro")
     else:
         flash(request, "Configuração do Integra Contador salva.")
+    if m == "producao":
+        cont = sv.limpar_demonstracao_e_registrar(db, u.login)
+        if cont["consultas"] or cont["apis"]:
+            flash(request, f"Histórico da demonstração apagado: {cont['consultas']} consulta(s), {cont['monitor']} resultado(s) do Monitor, "
+                           f"{cont['pagamentos']} pagamento(s), {cont['guias']} guia(s), {cont['apis']} consulta(s) CPF/CND.")
     return _redir("/configuracoes#receita")
 
 

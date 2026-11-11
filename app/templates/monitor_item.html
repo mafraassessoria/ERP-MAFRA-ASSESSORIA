@@ -15,7 +15,10 @@
     <tr><td><a href="/prestadores/{{ m.prestador_id }}/receita">{% if m.prestador.codigo_interno %}<b>{{ m.prestador.codigo_interno }}</b> · {% endif %}{{ m.prestador.razao_social }}</a></td>
       <td><span class="etiqueta {{ st[1] }}">{{ st[0] }}</span></td>
       <td>{{ m.resumo }}
-        {% if d.pendencias %}<details><summary>pendências</summary><ul>{% for x in d.pendencias %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
+        {% if d.detalhes %}<details><summary>pendências</summary><ul>{% for x in d.detalhes %}<li><b>{{ x.titulo }}</b>{% if x.linhas %}<br><small class="sutil">{{ x.linhas|join(' · ') }}</small>{% endif %}</li>{% endfor %}</ul></details>
+        {% elif d.pendencias %}<details><summary>pendências</summary><ul>{% for x in d.pendencias %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
+        {% if d.indisponiveis %}<details><summary>bases indisponíveis ({{ d.indisponiveis|length }})</summary><p class="sutil">A Receita não respondeu estas bases no momento da consulta; não são pendências. Consultar de novo em horário comercial.</p><ul>{% for x in d.indisponiveis %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
+        {% if d.suspensas %}<details><summary>exigibilidade suspensa ({{ d.suspensas|length }})</summary><ul>{% for x in d.suspensas %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
         {% if d.pedidos %}<details><summary>pedidos</summary><ul>{% for x in d.pedidos %}<li>{{ x.numero }} · {{ x.situacao }}{% if x.pedido %} · pedido {{ x.pedido }}{% endif %}</li>{% endfor %}</ul></details>{% endif %}
         {% if d.mensagens %}<details><summary>mensagens</summary><ul>{% for x in d.mensagens %}<li>{{ '' if x.lida else '● ' }}{{ x.enviada }} · {{ x.assunto }}</li>{% endfor %}</ul></details>{% endif %}</td>
       <td><small>{{ m.atualizado_em|datahora }}</small></td>

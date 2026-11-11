@@ -327,3 +327,74 @@ def arquivo_absoluto(rel: str) -> Path | None:
     except ValueError:
         return None
     return arq if arq.exists() else None
+
+
+# ---- Limpeza do ambiente de demonstração -------------------------------------------------------
+
+def limpar_demonstracao(db: Session) -> dict:
+    """Apaga tudo o que veio do ambiente de demonstração (dados fictícios): consultas do Integra Contador e das
+    APIs avulsas, resultados do Monitor, pagamentos, guias não enviadas e certidões ligados a elas, e os PDFs."""
+    from .. import models as m
+    demo = db.scalars(select(m.ConsultaReceita).where(m.ConsultaReceita.modo != "producao")).all()
+    ids = {c.id for c in demo}
+    textos = [c.dados or "" for c in demo]
+    cont = dict(consultas=0, monitor=0, pagamentos=0, guias=0, guias_mantidas=0, apis=0, certidoes=0)
+    # Monitor: resultados ligados a consultas de demonstração
+    for it in db.scalars(select(m.MonitorItem).where(m.MonitorItem.consulta_id.in_(ids))).all() if ids else []:
+        db.delete(it)
+        cont["monitor"] += 1
+    # Pagamentos cujo número de documento só existe nas respostas fictícias
+    if textos:
+        for pg in db.scalars(select(m.PagamentoRF)).all():
+            if pg.comprovante_consulta_id in ids or (pg.numero_documento and any(pg.numero_documento in t for t in textos)):
+                db.delete(pg)
+                cont["pagamentos"] += 1
+    # Guias geradas por consultas de demonstração (as já enviadas ao e-Contador ficam, para conferência)
+    for g in db.scalars(select(m.GuiaRF).where(m.GuiaRF.consulta_id.in_(ids))).all() if ids else []:
+        if g.ec_doc_id:
+            g.consulta_id = None
+            cont["guias_mantidas"] += 1
+            continue
+        _apagar_arquivo(g.arquivo)
+        db.delete(g)
+        cont["guias"] += 1
+    for c in demo:
+        for rel in c.lista_arquivos:
+            _apagar_arquivo(rel)
+        db.delete(c)
+        cont["consultas"] += 1
+    # APIs avulsas (Consulta CPF / CND) em demonstração e certidões federais emitidas por elas
+    apis_demo = db.scalars(select(m.ConsultaAPI).where(m.ConsultaAPI.modo != "producao")).all()
+    textos_api = [re.sub(r"[^0-9A-Za-z]", "", a.dados or "") for a in apis_demo if a.produto == "CND"]
+    if textos_api:
+        for cert in db.scalars(select(m.Certidao).where(m.Certidao.pack_id.like("RFB-%"))).all():
+            cod = (cert.pack_id or "")[4:]
+            if cod and any(cod in t for t in textos_api):
+                _apagar_arquivo(cert.arquivo)
+                db.delete(cert)
+                cont["certidoes"] += 1
+    for a in apis_demo:
+        db.delete(a)
+        cont["apis"] += 1
+    db.flush()
+    return cont
+
+
+def _apagar_arquivo(rel: str) -> None:
+    if not rel:
+        return
+    try:
+        arq = (DATA_DIR / rel).resolve()
+        if DATA_DIR.resolve() in arq.parents and arq.is_file():
+            arq.unlink()
+    except OSError:
+        pass
+
+
+def limpar_demonstracao_e_registrar(db: Session, usuario: str = "sistema") -> dict:
+    cont = limpar_demonstracao(db)
+    if any(cont.values()):
+        db.add(models.Auditoria(usuario_login=usuario, acao="LIMPEZA_DEMONSTRACAO", entidade="receita",
+                                detalhes=", ".join(f"{k}={v}" for k, v in cont.items()), data_hora=datetime.now()))
+    db.commit()
+    return cont

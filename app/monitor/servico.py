@@ -242,7 +242,7 @@ def itens(db: Session, item: str, referencia: str | None = None) -> list[models.
     stmt = select(models.MonitorItem).where(models.MonitorItem.item == item)
     if item != "PAGAMENTOS":
         stmt = stmt.where(models.MonitorItem.referencia == ref)
-    lista = [m for m in db.scalars(stmt) if m.prestador.ativo]
+    lista = [m for m in db.scalars(stmt) if m.prestador.ativo and m.prestador.usa_receita]
     if item == "PAGAMENTOS":  # o mais recente por empresa
         ult = {}
         for m in lista:

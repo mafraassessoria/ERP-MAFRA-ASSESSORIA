@@ -1,4 +1,5 @@
 """Aplicação web do ERP MAFRA ASSESSORIA (M & R Assessoria Contábil) — NFS-e, Receita Federal, e-Contador e certidões."""
+import logging
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -50,8 +51,50 @@ app.include_router(honorarios_router)
 def _inicio():
     criar_tabelas()
     _ajustes_unicos()
+    _limpar_demonstracao()
+    _reler_sitfis()
     from .agendador import iniciar as iniciar_agendador
     iniciar_agendador()
+
+
+def _limpar_demonstracao():
+    """Com o Integra Contador em produção, nada do ambiente de demonstração (dados fictícios) fica no sistema."""
+    from .db import SessionLocal
+    from .serpro import servico as sv
+    with SessionLocal() as db:
+        try:
+            if sv.modo(db) == "producao":
+                sv.limpar_demonstracao_e_registrar(db)
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            logging.getLogger("emissor").exception("limpeza da demonstração")
+
+
+def _reler_sitfis():
+    """Uma vez: relê os relatórios de situação fiscal já baixados com o leitor por seções (sem nova consulta)."""
+    from .db import SessionLocal
+    from .monitor.rotinas import gravar_sitfis
+    chave = "ajuste_2026_11_releitura_sitfis_v2"
+    with SessionLocal() as db:
+        if db.get(models.Configuracao, chave) is not None:
+            return
+        try:
+            n = 0
+            for it in db.query(models.MonitorItem).filter(models.MonitorItem.item == "SITFIS",
+                                                          models.MonitorItem.consulta_id.is_not(None)).all():
+                c = db.get(models.ConsultaReceita, it.consulta_id)
+                if c is None or not c.ok or not c.lista_arquivos:
+                    continue
+                quando = it.atualizado_em
+                gravar_sitfis(db, it.prestador, c).atualizado_em = quando
+                n += 1
+            db.add(models.Configuracao(chave=chave, valor=datetime.now().isoformat()))
+            db.add(models.Auditoria(usuario_login="sistema", acao="AJUSTE_RELEITURA_SITFIS", entidade="monitor",
+                                    detalhes=f"{n} relatório(s) relidos", data_hora=datetime.now()))
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            logging.getLogger("emissor").exception("releitura SITFIS")
 
 
 def _ajustes_unicos():
