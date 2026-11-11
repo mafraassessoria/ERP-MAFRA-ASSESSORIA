@@ -63,7 +63,7 @@
       <td>{% if g.situacao == 'ABERTA' and not (g.ec_doc_id and not g.ec_excluida_em) %}<input type="checkbox" class="guia-ec" name="ids" value="{{ g.id }}" form="form-ec-enviar">{% endif %}</td>
       <td><a href="/prestadores/{{ g.prestador_id }}/receita">{% if g.prestador.codigo_interno %}<b>{{ g.prestador.codigo_interno }}</b> · {% endif %}{{ g.prestador.razao_social }}</a></td>
       <td>{{ TIPOS[g.tipo][0] }}<br><small class="sutil">gerada {{ g.gerada_em|datahora }} · {{ g.gerada_por }}</small></td>
-      <td>{{ g.competencia[5:] }}/{{ g.competencia[:4] }}</td>
+      <td>{{ g.competencia[5:] }}/{{ g.competencia[:4] }}{% if g.parcela %}<br><small class="sutil">parcela {{ g.parcela.split("/")[0] }} de {{ g.parcela.split("/")[1] }}{% if g.numero_parcelamento %} · parc. nº {{ g.numero_parcelamento }}{% endif %}</small>{% endif %}</td>
       <td class="num">{{ g.valor|moeda }}</td>
       <td>{{ g.vencimento|data if g.vencimento else '—' }}</td>
       <td><span class="etiqueta {{ st[1] }}">{{ st[0] }}</span>{% if g.situacao == 'PAGA' %}<br><small>{{ g.pago_em|data if g.pago_em }} · {{ g.criterio_baixa }}</small>{% endif %}

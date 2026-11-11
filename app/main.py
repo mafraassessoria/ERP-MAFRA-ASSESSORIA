@@ -57,6 +57,7 @@ def _inicio():
     _reler_sitfis()
     _ajuste_texto_parcelamentos()
     _marcar_historico_certidoes()
+    _completar_parcelas_guias()
     from .agendador import iniciar as iniciar_agendador
     iniciar_agendador()
 
@@ -125,6 +126,18 @@ def _marcar_historico_certidoes():
         except Exception:  # noqa: BLE001
             db.rollback()
             logging.getLogger("emissor").exception("histórico das certidões")
+
+
+def _completar_parcelas_guias():
+    from .db import SessionLocal
+    from .guias.servico import completar_parcelas
+    with SessionLocal() as db:
+        try:
+            completar_parcelas(db)
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            logging.getLogger("emissor").exception("parcela das guias")
 
 
 def _ajustes_unicos():

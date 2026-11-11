@@ -133,6 +133,9 @@ def titulo_guia(g: models.GuiaRF) -> str:
     from ..guias.servico import TIPOS
     rot = TIPOS[g.tipo][0].replace(" (vencido)", "")
     comp = f"{g.competencia[5:7]}/{g.competencia[:4]}" if len(g.competencia) == 7 else g.competencia
+    if g.parcela and "/" in g.parcela:          # "Parcela 10 de 12 do Simples - 11/2026 - doc …"
+        x, y = g.parcela.split("/", 1)
+        return f"Parcela {x} de {y} do {rot.replace('Parcela do ', '')} - {comp} - doc {g.numero_documento or g.id}"
     return f"{rot} {comp} - doc {g.numero_documento or g.id}"
 
 

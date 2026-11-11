@@ -43,6 +43,12 @@ def ler_guia(texto: str) -> dict:
         or re.search(r"valor total\s*:?\s*R?\$?\s*(" + RE_DINHEIRO + ")", t, re.I)
     if m:
         out["valor"] = Decimal(m.group(1).replace(".", "").replace(",", "."))
+    m = re.search(r"\bParcela\s*:?\s*(\d{1,3})\s*/\s*(\d{1,3})\b", t, re.I)
+    if m:
+        out["parcela"] = f"{int(m.group(1))}/{int(m.group(2))}"
+    m = re.search(r"N[úu]mero do Parcelamento\s*:?\s*(\d+)", t, re.I)
+    if m:
+        out["numero_parcelamento"] = m.group(1)
     m = re.search(r"pagar (?:este documento )?at[ée]\s*:?\s*(\d{2}/\d{2}/\d{4})", t, re.I) \
         or re.search(r"data de vencimento\s*:?\s*(\d{2}/\d{2}/\d{4})", t, re.I)
     if m:
@@ -84,7 +90,8 @@ def gerar(db: Session, p: models.Prestador, tipo: str, competencia: str, usuario
     info.update({k: v for k, v in ler_guia(ler_pdf(caminho)).items() if v})
     g = models.GuiaRF(prestador_id=p.id, tipo=tipo, competencia=competencia, numero_documento=info.get("numero", ""),
                       valor=info.get("valor") or Decimal("0"), vencimento=info.get("vencimento"),
-                      arquivo=c.lista_arquivos[0], gerada_por=usuario, consulta_id=c.id)
+                      arquivo=c.lista_arquivos[0], gerada_por=usuario, consulta_id=c.id,
+                      parcela=info.get("parcela", ""), numero_parcelamento=info.get("numero_parcelamento", ""))
     if not g.numero_documento or not g.valor:
         g.erro = "Não foi possível ler número/valor do PDF; a baixa automática vai depender da conferência."
     for velha in db.scalars(select(models.GuiaRF).where(
@@ -138,3 +145,18 @@ def conciliar(db: Session) -> dict:
             pagas += 1
     db.flush()
     return {"pagas": pagas, "conferir": conferir}
+
+
+def completar_parcelas(db: Session) -> int:
+    """Lê "Parcela: 10/12" dos PDFs das guias de parcelamento que ainda não têm essa informação (sem consulta)."""
+    from ..monitor.rotinas import ler_pdf
+    n = 0
+    for g in db.scalars(select(models.GuiaRF).where(models.GuiaRF.tipo.in_(("PARC_SN", "PARC_MEI")), models.GuiaRF.parcela == "")):
+        if not g.arquivo:
+            continue
+        info = ler_guia(ler_pdf(sv.arquivo_absoluto(g.arquivo)))
+        if info.get("parcela"):
+            g.parcela, g.numero_parcelamento = info["parcela"], info.get("numero_parcelamento", "")
+            n += 1
+    db.flush()
+    return n

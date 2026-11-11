@@ -626,6 +626,8 @@ class GuiaRF(Base):
     prestador_id: Mapped[int] = mapped_column(ForeignKey("prestadores.id", ondelete="CASCADE"), index=True)
     tipo: Mapped[str] = mapped_column(String(20), index=True)          # DAS | DAS_MEI | DARF_DCTFWEB | PARC_SN | PARC_MEI
     competencia: Mapped[str] = mapped_column(String(7), default="")    # 2026-09 (período ou parcela)
+    parcela: Mapped[str] = mapped_column(String(20), default="")        # "10/12" (lida do DAS do parcelamento)
+    numero_parcelamento: Mapped[str] = mapped_column(String(20), default="")
     numero_documento: Mapped[str] = mapped_column(String(40), default="", index=True)
     valor: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=0)
     vencimento: Mapped[date | None] = mapped_column(Date, nullable=True)   # "pagar este documento até"
