@@ -117,7 +117,7 @@ O que fazer:
 
 Já renovou e nos enviou? Desconsidere este aviso.
 
-Segurança: a {nome_esc} nunca pede senhas por links, SMS ou mensagens de números
+Segurança: a MAFRA ASSESSORIA nunca pede senhas por links, SMS ou mensagens de números
 desconhecidos. Na dúvida, fale direto com o escritório{(': ' + contato) if contato else ''}.
 
 Atenciosamente,
@@ -146,7 +146,7 @@ Atenciosamente,
   <p style="margin:18px 0 0;color:#66727f;font-size:14px">Já renovou e nos enviou? Desconsidere este aviso.</p>
 </td></tr>
 <tr><td style="padding:14px 28px;background:#f7f9fb;border-top:1px solid #e3e8ee;font-size:13px;color:#66727f">
-  🔒 <b>Segurança:</b> a {e(nome_esc)} nunca pede senhas por links, SMS ou mensagens de números desconhecidos.
+  🔒 <b>Segurança:</b> a MAFRA ASSESSORIA nunca pede senhas por links, SMS ou mensagens de números desconhecidos.
   Na dúvida, fale direto com o escritório{(': ' + e(contato)) if contato else ''}.</td></tr>
 <tr><td style="padding:14px 28px;font-size:13px;color:#66727f">Atenciosamente,<br><b>{e(nome_esc)}</b>{('<br>' + e(contato)) if contato else ''}</td></tr>
 </table></td></tr></table></body></html>"""
@@ -190,7 +190,7 @@ no mesmo dia.
 
 Já renovou e nos enviou? Desconsidere este aviso.
 
-Segurança: a {nome_esc} nunca pede senhas por links, SMS ou mensagens de números
+Segurança: a MAFRA ASSESSORIA nunca pede senhas por links, SMS ou mensagens de números
 desconhecidos. Na dúvida, fale direto com o escritório{(': ' + contato) if contato else ''}.
 
 Atenciosamente,
@@ -224,7 +224,7 @@ Atenciosamente,
   <p style="margin:18px 0 0;color:#66727f;font-size:14px">Já renovou e nos enviou? Desconsidere este aviso.</p>
 </td></tr>
 <tr><td style="padding:14px 28px;background:#f7f9fb;border-top:1px solid #e3e8ee;font-size:13px;color:#66727f">
-  🔒 <b>Segurança:</b> a {e(nome_esc)} nunca pede senhas por links, SMS ou mensagens de números desconhecidos.
+  🔒 <b>Segurança:</b> a MAFRA ASSESSORIA nunca pede senhas por links, SMS ou mensagens de números desconhecidos.
   Na dúvida, fale direto com o escritório{(': ' + e(contato)) if contato else ''}.</td></tr>
 <tr><td style="padding:14px 28px;font-size:13px;color:#66727f">Atenciosamente,<br><b>{e(nome_esc)}</b>{('<br>' + e(contato)) if contato else ''}</td></tr>
 </table></td></tr></table></body></html>"""
