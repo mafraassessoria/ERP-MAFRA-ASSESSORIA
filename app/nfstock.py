@@ -31,7 +31,8 @@ CHAVE_ULTIMO = "nfstock_ultimo_ciclo"
 CHAVE_CRM = "nfstock_codigo_crm"         # código do cliente na Alterdata (6 dígitos), usado na consulta (MS-Exportação)
 INTERVALO_MIN = 10
 LOTE = 40
-TIMEOUT = 30
+TIMEOUT = 60
+ERROS_DE_REDE = ("timed out", "Connection", "conexão", "Max retries", "RemoteDisconnected", "SSLError")
 
 
 class ErroNFStock(Exception):
@@ -167,7 +168,11 @@ def enviar_nota(db: Session, nota: models.NotaFiscal, tk: str, evento: bool = Fa
         if not caminho.exists():
             raise ErroNFStock(f"arquivo não encontrado: {rel}")
         ident = enviar_arquivo(tk, caminho.read_bytes(), ".xml", sessao)
-    except (ErroNFStock, requests.RequestException) as e:
+    except requests.RequestException as e:
+        # falha de rede (lentidão/queda): fica na fila e tenta de novo no próximo ciclo
+        nota.nfstock_log = f"tentativa falhou ({datetime.now():%d/%m %H:%M}): {e.__class__.__name__}"[:500]
+        raise
+    except ErroNFStock as e:
         if evento:
             nota.nfstock_evento_status = "ERRO"
         else:
@@ -224,17 +229,25 @@ def rodar(db: Session, sessao=None) -> dict:
     tk = token(db)
     if not tk:
         raise ErroNFStock("Token do NF-Stock não informado.")
+    # erros antigos de rede (de versões anteriores) voltam para a fila
+    for nota in db.scalars(_base_notas(db).where(models.NotaFiscal.nfstock_status == "ERRO")):
+        if any(x in (nota.nfstock_log or "") for x in ERROS_DE_REDE):
+            nota.nfstock_status = ""
     conferir_processando(db, tk, sessao)
     db.commit()
-    enviadas = 0
-    for nota in pendentes(db):
-        enviar_nota(db, nota, tk, sessao=sessao)
-        enviadas += 1
-        db.commit()
-    for nota in eventos_pendentes(db):
-        enviar_nota(db, nota, tk, evento=True, sessao=sessao)
-        db.commit()
-    return dict(enviadas=enviadas)
+    enviadas, falhas_rede = 0, 0
+    for evento, lista in ((False, pendentes(db)), (True, eventos_pendentes(db))):
+        for nota in lista:
+            try:
+                enviar_nota(db, nota, tk, evento=evento, sessao=sessao)
+                enviadas += 0 if evento else 1
+                falhas_rede = 0
+            except requests.RequestException:
+                falhas_rede += 1
+            db.commit()
+            if falhas_rede >= 3:   # NF-Stock fora do ar/lento: para e tenta no próximo ciclo
+                return dict(enviadas=enviadas, rede=True)
+    return dict(enviadas=enviadas, rede=False)
 
 
 def ciclo(agora: datetime | None = None) -> bool:

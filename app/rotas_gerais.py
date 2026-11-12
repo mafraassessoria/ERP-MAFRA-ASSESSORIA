@@ -313,7 +313,8 @@ async def nfstock_salvar(request: Request, db: Session = Depends(get_db), u=Depe
     elif acao == "enviar":
         try:
             r = nfstock.rodar(db)
-            flash(request, f"NF-Stock: {r['enviadas']} nota(s) enviada(s) neste ciclo. O resultado aparece em alguns minutos.")
+            flash(request, f"NF-Stock: {r['enviadas']} nota(s) enviada(s) neste ciclo. O resultado aparece em alguns minutos."
+                  + (" O NF-Stock está demorando a responder; as restantes ficam na fila para o próximo ciclo." if r.get("rede") else ""))
         except nfstock.ErroNFStock as e:
             db.rollback()
             flash(request, f"NF-Stock: {e}", "erro")
