@@ -277,11 +277,41 @@ def itens(db: Session, item: str, referencia: str | None = None) -> list[models.
     return sorted(lista, key=lambda m: m.prestador.ordem)
 
 
+def prazo_entrega(item: str, ref: str) -> date | None:
+    """Prazo legal da entrega da referência (feriados não considerados)."""
+    from .rotinas import ultimo_dia_util
+    try:
+        if item in ("PGDASD", "DCTFWEB", "MIT"):
+            ano, mes = (int(x) for x in ref.split("-"))
+            ano2, mes2 = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
+            if item == "PGDASD":          # dia 20 do mês seguinte
+                d = date(ano2, mes2, 20)
+                while d.weekday() >= 5:
+                    d -= timedelta(days=1)
+                return d
+            return ultimo_dia_util(ano2, mes2)   # DCTFWeb/MIT: último dia útil do mês seguinte
+        if item == "DEFIS":
+            d = date(int(ref) + 1, 3, 31)
+            while d.weekday() >= 5:
+                d -= timedelta(days=1)
+            return d
+    except (ValueError, TypeError):
+        return None
+    return None
+
+
 def painel(db: Session) -> dict:
     out = {}
+    hoje = date.today()
     for cod in ROTULO_ITEM:
         lista = itens(db, cod)
-        out[cod] = dict(ref=referencia_padrao(cod), total=len(lista), cont=Counter(m.status for m in lista))
+        ref = referencia_padrao(cod)
+        cont = Counter(m.status for m in lista)
+        ult = max((m.atualizado_em for m in lista if m.atualizado_em), default=None)
+        prazo = prazo_entrega(cod, ref)
+        out[cod] = dict(ref=ref, total=len(lista), cont=cont, ultimo=ult, prazo=prazo,
+                        dias=(prazo - hoje).days if prazo else None, vencido=bool(prazo and prazo < hoje),
+                        so_erro=bool(lista) and cont.get("ERRO", 0) == len(lista))
     hoje = date.today()
     inicio = (hoje.replace(day=1) - timedelta(days=1)).replace(day=1)
     pgs = db.scalars(select(models.PagamentoRF).where(models.PagamentoRF.data_arrecadacao >= inicio)).all()

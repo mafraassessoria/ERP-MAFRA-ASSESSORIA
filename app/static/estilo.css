@@ -393,3 +393,22 @@ table.notas.tabela-cert { table-layout:auto; width:100%; }
 .tabela-cert td.linha small { display:inline-block; max-width:220px; overflow:hidden; text-overflow:ellipsis; vertical-align:bottom; }
 .tabela-cert .email-aviso { width:230px; min-width:0; }
 .tabela-cert td form.em-linha { flex-wrap:nowrap; }
+
+/* Monitor e-CAC: painel */
+.mon-prio { display:flex; flex-wrap:wrap; gap:.4rem 1.2rem; align-items:center; background:#fff7e6; border:1px solid #f0d49a; color:#7a4b00;
+  border-radius:8px; padding:.55rem .9rem; margin:.4rem 0 1rem; font-size:.92rem; }
+.mon-prio a { color:#7a4b00; text-decoration:underline; text-underline-offset:2px; }
+.mon-secao { font-size:1rem; margin:.6rem 0 .5rem; color:var(--sutil); }
+.mon-secao small { font-weight:400; margin-left:.4rem; }
+.mon-grade.tres { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+.mon-quadro { display:flex; flex-direction:column; gap:.35rem; }
+.mon-quadro > a { text-decoration:none; color:inherit; }
+.mon-quadro h2 small { font-weight:400; font-size:.8rem; }
+.mon-num { display:block; margin:.1rem 0 .2rem; }
+.mon-num.erro { color:var(--verm); } .mon-num.aviso { color:#b36b00; } .mon-num.ok { color:var(--verde); }
+.mon-partes a.etiqueta { text-decoration:none; }
+.mon-barra { height:6px; border-radius:3px; background:#e8edf2; overflow:hidden; }
+.mon-barra i { display:block; height:100%; background:var(--verde); }
+.mon-vazio { color:var(--sutil); margin:.6rem 0; }
+.mon-rodape { margin-top:auto; padding-top:.5rem; border-top:1px solid #e8edf2; display:flex; justify-content:space-between; align-items:center;
+  gap:.5rem; font-size:.78rem; color:var(--sutil); }

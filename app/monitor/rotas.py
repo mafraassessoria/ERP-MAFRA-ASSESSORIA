@@ -38,8 +38,35 @@ def _rotinas_ctx(db: Session) -> list[dict]:
 
 @router.get("/monitor")
 def monitor_painel(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
-    return render(request, "monitor_painel.html", pn=ms.painel(db), status_de=ms.status_de, rotinas=_rotinas_ctx(db), execucao=ms.situacao(),
-                  STATUS=ms.STATUS, ROTULO=ms.ROTULO_ITEM, modo=sv.modo(db), DIAS=ms.DIAS)
+    rot = _rotinas_ctx(db)
+    pn = ms.painel(db)
+    atrasos = ms.atrasos_sitfis(db)
+    parc_atraso = sum(1 for v in atrasos.values() if any(n for _t, n in v["itens"]))
+    prio = []
+    if pn["SITFIS"]["cont"].get("PENDENCIA"):
+        prio.append(("/monitor/item/SITFIS?status=PENDENCIA", f"{pn['SITFIS']['cont']['PENDENCIA']} com pendência fiscal"))
+    for cod, nome in (("PGDASD", "PGDAS-D"), ("DCTFWEB", "DCTFWeb"), ("MIT", "MIT")):
+        d = pn[cod]
+        n = d["cont"].get("NAO_ENTREGUE")
+        if not n:
+            continue
+        comp = f"{d['ref'][5:]}/{d['ref'][:4]}"
+        if d["vencido"]:
+            txt = f"{n} {nome} {comp} atrasada(s)"
+        elif d["prazo"]:
+            falta = "hoje" if not d["dias"] else f"faltam {d['dias']} dia{'s' if d['dias'] != 1 else ''}"
+            txt = f"{n} {nome} {comp} a entregar · vence {d['prazo']:%d/%m} ({falta})"
+        else:
+            txt = f"{n} {nome} {comp} a entregar"
+        prio.append((f"/monitor/item/{cod}?status=NAO_ENTREGUE", txt))
+    if parc_atraso:
+        prio.append(("/monitor/item/PARCELAMENTO", f"{parc_atraso} com parcelas em atraso"))
+    for cod, nome in (("CAIXA", "Caixa postal"), ("PARCELAMENTO", "Parcelamentos"), ("SITFIS", "Situação fiscal")):
+        if pn[cod]["so_erro"]:
+            prio.append((f"#q-{cod}", f"{nome}: consultar de novo"))
+    return render(request, "monitor_painel.html", pn=pn, status_de=ms.status_de, rotinas=rot, execucao=ms.situacao(),
+                  STATUS=ms.STATUS, ROTULO=ms.ROTULO_ITEM, modo=sv.modo(db), DIAS=ms.DIAS,
+                  rot={x["r"].codigo: x for x in rot}, gasto=sv.gasto_mes(db), limite=sv.limite_mensal(db), prio=prio)
 
 
 @router.get("/monitor/item/{item}")
