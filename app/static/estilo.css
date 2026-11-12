@@ -385,3 +385,11 @@ dialog.janela label { display:block; margin:.5rem 0; }
 .cert-massa tr.feito td { background:#f1f9f3; }
 .tabela-cert td.cel-empresa .nome-empresa { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tabela-cert td.cel-empresa .msg-linha { white-space:normal; }
+/* certificados: colunas se ajustam ao conteúdo; o nome da empresa usa o espaço que precisar */
+table.notas.tabela-cert { table-layout:auto; width:100%; }
+.tabela-cert th, .tabela-cert td { white-space:nowrap; }
+.tabela-cert td.cel-empresa { width:99%; }
+.tabela-cert td.cel-empresa .nome-empresa { overflow:visible; text-overflow:clip; }
+.tabela-cert td.linha small { display:inline-block; max-width:220px; overflow:hidden; text-overflow:ellipsis; vertical-align:bottom; }
+.tabela-cert .email-aviso { width:230px; min-width:0; }
+.tabela-cert td form.em-linha { flex-wrap:nowrap; }
