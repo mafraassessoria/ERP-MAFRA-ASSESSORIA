@@ -468,6 +468,13 @@ class NotaFiscal(Timestamps, Base):
     email_enviado_para: Mapped[str] = mapped_column(String(300), default="")
     cancelada_em: Mapped[datetime | None] = mapped_column(DateTime)
     cancelada_por: Mapped[str] = mapped_column(String(60), default="")
+    # Envio ao NF-Stock (API MS-Importação): "" pendente | PROCESSANDO | ENVIADO | ERRO
+    nfstock_status: Mapped[str] = mapped_column(String(12), default="", index=True)
+    nfstock_id: Mapped[str] = mapped_column(String(80), default="")
+    nfstock_em: Mapped[datetime | None] = mapped_column(DateTime)
+    nfstock_log: Mapped[str] = mapped_column(String(500), default="")
+    nfstock_evento_id: Mapped[str] = mapped_column(String(80), default="")
+    nfstock_evento_status: Mapped[str] = mapped_column(String(12), default="")
     motivo_cancelamento: Mapped[str] = mapped_column(Text, default="")
 
     prestador: Mapped[Prestador] = relationship()

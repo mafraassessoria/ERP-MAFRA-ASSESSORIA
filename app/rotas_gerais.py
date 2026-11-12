@@ -54,8 +54,12 @@ def configuracoes(request: Request, db: Session = Depends(get_db), u=Depends(adm
     from .certidoes.rotas import contexto_config as ctx_cert
     from .serpro.rotas import contexto_config
     from .econtador import sessao as ec_sessao
+    from . import nfstock
+    nfs = dict(tem_token=bool(nfstock.token(db)), ligado=ler_config(db, nfstock.CHAVE_LIGADO) == "1",
+               desde=nfstock.desde(db), importadas=ler_config(db, nfstock.CHAVE_IMPORTADAS) == "1",
+               ultimo=ler_config(db, nfstock.CHAVE_ULTIMO), crm=ler_config(db, nfstock.CHAVE_CRM) or "592534", **nfstock.resumo(db))
     return render(request, "configuracoes.html", cfg=cfg, prestadores=prestadores, tab=tab, atualizacao=atualizacao, **contexto_config(db), **ctx_cert(db),
-                  ec_web=ec_sessao.estado(db))
+                  ec_web=ec_sessao.estado(db), nfs=nfs)
 
 
 @router.post("/configuracoes")
@@ -274,3 +278,47 @@ def relatorio_zip(competencia: str = "", prestador_id: int = 0, homologacao: int
     nome = f"xml_nfse_{comp}{'_empresa%d' % prestador_id if prestador_id else ''}.zip"
     return Response(buf.getvalue(), media_type="application/zip",
                     headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+
+
+# ---- NF-Stock (API MS-Importação) -------------------------------------------
+
+@router.post("/configuracoes/nfstock")
+async def nfstock_salvar(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    from datetime import date as _date
+    from . import nfstock
+    form = await request.form()
+    acao = form.get("acao", "salvar")
+    if acao == "salvar":
+        if form.get("token", "").strip():
+            nfstock.gravar_token(db, form.get("token"))
+        if form.get("apagar_token") == "1":
+            nfstock.gravar_token(db, "")
+        if "desde" in form:
+            try:
+                gravar_config(db, nfstock.CHAVE_DESDE, _date.fromisoformat(form.get("desde")).isoformat())
+            except ValueError:
+                pass
+        import re as _re
+        crm = _re.sub(r"\D", "", form.get("codigo_crm", ""))[:6]
+        gravar_config(db, nfstock.CHAVE_CRM, crm.zfill(6) if crm else "")
+        gravar_config(db, nfstock.CHAVE_IMPORTADAS, "1" if form.get("importadas") == "1" else "0")
+        gravar_config(db, nfstock.CHAVE_LIGADO, "1" if form.get("ligado") == "1" else "0")
+        auditar(db, request, u, "CONFIG_NFSTOCK", "configuracao", None,
+                f"ligado={form.get('ligado') == '1'} desde={form.get('desde')}" + (" + novo token" if form.get("token") else ""))
+        db.commit()
+        flash(request, "NF-Stock: configuração salva.")
+    elif acao == "testar":
+        motivo = nfstock.testar(db)
+        flash(request, "NF-Stock: token aceito, conexão OK." if not motivo else f"NF-Stock: {motivo}.", "erro" if motivo else "ok")
+    elif acao == "enviar":
+        try:
+            r = nfstock.rodar(db)
+            flash(request, f"NF-Stock: {r['enviadas']} nota(s) enviada(s) neste ciclo. O resultado aparece em alguns minutos.")
+        except nfstock.ErroNFStock as e:
+            db.rollback()
+            flash(request, f"NF-Stock: {e}", "erro")
+    elif acao == "reenviar":
+        n = nfstock.reenviar_erros(db)
+        db.commit()
+        flash(request, f"NF-Stock: {n} nota(s) com erro voltaram para a fila.")
+    return _redir("/configuracoes#nfstock")

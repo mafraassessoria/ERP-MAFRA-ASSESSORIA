@@ -140,6 +140,42 @@
   <form method="post" action="/configuracoes/receita/testar" class="em-linha"><button class="secundario" {{ 'disabled' if serpro.modo == 'desligado' }}>Testar conexão</button></form>
 </section>
 
+<section class="cartao" id="nfstock">
+  <h2>NF-Stock (Alterdata) — envio automático dos XML</h2>
+  <p class="linha-pequena">As NFS-e autorizadas (e o evento de cancelamento) vão sozinhas para o NF-Stock pela API MS-Importação, de 10 em 10 minutos.
+    Token: no site do NF-Stock → <b>Opções da Conta</b> → aba <b>Integração</b>.</p>
+  <form method="post" action="/configuracoes/nfstock">
+    <input type="hidden" name="acao" value="salvar">
+    <div class="grade-12">
+      <label class="c4">Token da API {% if nfs.tem_token %}<small class="ok">(salvo — deixe em branco para manter)</small>{% endif %}
+        <input type="password" name="token" autocomplete="off" placeholder="{{ 'token salvo' if nfs.tem_token else 'cole o token aqui' }}"></label>
+      <label class="c2">Código CRM (Alterdata) <input name="codigo_crm" value="{{ nfs.crm }}" maxlength="6" placeholder="000000"></label>
+      <label class="c2">Enviar notas emitidas a partir de <input type="date" name="desde" value="{{ nfs.desde.isoformat() }}"></label>
+      <div class="c4">
+        <label class="check"><input type="checkbox" class="interruptor" name="ligado" value="1" {{ 'checked' if nfs.ligado }}> Envio automático</label>
+        <label class="check"><input type="checkbox" class="interruptor" name="importadas" value="1" {{ 'checked' if nfs.importadas }}> Enviar também as notas importadas do ADN</label>
+      </div>
+    </div>
+    <div class="em-linha" style="gap:.6rem;margin-top:.5rem">
+      <button>Salvar</button>
+      {% if nfs.tem_token %}<label class="check" style="margin:0"><input type="checkbox" name="apagar_token" value="1"> apagar token</label>{% endif %}
+    </div>
+  </form>
+  <div class="em-linha" style="gap:.6rem;margin-top:.8rem;flex-wrap:wrap">
+    <span>Desde {{ nfs.desde|data }}: <b>{{ nfs.enviadas }}</b> enviada(s) · <b>{{ nfs.processando }}</b> em processamento ·
+      <b>{{ nfs.pendentes }}</b> na fila · <b class="{{ 'erro' if nfs.erros }}">{{ nfs.erros }}</b> com erro
+      {% if nfs.ultimo %}<small class="sutil">· último ciclo {{ nfs.ultimo[:16]|replace('T', ' ') }}</small>{% endif %}</span>
+    {% for ac, rot in (('testar', 'Testar token'), ('enviar', 'Enviar agora'), ('reenviar', 'Reenviar as com erro')) %}
+      {% if nfs.tem_token and (ac != 'reenviar' or nfs.erros) %}<form method="post" action="/configuracoes/nfstock" class="em-linha"
+        onsubmit="this.querySelector('button').disabled=true"><input type="hidden" name="acao" value="{{ ac }}"><button class="secundario">{{ rot }}</button></form>{% endif %}
+    {% endfor %}
+  </div>
+  {% if nfs.lista_erros %}
+  <table class="compacta" style="margin-top:.6rem"><thead><tr><th>Empresa</th><th>NFS-e</th><th>Emissão</th><th>Erro</th></tr></thead><tbody>
+    {% for n in nfs.lista_erros %}<tr><td>{{ n.prestador.nome_exibicao }}</td><td>{{ n.numero_nfse or '—' }}</td><td>{{ n.data_emissao|data }}</td><td><small>{{ n.nfstock_log }}</small></td></tr>{% endfor %}
+  </tbody></table>{% endif %}
+</section>
+
 <section class="cartao" id="apis-serpro">
   <h2>APIs do Serpro: Consulta CPF e Consulta CND</h2>
   <p class="sutil">Contratos avulsos da Loja Serpro. A <b>Consulta CPF</b> preenche o nome e a situação de pessoas físicas nos cadastros

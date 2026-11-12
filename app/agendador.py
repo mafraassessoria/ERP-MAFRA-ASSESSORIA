@@ -29,6 +29,11 @@ def verificar(agora: datetime | None = None) -> bool:
     except Exception:  # noqa: BLE001
         log.exception("monitor agendado")
     try:
+        from .nfstock import ciclo as nfstock_ciclo
+        nfstock_ciclo(agora)
+    except Exception:  # noqa: BLE001
+        log.exception("envio ao NF-Stock")
+    try:
         from .avisos_certificado import verificar as avisos_certificado
         avisos_certificado(agora)
     except Exception:  # noqa: BLE001
