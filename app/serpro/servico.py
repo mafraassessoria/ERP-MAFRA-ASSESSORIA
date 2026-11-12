@@ -187,7 +187,8 @@ def ultima_igual(db: Session, p: models.Prestador, s: Servico, valores: dict) ->
 
 
 CORTE_PADRAO = "2026-11-01"
-SERVICOS_PARCELA = ("parcsn_das", "parcmei_das")
+SERVICOS_PARCELA = ("parcsn_das", "parcmei_das", "parcsnesp_das", "pertsn_das", "relpsn_das",
+                    "parcmeiesp_das", "pertmei_das", "relpmei_das")
 
 
 def data_corte(db: Session) -> date | None:

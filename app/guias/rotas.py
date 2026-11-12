@@ -133,7 +133,7 @@ async def guias_parcelas(request: Request, db: Session = Depends(get_db), u=Depe
             continue
         pedidos = (json.loads(m.detalhe) if m.detalhe else {}).get("pedidos") or []
         origens = {x.get("origem") for x in pedidos if ativo(x)} or {"MEI" if p.regime == "MEI" else "Simples"}
-        for tipo in sorted("PARC_MEI" if o == "MEI" else "PARC_SN" for o in origens):   # Simples e/ou MEI
+        for tipo in sorted(gs.TIPO_POR_ORIGEM.get(o, "PARC_SN") for o in origens):   # cada modalidade ativa
             ja = db.scalar(select(models.GuiaRF).where(models.GuiaRF.prestador_id == p.id, models.GuiaRF.tipo == tipo,
                                                        models.GuiaRF.competencia == comp, models.GuiaRF.situacao != "SUBSTITUIDA"))
             if ja:

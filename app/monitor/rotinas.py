@@ -378,15 +378,53 @@ def _sitfis_indica_parcmei(db, p) -> bool:
     return False
 
 
+# Modalidades de parcelamento: prefixo do serviço no catálogo -> rótulo (origem) mostrado nas telas
+ORIGEM_PARC = {"parcsn": "Simples", "parcmei": "MEI", "parcsnesp": "Simples Especial", "pertsn": "PERT-SN", "relpsn": "RELP-SN",
+               "parcmeiesp": "MEI Especial", "pertmei": "PERT-MEI", "relpmei": "RELP-MEI"}
+PREFIXO_PARC = {v: k for k, v in ORIGEM_PARC.items()}
+
+
+def _textos_sitfis(db, p) -> str:
+    it = db.scalar(select(models.MonitorItem).where(models.MonitorItem.prestador_id == p.id, models.MonitorItem.item == "SITFIS"))
+    try:
+        d = json.loads(it.detalhe) if it and it.detalhe else {}
+    except ValueError:
+        return ""
+    partes = [str(x.get("titulo", "")) + " " + " ".join(map(str, x.get("linhas") or [])) for x in d.get("detalhes") or []]
+    partes += [str(x) for x in (d.get("suspensas") or []) + (d.get("indisponiveis") or [])]
+    return " | ".join(partes).upper()
+
+
+def modalidades_parcelamento(db, p) -> list[str]:
+    """Quais parcelamentos consultar: o ordinário do regime, mais os que a última situação fiscal indicar
+    (PARCMEI de quem já foi MEI; especiais PERT, RELP e Especial do Simples/MEI). Evita consultar tudo para todos."""
+    mei = p.regime == "MEI"
+    out = ["parcmei"] if mei else ["parcsn"]
+    if not mei and _sitfis_indica_parcmei(db, p):
+        out.append("parcmei")
+    t = _textos_sitfis(db, p)
+    if t:
+        def lado(chave: str) -> str:       # SN ou MEI pelo que o relatório diz; sem indicação, pelo regime
+            if re.search(chave + r"[\s-]*MEI", t):
+                return "mei"
+            if re.search(chave + r"[\s-]*SN", t):
+                return "sn"
+            return "mei" if mei else "sn"
+        if "PERT" in t:
+            out.append("pert" + lado("PERT"))
+        if "RELP" in t:
+            out.append("relp" + lado("RELP"))
+        if re.search(r"ESPECIAL|PARCSN-ESP|PARCMEI-ESP", t):
+            out.append("parcmeiesp" if ("PARCMEI-ESP" in t or (mei and "PARCSN-ESP" not in t)) else "parcsnesp")
+    return list(dict.fromkeys(out))
+
+
 def parcelamentos(db, p, usuario, lote, cli, hoje: date):
-    codigos = ["parcmei_pedidos"] if p.regime == "MEI" else ["parcsn_pedidos"]
-    if p.regime != "MEI" and _sitfis_indica_parcmei(db, p):
-        codigos.append("parcmei_pedidos")
     lista, erros, ultima = [], [], None
-    for codigo in codigos:
-        c = _consultar(db, p, codigo, {}, usuario, lote, cli)
+    for pref in modalidades_parcelamento(db, p):
+        origem = ORIGEM_PARC[pref]
+        c = _consultar(db, p, f"{pref}_pedidos", {}, usuario, lote, cli)
         ultima = ultima or c
-        origem = "MEI" if codigo.startswith("parcmei") else "Simples"
         if not c.ok:
             if not _nao_encontrado(c.mensagens):
                 erros.append(f"{origem}: {c.mensagens or 'sem resposta'}")
@@ -402,11 +440,11 @@ def parcelamentos(db, p, usuario, lote, cli, hoje: date):
     ativos = [x for x in lista if re.search(r"parcelamento|ativo|em dia|deferido", str(x["situacao"]), re.I)
               and not re.search(r"encerrad|rescind|liquidad|sem efeito|cancelad", str(x["situacao"]), re.I)]
     if not lista:
-        return gravar(db, p, "PARCELAMENTO", "", "SEM", "Nenhum parcelamento", consulta=ultima)
+        return gravar(db, p, "PARCELAMENTO", "", "SEM", "Nenhum parcelamento", {"erros": erros}, ultima)
     origens = sorted({x["origem"] for x in ativos})
     parcelas = []
-    for origem in origens:      # só para os parcelamentos ativos: consulta as parcelas em aberto (1 consulta por tipo)
-        cp = _consultar(db, p, "parcmei_parcelas" if origem == "MEI" else "parcsn_parcelas", {}, usuario, lote, cli)
+    for origem in origens:      # só para os parcelamentos ativos: consulta as parcelas em aberto (1 consulta por modalidade)
+        cp = _consultar(db, p, f"{PREFIXO_PARC[origem]}_parcelas", {}, usuario, lote, cli)
         if not cp.ok:
             if not _nao_encontrado(cp.mensagens):
                 erros.append(f"Parcelas {origem}: {cp.mensagens or 'sem resposta'}")

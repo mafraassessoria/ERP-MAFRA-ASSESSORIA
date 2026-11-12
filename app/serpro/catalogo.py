@@ -196,6 +196,29 @@ SERVICOS: list[Servico] = [
             descricao="Confere se a empresa deu procuração eletrônica ao escritório e até quando vale."),
 ]
 
+# Parcelamentos especiais (Integra-Parcelamentos): mesmos três serviços, códigos no padrão do catálogo do Serpro
+# (PARCSN-ESP 171-173, PERTSN 181-183, RELPSN 191-193; MEI 211-213, 221-223, 231-233).
+# chave: (idSistema, base do código do serviço, rótulo, regime)
+MODALIDADES_ESPECIAIS = {
+    "parcsnesp": ("PARCSN-ESP", 17, "Simples Especial", "SIMPLES"),
+    "pertsn": ("PERTSN", 18, "PERT-SN", "SIMPLES"),
+    "relpsn": ("RELPSN", 19, "RELP-SN", "SIMPLES"),
+    "parcmeiesp": ("PARCMEI-ESP", 21, "MEI Especial", "MEI"),
+    "pertmei": ("PERTMEI", 22, "PERT-MEI", "MEI"),
+    "relpmei": ("RELPMEI", 23, "RELP-MEI", "MEI"),
+}
+for _cod, (_sis, _b, _rot, _reg) in MODALIDADES_ESPECIAIS.items():
+    SERVICOS += [
+        Servico(f"{_cod}_pedidos", "Parcelamentos", f"Parcelamentos {_rot}", _sis, f"PEDIDOSPARC{_b}3", "Consultar",
+                montar=lambda v: "", aplica=(_reg,)),
+        Servico(f"{_cod}_parcelas", "Parcelamentos", f"Parcelas {_rot} disponíveis para emitir", _sis, f"PARCELASPARAGERAR{_b}2",
+                "Consultar", montar=lambda v: "", aplica=(_reg,)),
+        Servico(f"{_cod}_das", "Parcelamentos", f"DAS da parcela {_rot} (PDF)", _sis, f"GERARDAS{_b}1", "Emitir",
+                montar=lambda v: {"parcelaParaEmitir": int(_pa(v.get("periodo")))},
+                campos=[Campo("periodo", "Parcela (mês/ano)", "periodo", padrao=lambda: date.today().strftime("%Y-%m"))],
+                aplica=(_reg,)),
+    ]
+
 POR_CODIGO = {s.codigo: s for s in SERVICOS}
 GRUPOS = list(dict.fromkeys(s.grupo for s in SERVICOS))
 

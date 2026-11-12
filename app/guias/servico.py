@@ -20,9 +20,20 @@ TIPOS = {
     "PARC_SN": ("Parcela do Simples", "parcsn_das", ("SIMPLES", "SIMPLES_EXCESSO"), True),
     # empresa que já foi MEI pode ter parcelamento de MEI estando no Simples
     "PARC_MEI": ("Parcela do MEI", "parcmei_das", ("MEI", "SIMPLES", "SIMPLES_EXCESSO"), True),
+    "PARC_SN_ESP": ("Parcela do Simples Especial", "parcsnesp_das", ("SIMPLES", "SIMPLES_EXCESSO"), True),
+    "PARC_PERTSN": ("Parcela do PERT-SN", "pertsn_das", ("SIMPLES", "SIMPLES_EXCESSO"), True),
+    "PARC_RELPSN": ("Parcela do RELP-SN", "relpsn_das", ("SIMPLES", "SIMPLES_EXCESSO"), True),
+    "PARC_MEI_ESP": ("Parcela do MEI Especial", "parcmeiesp_das", ("MEI", "SIMPLES", "SIMPLES_EXCESSO"), True),
+    "PARC_PERTMEI": ("Parcela do PERT-MEI", "pertmei_das", ("MEI", "SIMPLES", "SIMPLES_EXCESSO"), True),
+    "PARC_RELPMEI": ("Parcela do RELP-MEI", "relpmei_das", ("MEI", "SIMPLES", "SIMPLES_EXCESSO"), True),
 }
 SITUACOES = {"ABERTA": ("Em aberto", "aviso"), "PAGA": ("Paga", "ok"), "SUBSTITUIDA": ("Substituída", "")}
-TIPO_PAGAMENTO = {"DAS": "DAS", "DAS_MEI": "DAS", "PARC_SN": "DAS", "PARC_MEI": "DAS", "DARF_DCTFWEB": "DARF"}
+TIPO_PAGAMENTO = {"DAS": "DAS", "DAS_MEI": "DAS", "PARC_SN": "DAS", "PARC_MEI": "DAS", "DARF_DCTFWEB": "DARF",
+                  "PARC_SN_ESP": "DAS", "PARC_PERTSN": "DAS", "PARC_RELPSN": "DAS", "PARC_MEI_ESP": "DAS",
+                  "PARC_PERTMEI": "DAS", "PARC_RELPMEI": "DAS"}
+# rótulo da modalidade (como no Monitor) -> tipo de guia
+TIPO_POR_ORIGEM = {"Simples": "PARC_SN", "MEI": "PARC_MEI", "Simples Especial": "PARC_SN_ESP", "PERT-SN": "PARC_PERTSN",
+                   "RELP-SN": "PARC_RELPSN", "MEI Especial": "PARC_MEI_ESP", "PERT-MEI": "PARC_PERTMEI", "RELP-MEI": "PARC_RELPMEI"}
 
 RE_NUM = re.compile(r"\b\d{2}\.\d{2}\.\d{5}\.\d{7}-\d\b")
 RE_DINHEIRO = r"(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}"
@@ -151,7 +162,7 @@ def completar_parcelas(db: Session) -> int:
     """Lê "Parcela: 10/12" dos PDFs das guias de parcelamento que ainda não têm essa informação (sem consulta)."""
     from ..monitor.rotinas import ler_pdf
     n = 0
-    for g in db.scalars(select(models.GuiaRF).where(models.GuiaRF.tipo.in_(("PARC_SN", "PARC_MEI")), models.GuiaRF.parcela == "")):
+    for g in db.scalars(select(models.GuiaRF).where(models.GuiaRF.tipo.startswith("PARC_"), models.GuiaRF.parcela == "")):
         if not g.arquivo:
             continue
         info = ler_guia(ler_pdf(sv.arquivo_absoluto(g.arquivo)))
