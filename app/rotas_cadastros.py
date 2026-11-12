@@ -801,6 +801,53 @@ def certificado_aviso_agora(pid: int, request: Request, db: Session = Depends(ge
     return _redir(f"/certificados?filtro={'VENCENDO' if (p.certificado_ativo and p.certificado_ativo.dias_para_vencer <= 30) else 'TODAS'}#emp-{p.id}")
 
 
+@router.post("/certificados/renovacao/{pid}")
+def certificado_pedir_renovacao(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from . import avisos_certificado as av
+    p = db.get(models.Prestador, pid)
+    if not p:
+        return _redir("/certificados?filtro=VENCIDO")
+    motivo = av.pedir_renovacao(db, p, u.login)
+    db.commit()
+    request.session["_cert_foco"] = [p.id, f"Pedido de renovação enviado para {p.email}." if not motivo else f"Não enviado: {motivo}."]
+    return _redir(f"/certificados?filtro=VENCIDO#emp-{p.id}")
+
+
+@router.post("/certificados/renovacao-todos")
+def certificado_renovacao_todos(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    """Pede a renovação a todas as empresas com certificado vencido que ainda não receberam o pedido hoje."""
+    from datetime import date as _date
+    from . import avisos_certificado as av
+    enviados, falhas = 0, []
+    for x in av.linhas_tela(db):
+        if x["codigo"] != "VENCIDO" or (x["renovacao"] and x["renovacao"].date() == _date.today()):
+            continue
+        motivo = av.pedir_renovacao(db, x["p"], u.login)
+        db.commit()
+        if motivo:
+            falhas.append(f"{x['p'].codigo_fmt} ({motivo})")
+        else:
+            enviados += 1
+    msg = f"Pedido de renovação enviado para {enviados} empresa(s)."
+    if falhas:
+        msg += " Não enviado: " + "; ".join(falhas) + "."
+    flash(request, msg, "erro" if falhas and not enviados else "ok")
+    return _redir("/certificados?filtro=VENCIDO")
+
+
+@router.get("/certificados/modelo-renovacao/{pid}")
+def certificado_modelo_renovacao(pid: int, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    import html as _h
+    from fastapi.responses import HTMLResponse
+    from . import avisos_certificado as av
+    p = db.get(models.Prestador, pid)
+    c = p.certificado_ativo if p else None
+    if c is None:
+        return HTMLResponse("<p>Empresa sem certificado.</p>")
+    assunto, _texto, html = av.montar_email_renovacao(db, p, c)
+    return HTMLResponse(f"<p style='font-family:sans-serif'><b>Assunto:</b> {_h.escape(assunto)}</p>" + html)
+
+
 @router.get("/certificados/modelo-email/{pid}")
 def certificado_modelo_email(pid: int, db: Session = Depends(get_db), u=Depends(usuario_atual)):
     from fastapi.responses import HTMLResponse
