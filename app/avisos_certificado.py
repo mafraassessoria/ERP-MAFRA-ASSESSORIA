@@ -129,10 +129,10 @@ Atenciosamente,
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f7;padding:24px 0"><tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #d6dce3">
 <tr><td style="background:#1f4e79;color:#ffffff;padding:16px 28px;font-size:15px"><b>{e(nome_esc)}</b></td></tr>
-<tr><td style="background:{'#b42318' if dias <= 3 else '#d97706'};color:#ffffff;padding:22px 28px;text-align:center">
-  <div style="font-size:14px;letter-spacing:.5px">⚠️ AVISO IMPORTANTE</div>
-  <div style="font-size:24px;font-weight:700;margin-top:6px">Seu certificado digital {e(quando_curto)}</div>
-  <div style="font-size:15px;margin-top:4px">Validade: <b>{venc}</b></div></td></tr>
+<tr><td style="background:{'#b42318' if dias <= 3 else '#d97706'};color:#ffffff;padding:10px 28px;text-align:center">
+  <div style="font-size:11px;letter-spacing:.5px;opacity:.9">⚠️ AVISO IMPORTANTE</div>
+  <div style="font-size:16px;font-weight:700;margin-top:2px">Seu certificado digital {e(quando_curto)}</div>
+  <div style="font-size:13px;margin-top:1px">Validade: <b>{venc}</b></div></td></tr>
 <tr><td style="padding:24px 28px;font-size:15px;line-height:1.55">
   <p style="margin:0 0 14px">Olá, <b>{e(empresa)}</b>!</p>
   <p style="margin:0 0 14px">Sem o certificado digital A1 válido, a <b>emissão de notas fiscais</b> e serviços como
@@ -211,10 +211,10 @@ Atenciosamente,
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f7;padding:24px 0"><tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #d6dce3">
 <tr><td style="background:#1f4e79;color:#ffffff;padding:16px 28px;font-size:15px"><b>{e(nome_esc)}</b></td></tr>
-<tr><td style="background:#b42318;color:#ffffff;padding:22px 28px;text-align:center">
-  <div style="font-size:14px;letter-spacing:.5px">🔴 ATENÇÃO</div>
-  <div style="font-size:24px;font-weight:700;margin-top:6px">{faixa}</div>
-  <div style="font-size:15px;margin-top:4px">{faixa2}</div></td></tr>
+<tr><td style="background:#b42318;color:#ffffff;padding:10px 28px;text-align:center">
+  <div style="font-size:11px;letter-spacing:.5px;opacity:.9">🔴 ATENÇÃO</div>
+  <div style="font-size:16px;font-weight:700;margin-top:2px">{faixa}</div>
+  <div style="font-size:13px;margin-top:1px">{faixa2}</div></td></tr>
 <tr><td style="padding:24px 28px;font-size:15px;line-height:1.55">
   <p style="margin:0 0 14px">Olá, <b>{e(empresa)}</b>!</p>
   <p style="margin:0 0 14px">{e(frase)} {enquanto}, a empresa fica sujeita a bloqueios na
