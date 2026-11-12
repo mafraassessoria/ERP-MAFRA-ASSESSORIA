@@ -185,7 +185,7 @@ SERVICOS: list[Servico] = [
     Servico("caixa_indicador", "Caixa postal", "Há mensagens novas?", "CAIXAPOSTAL", "INNOVAMSG63", "Monitorar",
             montar=lambda v: "", lote=True),
     Servico("caixa_lista", "Caixa postal", "Lista de mensagens", "CAIXAPOSTAL", "MSGCONTRIBUINTE61", "Consultar",
-            montar=lambda v: {"statusLeitura": v.get("status") or "0", "indicadorPagina": "0", "ponteiroPagina": "00000000000000"},
+            montar=lambda v: {"statusLeitura": v.get("status") or "0", "indicadorPagina": "0", "ponteiroPagina": "0" * 24},
             campos=[Campo("status", "Mensagens", "opcoes", opcoes={"0": "Todas", "2": "Não lidas", "1": "Lidas"}, padrao=lambda: "2")]),
     Servico("caixa_msg", "Caixa postal", "Ler uma mensagem", "CAIXAPOSTAL", "MSGDETALHAMENTO62", "Consultar",
             montar=lambda v: {"isn": re.sub(r"\D", "", v.get("isn") or "")},
