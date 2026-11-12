@@ -379,6 +379,39 @@ def prestador_detalhe(pid: int, request: Request, aba: str = "notas", competenci
 
 # ---- Certificados A1 --------------------------------------------------------
 
+def _gravar_certificado(db: Session, request: Request, u, p: models.Prestador, conteudo: bytes,
+                        nome_arquivo: str, senha: str, dados=None) -> tuple[bool, str]:
+    """Confere e grava o certificado da empresa. Devolve (ok, mensagem)."""
+    if len(conteudo) > TAMANHO_MAX_PFX:
+        return False, "Arquivo grande demais para um certificado A1."
+    if dados is None:
+        try:
+            dados = ler_pfx(conteudo, senha)
+        except CertificadoInvalido as e:
+            return False, str(e)
+    # O CNPJ do certificado precisa ser o do prestador (ou da matriz, mesma raiz de 8 dígitos).
+    if dados.cnpj and dados.cnpj[:8] != p.cnpj[:8]:
+        return False, f"Certificado pertence a {formatar_documento(dados.cnpj)}, não a esta empresa. Não foi salvo."
+    if dados.validade_fim < datetime.now():
+        return False, f"Certificado vencido em {dados.validade_fim:%d/%m/%Y}. Não foi salvo."
+    for c in p.certificados:
+        c.ativo = False
+    db.add(models.Certificado(
+        prestador_id=p.id, arquivo_cripto=criptografar(conteudo), senha_cripto=criptografar(senha.encode()),
+        nome_arquivo=(nome_arquivo or "")[:200], titular=dados.titular[:200], cnpj_certificado=dados.cnpj,
+        numero_serie=dados.numero_serie[:64], emissora=dados.emissora[:200],
+        validade_inicio=dados.validade_inicio, validade_fim=dados.validade_fim, ativo=True, enviado_por=u.login,
+    ))
+    db.flush()
+    auditar(db, request, u, "ENVIAR_CERTIFICADO", "prestador", p.id,
+            f"serie={dados.numero_serie} validade={dados.validade_fim:%d/%m/%Y}")
+    db.commit()
+    db.refresh(p)
+    aviso = "" if dados.cnpj else " Atenção: não foi possível ler o CNPJ dentro do certificado; confira o titular."
+    return True, (f"Certificado de {p.nome_exibicao} salvo (válido até {dados.validade_fim:%d/%m/%Y}). "
+                  f"A partir de agora a empresa usa o próprio certificado.{aviso}")
+
+
 @router.post("/prestadores/{pid}/certificado")
 async def certificado_enviar(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
     p = _prestador_ou_404(db, pid)
@@ -392,40 +425,72 @@ async def certificado_enviar(pid: int, request: Request, db: Session = Depends(g
     if not arquivo or not getattr(arquivo, "filename", ""):
         flash(request, "Selecione o arquivo .pfx do certificado.", "erro")
         return _redir(destino)
+    ok, msg = _gravar_certificado(db, request, u, p, await arquivo.read(TAMANHO_MAX_PFX + 1), arquivo.filename, senha)
+    flash(request, msg, "ok" if ok else "erro")
+    return _redir(destino)
+
+
+@router.post("/certificados/enviar/{pid}")
+async def certificado_enviar_json(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    """Envio pela janela da tela de certificados: responde em JSON (a janela não fecha se a senha estiver errada)."""
+    p = _prestador_ou_404(db, pid)
+    form = await request.form()
+    arquivo = form.get("arquivo")
+    if not p:
+        return JSONResponse({"ok": False, "msg": "Empresa não encontrada."})
+    if not arquivo or not getattr(arquivo, "filename", ""):
+        return JSONResponse({"ok": False, "msg": "Selecione o arquivo .pfx do certificado."})
+    ok, msg = _gravar_certificado(db, request, u, p, await arquivo.read(TAMANHO_MAX_PFX + 1), arquivo.filename,
+                                  form.get("senha", ""))
+    if ok:
+        request.session["_cert_foco"] = [p.id, msg]
+    return JSONResponse({"ok": ok, "msg": msg, "pid": p.id})
+
+
+@router.post("/certificados/enviar-auto")
+async def certificado_enviar_auto(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    """Cadastro em massa: lê o certificado com a senha e encontra a empresa pelo CNPJ de dentro dele."""
+    form = await request.form()
+    arquivo = form.get("arquivo")
+    senha = form.get("senha", "")
+    if not arquivo or not getattr(arquivo, "filename", ""):
+        return JSONResponse({"ok": False, "msg": "Arquivo não enviado."})
     conteudo = await arquivo.read(TAMANHO_MAX_PFX + 1)
     if len(conteudo) > TAMANHO_MAX_PFX:
-        flash(request, "Arquivo grande demais para um certificado A1.", "erro")
-        return _redir(destino)
+        return JSONResponse({"ok": False, "msg": "Arquivo grande demais para um certificado A1."})
     try:
         dados = ler_pfx(conteudo, senha)
     except CertificadoInvalido as e:
-        flash(request, str(e), "erro")
-        return _redir(destino)
+        return JSONResponse({"ok": False, "msg": str(e)})
+    if not dados.cnpj:
+        return JSONResponse({"ok": False, "msg": f"Não achei o CNPJ dentro do certificado ({dados.titular}). Use o botão da linha da empresa."})
+    ativos = db.scalars(select(models.Prestador).where(models.Prestador.ativo.is_(True))).all()
+    alvo = [p for p in ativos if p.cnpj == dados.cnpj] or [p for p in ativos if p.cnpj[:8] == dados.cnpj[:8]]
+    if not alvo:
+        return JSONResponse({"ok": False, "msg": f"Nenhuma empresa ativa com o CNPJ {formatar_documento(dados.cnpj)}."})
+    if len(alvo) > 1:
+        nomes = ", ".join(p.nome_exibicao for p in alvo)
+        return JSONResponse({"ok": False, "msg": f"Mais de uma empresa com a mesma raiz de CNPJ ({nomes}). Use o botão da linha certa."})
+    p = alvo[0]
+    ok, msg = _gravar_certificado(db, request, u, p, conteudo, arquivo.filename, senha, dados=dados)
+    return JSONResponse({"ok": ok, "msg": msg, "pid": p.id, "empresa": p.nome_exibicao})
 
-    # O CNPJ do certificado precisa ser o do prestador (ou da matriz, mesma raiz de 8 dígitos).
-    if dados.cnpj and dados.cnpj[:8] != p.cnpj[:8]:
-        flash(request, f"Certificado pertence a {formatar_documento(dados.cnpj)}, não a este prestador. Não foi salvo.", "erro")
-        return _redir(destino)
-    if dados.validade_fim < datetime.now():
-        flash(request, f"Certificado vencido em {dados.validade_fim:%d/%m/%Y}. Não foi salvo.", "erro")
-        return _redir(destino)
 
-    for c in p.certificados:
-        c.ativo = False
-    novo = models.Certificado(
-        prestador_id=p.id, arquivo_cripto=criptografar(conteudo), senha_cripto=criptografar(senha.encode()),
-        nome_arquivo=arquivo.filename[:200], titular=dados.titular[:200], cnpj_certificado=dados.cnpj,
-        numero_serie=dados.numero_serie[:64], emissora=dados.emissora[:200],
-        validade_inicio=dados.validade_inicio, validade_fim=dados.validade_fim, ativo=True, enviado_por=u.login,
-    )
-    db.add(novo)
-    db.flush()
-    auditar(db, request, u, "ENVIAR_CERTIFICADO", "prestador", p.id,
-            f"serie={dados.numero_serie} validade={dados.validade_fim:%d/%m/%Y}")
+@router.post("/certificados/email/{pid}")
+async def certificado_email(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    """Grava o e-mail de aviso da empresa direto da tela de certificados."""
+    import re as _re
+    p = _prestador_ou_404(db, pid)
+    form = await request.form()
+    email = (form.get("email") or "").strip()[:120]
+    if not p:
+        return JSONResponse({"ok": False, "msg": "Empresa não encontrada."})
+    if email and not all(_re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", x.strip()) for x in email.replace(";", ",").split(",") if x.strip()):
+        return JSONResponse({"ok": False, "msg": "E-mail inválido."})
+    p.email = email
+    auditar(db, request, u, "EMAIL_PRESTADOR", "prestador", p.id, f"email={email}")
     db.commit()
-    aviso = "" if dados.cnpj else " Atenção: não foi possível ler o CNPJ dentro do certificado; confira o titular."
-    flash(request, f"Certificado de {p.nome_exibicao} salvo (válido até {dados.validade_fim:%d/%m/%Y}). A partir de agora a empresa usa o próprio certificado.{aviso}")
-    return _redir(destino)
+    return JSONResponse({"ok": True, "msg": "Salvo"})
 
 
 @router.post("/certificados/{cid}/excluir")
@@ -691,7 +756,7 @@ async def tomador_salvar(pid: int, request: Request, db: Session = Depends(get_d
 
 # ---- Certificados digitais (controle geral) ---------------------------------
 
-FILTROS_CERT = {"": "Todas", "VENCENDO": "Vencendo (até 30 dias)", "VENCIDO": "Vencidos", "SEM": "Sem certificado", "VALIDO": "Válidos"}
+FILTROS_CERT = {"VENCENDO": "Vencendo (até 30 dias)", "TODAS": "Todas", "VENCIDO": "Vencidos", "SEM": "Sem certificado", "VALIDO": "Válidos"}
 
 
 @router.get("/certificados")
@@ -699,13 +764,17 @@ def certificados_tela(request: Request, filtro: str = "", db: Session = Depends(
     from . import avisos_certificado as av
     from .configuracoes import smtp_configurado
     request.session.pop("prestador_atual", None)
+    filtro = filtro if filtro in FILTROS_CERT else "VENCENDO"
     todas = av.linhas_tela(db)
-    cont = {k: sum(1 for x in todas if x["codigo"] == k) for k in FILTROS_CERT if k}
-    linhas = [x for x in todas if not filtro or x["codigo"] == filtro]
+    cont = {k: sum(1 for x in todas if x["codigo"] == k) for k in FILTROS_CERT}
+    cont["TODAS"] = len(todas)
+    foco = request.session.pop("_cert_foco", None)
+    # a empresa recém-cadastrada continua na lista (mesmo que tenha saído do filtro), para ver o resultado
+    linhas = [x for x in todas if filtro == "TODAS" or x["codigo"] == filtro or (foco and x["p"].id == foco[0])]
     esc = av.escritorio(db)
     return render(request, "certificados.html", linhas=linhas, filtro=filtro, FILTROS_CERT=FILTROS_CERT, cont=cont,
                   total=len(todas), avisos_ligado=av.ligado(db), smtp_ok=smtp_configurado(db), escritorio=esc,
-                  esc_sit=av.situacao(esc) if esc else None, MARCOS=av.MARCOS)
+                  esc_sit=av.situacao(esc) if esc else None, MARCOS=av.MARCOS, foco=foco)
 
 
 @router.post("/certificados/avisos")
@@ -729,7 +798,7 @@ def certificado_aviso_agora(pid: int, request: Request, db: Session = Depends(ge
     motivo = av.enviar_aviso(db, p, u.login)
     db.commit()
     flash(request, f"Aviso enviado para {p.email}." if not motivo else f"Aviso não enviado: {motivo}.", "erro" if motivo else "ok")
-    return _redir("/certificados?filtro=VENCENDO" if not motivo else "/certificados")
+    return _redir(f"/certificados?filtro={'VENCENDO' if (p.certificado_ativo and p.certificado_ativo.dias_para_vencer <= 30) else 'TODAS'}#emp-{p.id}")
 
 
 @router.get("/certificados/modelo-email/{pid}")

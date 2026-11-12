@@ -9,7 +9,7 @@
   </form>
 </div>
 <p class="linha-pequena">Cadastrou um certificado válido, a empresa já passa a usá-lo. Vencido ou sem certificado, o sistema usa <b>automaticamente o do escritório (procuração)</b>.
-  Avisos por e-mail a partir de 15 dias do vencimento, de 3 em 3 dias ({{ MARCOS|join(', ') }} dias), às 8h, para o e-mail do cadastro da empresa.
+  Avisos por e-mail a partir de 15 dias do vencimento, de 3 em 3 dias ({{ MARCOS|join(', ') }} dias), às 8h.
   {% if not smtp_ok %}<b class="erro">E-mail do sistema não configurado (Configurações).</b>{% endif %}</p>
 
 {% if escritorio %}
@@ -21,34 +21,145 @@
 <div class="msg erro">Defina em Configurações qual empresa é o escritório (procurador) e cadastre o certificado dela.</div>
 {% endif %}
 
-<nav class="abas">
-  {% for k, v in FILTROS_CERT.items() %}<a href="/certificados{{ ('?filtro=' ~ k) if k }}" class="{{ 'ativa' if filtro == k }}">{{ v }} ({{ cont[k] if k else total }})</a>{% endfor %}
-</nav>
+<details class="cartao cert-massa" id="massa">
+  <summary><b>Cadastrar vários certificados de uma vez</b> <span class="sutil">· arraste os arquivos .pfx; o sistema lê o CNPJ de cada um (depois da senha) e encontra a empresa</span></summary>
+  <div class="zona-soltar" id="zona">Arraste os arquivos .pfx / .p12 aqui ou <label class="link-arquivo">escolha<input type="file" id="massa-arquivos" accept=".pfx,.p12" multiple hidden></label></div>
+  <table class="compacta" id="massa-lista" hidden>
+    <thead><tr><th>Arquivo</th><th>Senha</th><th>Resultado</th><th></th></tr></thead><tbody></tbody>
+  </table>
+  <div class="em-linha" id="massa-acoes" hidden style="margin-top:.6rem;gap:.6rem">
+    <button type="button" id="massa-todos">Cadastrar todos</button>
+    <button type="button" class="secundario" id="massa-recarregar">Atualizar a lista</button>
+  </div>
+</details>
 
-<table class="notas ordenavel">
-  <thead><tr><th>Cód.</th><th>Empresa</th><th>Titular</th><th>Validade</th><th>Situação</th><th>Em uso</th><th>Avisos enviados</th><th class="sem-ordem">Cadastrar / substituir certificado</th></tr></thead>
+<div class="linha-titulo" style="margin-top:.6rem">
+  <nav class="abas" style="margin:0">
+    {% for k, v in FILTROS_CERT.items() %}<a href="/certificados?filtro={{ k }}" class="{{ 'ativa' if filtro == k }}">{{ v }} ({{ cont[k] }})</a>{% endfor %}
+  </nav>
+  <input type="search" id="busca-cert" placeholder="Buscar por nome, código ou CNPJ" style="max-width:320px">
+</div>
+
+<table class="notas ordenavel tabela-cert">
+  <thead><tr><th>Cód.</th><th>Empresa</th><th>Titular</th><th>Validade</th><th>Situação</th><th>Em uso</th><th class="sem-ordem">E-mail para aviso</th><th>Avisos</th><th class="sem-ordem"></th></tr></thead>
   <tbody>
   {% for x in linhas %}{% set p = x.p %}{% set c = x.cert %}
-  <tr>
+  <tr id="emp-{{ p.id }}" class="{{ 'foco' if foco and foco[0] == p.id }}" data-busca="{{ p.codigo_fmt }} {{ p.razao_social|lower }} {{ p.cnpj }} {{ p.cnpj|doc }}">
     <td>{{ p.codigo_fmt }}</td>
     <td><a class="nome-empresa" href="/prestadores/{{ p.id }}?aba=config#certificado">{{ p.razao_social }}</a>
-      {% if x.sem_email %}<br><small class="sutil">sem e-mail para aviso</small>{% endif %}</td>
-    <td><small>{{ c.titular if c else '—' }}</small></td>
+      {% if foco and foco[0] == p.id %}<div class="msg-linha ok">{{ foco[1] }}</div>{% endif %}</td>
+    <td>{% if c %}<small title="{{ c.titular }}{% if c.cnpj_certificado %} · CNPJ {{ c.cnpj_certificado|doc }}{% endif %}">{{ c.titular.split(':')[0] }}</small>{% else %}—{% endif %}</td>
     <td data-valor="{{ c.validade_fim.strftime('%Y%m%d') if c else '0' }}">{{ c.validade_fim|data if c else '—' }}</td>
     <td class="cert-status">{% if x.classe in ('erro', 'aviso') %}<span class="etiqueta {{ x.classe }}">{{ x.rotulo }}</span>{% elif x.classe == 'ok' %}{{ x.rotulo }}{% else %}<span class="sutil">{{ x.rotulo }}</span>{% endif %}</td>
-    <td>{% if p.usa_procuracao %}<span class="etiqueta producao">escritório</span>{% else %}empresa{% endif %}</td>
+    <td>{% if p.usa_procuracao %}<span class="etiqueta producao" title="Sem certificado próprio válido">usa o do escritório</span>{% else %}da empresa{% endif %}</td>
+    <td><input type="email" class="email-aviso" data-pid="{{ p.id }}" value="{{ p.email or '' }}" placeholder="sem e-mail" multiple>
+      <small class="email-estado"></small></td>
     <td><small>{{ x.avisos|replace(',', ', ') if x.avisos else '—' }}</small>
       {% if c and x.dias is not none and 0 <= x.dias <= 30 %}<br>
-        <form method="post" action="/certificados/aviso/{{ p.id }}" class="em-linha" style="gap:.4rem" onsubmit="return confirm('Enviar agora o aviso de vencimento para {{ p.email or 'a empresa' }}?')">
-          <button class="link" {{ 'disabled' if x.sem_email or not smtp_ok }}>enviar aviso agora</button>
+        <form method="post" action="/certificados/aviso/{{ p.id }}" class="em-linha" style="gap:.4rem" onsubmit="return confirm('Enviar agora o aviso de vencimento para ' + (this.closest('tr').querySelector('.email-aviso').value || 'a empresa') + '?')">
+          <button class="link" {{ 'disabled' if not smtp_ok }}>enviar aviso</button>
           <a href="/certificados/modelo-email/{{ p.id }}" target="_blank"><small>ver e-mail</small></a></form>{% endif %}</td>
-    <td><form method="post" action="/prestadores/{{ p.id }}/certificado" enctype="multipart/form-data" class="cert-envio">
-        <input type="hidden" name="volta" value="/certificados{{ ('?filtro=' ~ filtro) if filtro }}">
-        <input type="file" name="arquivo" accept=".pfx,.p12" required>
-        <input type="password" name="senha" placeholder="senha" required autocomplete="off">
-        <button class="secundario mini">{{ 'Substituir' if c else 'Cadastrar' }}</button></form></td>
+    <td><button type="button" class="secundario mini abrir-cert" data-pid="{{ p.id }}" data-nome="{{ p.codigo_fmt }} · {{ p.razao_social }}">{{ 'Substituir' if c else 'Cadastrar' }}</button></td>
   </tr>
-  {% else %}<tr><td colspan="8" class="sutil">Nenhuma empresa neste filtro.</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="9" class="sutil">Nenhuma empresa neste filtro.</td></tr>{% endfor %}
   </tbody>
 </table>
+
+<dialog id="janela-cert" class="janela">
+  <form id="form-cert" enctype="multipart/form-data">
+    <h3>Certificado A1</h3>
+    <p id="cert-empresa" class="sutil"></p>
+    <label>Arquivo .pfx/.p12 <input type="file" name="arquivo" accept=".pfx,.p12" required></label>
+    <label>Senha <input type="password" name="senha" required autocomplete="off"></label>
+    <div id="cert-msg" class="msg-linha" hidden></div>
+    <div class="em-linha" style="gap:.6rem;margin-top:.8rem">
+      <button id="cert-salvar">Salvar certificado</button>
+      <button type="button" class="secundario" onclick="this.closest('dialog').close()">Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  const filtro = {{ filtro|tojson }};
+  const voltar = pid => location.assign('/certificados?filtro=' + filtro + '&t=' + Date.now() + '#emp-' + pid);
+
+  // Janela de cadastro: se a senha estiver errada, a janela continua aberta com o arquivo escolhido
+  const dlg = document.getElementById('janela-cert'), frm = document.getElementById('form-cert'), msg = document.getElementById('cert-msg');
+  let pidAtual = null;
+  document.querySelectorAll('.abrir-cert').forEach(b => b.addEventListener('click', () => {
+    pidAtual = b.dataset.pid; frm.reset(); msg.hidden = true;
+    document.getElementById('cert-empresa').textContent = b.dataset.nome;
+    dlg.showModal(); frm.arquivo.focus();
+  }));
+  frm.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const bt = document.getElementById('cert-salvar'); bt.disabled = true; bt.textContent = 'Salvando…';
+    try {
+      const r = await (await fetch('/certificados/enviar/' + pidAtual, { method: 'POST', body: new FormData(frm) })).json();
+      if (r.ok) { voltar(pidAtual); return; }
+      msg.textContent = r.msg; msg.className = 'msg-linha erro'; msg.hidden = false;
+      frm.senha.value = ''; frm.senha.focus();
+    } catch (e) { msg.textContent = 'Falha de comunicação: ' + e; msg.className = 'msg-linha erro'; msg.hidden = false; }
+    bt.disabled = false; bt.textContent = 'Salvar certificado';
+  });
+
+  // Busca na lista
+  document.getElementById('busca-cert').addEventListener('input', ev => {
+    const q = ev.target.value.toLowerCase().replace(/[.\/-]/g, '').trim();
+    document.querySelectorAll('.tabela-cert tbody tr[data-busca]').forEach(tr => {
+      tr.style.display = !q || tr.dataset.busca.replace(/[.\/-]/g, '').includes(q) ? '' : 'none';
+    });
+  });
+
+  // E-mail para aviso: salva ao sair do campo
+  document.querySelectorAll('.email-aviso').forEach(inp => {
+    inp.dataset.orig = inp.value;
+    inp.addEventListener('change', async () => {
+      const est = inp.nextElementSibling; est.textContent = 'salvando…'; est.className = 'email-estado';
+      const fd = new FormData(); fd.append('email', inp.value);
+      const r = await (await fetch('/certificados/email/' + inp.dataset.pid, { method: 'POST', body: fd })).json();
+      est.textContent = r.ok ? '✓ salvo' : r.msg; est.className = 'email-estado ' + (r.ok ? 'ok' : 'erro');
+    });
+  });
+
+  // Cadastro em massa
+  const zona = document.getElementById('zona'), tab = document.getElementById('massa-lista'), corpo = tab.querySelector('tbody');
+  function adicionar(arquivos) {
+    [...arquivos].filter(f => /\.(pfx|p12)$/i.test(f.name)).forEach(f => {
+      const tr = document.createElement('tr'); tr._arquivo = f;
+      tr.innerHTML = '<td></td><td><input type="password" class="massa-senha" autocomplete="off" placeholder="senha"></td><td class="massa-res sutil">aguardando a senha</td><td><button type="button" class="secundario mini">Cadastrar</button></td>';
+      tr.cells[0].textContent = f.name;
+      tr.querySelector('button').addEventListener('click', () => enviar(tr));
+      tr.querySelector('input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviar(tr); } });
+      corpo.appendChild(tr);
+    });
+    tab.hidden = document.getElementById('massa-acoes').hidden = !corpo.rows.length;
+    const prim = corpo.querySelector('tr:not(.feito) .massa-senha'); if (prim) prim.focus();
+  }
+  async function enviar(tr) {
+    if (tr.classList.contains('feito')) return;
+    const senha = tr.querySelector('.massa-senha').value, res = tr.querySelector('.massa-res');
+    if (!senha) { res.textContent = 'digite a senha'; res.className = 'massa-res erro'; return; }
+    res.textContent = 'lendo…'; res.className = 'massa-res sutil';
+    const fd = new FormData(); fd.append('arquivo', tr._arquivo); fd.append('senha', senha);
+    const r = await (await fetch('/certificados/enviar-auto', { method: 'POST', body: fd })).json();
+    res.textContent = r.msg; res.className = 'massa-res ' + (r.ok ? 'ok' : 'erro');
+    if (r.ok) { tr.classList.add('feito'); tr.querySelector('button').disabled = true; tr.querySelector('input').disabled = true; }
+    else { tr.querySelector('.massa-senha').select(); }
+  }
+  document.getElementById('massa-arquivos').addEventListener('change', e => adicionar(e.target.files));
+  zona.addEventListener('dragover', e => { e.preventDefault(); zona.classList.add('sobre'); });
+  zona.addEventListener('dragleave', () => zona.classList.remove('sobre'));
+  zona.addEventListener('drop', e => { e.preventDefault(); zona.classList.remove('sobre'); adicionar(e.dataTransfer.files); });
+  document.getElementById('massa-todos').addEventListener('click', async () => {
+    for (const tr of [...corpo.rows]) if (tr.querySelector('.massa-senha').value) await enviar(tr);
+  });
+  document.getElementById('massa-recarregar').addEventListener('click', () => location.reload());
+
+  // Volta para a linha da empresa e destaca
+  const alvo = location.hash && document.querySelector(location.hash);
+  if (alvo) { alvo.classList.add('foco'); alvo.scrollIntoView({ block: 'center' }); }
+})();
+</script>
 {% endblock %}
