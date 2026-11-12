@@ -809,18 +809,20 @@ def certificado_pedir_renovacao(pid: int, request: Request, db: Session = Depend
         return _redir("/certificados?filtro=VENCIDO")
     motivo = av.pedir_renovacao(db, p, u.login)
     db.commit()
-    request.session["_cert_foco"] = [p.id, f"Pedido de renovação enviado para {p.email}." if not motivo else f"Não enviado: {motivo}."]
-    return _redir(f"/certificados?filtro=VENCIDO#emp-{p.id}")
+    request.session["_cert_foco"] = [p.id, f"Pedido enviado para {p.email}." if not motivo else f"Não enviado: {motivo}."]
+    return _redir(f"/certificados?filtro={'SEM' if p.certificado_ativo is None else 'VENCIDO'}#emp-{p.id}")
 
 
 @router.post("/certificados/renovacao-todos")
-def certificado_renovacao_todos(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
-    """Pede a renovação a todas as empresas com certificado vencido que ainda não receberam o pedido hoje."""
+async def certificado_renovacao_todos(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    """Pede a renovação/emissão a todas as empresas do grupo (vencidos ou sem certificado) que não receberam hoje."""
+    form = await request.form()
+    grupo = "SEM" if form.get("grupo") == "SEM" else "VENCIDO"
     from datetime import date as _date
     from . import avisos_certificado as av
     enviados, falhas = 0, []
     for x in av.linhas_tela(db):
-        if x["codigo"] != "VENCIDO" or (x["renovacao"] and x["renovacao"].date() == _date.today()):
+        if x["codigo"] != grupo or (x["renovacao"] and x["renovacao"].date() == _date.today()):
             continue
         motivo = av.pedir_renovacao(db, x["p"], u.login)
         db.commit()
@@ -832,7 +834,7 @@ def certificado_renovacao_todos(request: Request, db: Session = Depends(get_db),
     if falhas:
         msg += " Não enviado: " + "; ".join(falhas) + "."
     flash(request, msg, "erro" if falhas and not enviados else "ok")
-    return _redir("/certificados?filtro=VENCIDO")
+    return _redir(f"/certificados?filtro={grupo}")
 
 
 @router.get("/certificados/modelo-renovacao/{pid}")
@@ -841,10 +843,9 @@ def certificado_modelo_renovacao(pid: int, db: Session = Depends(get_db), u=Depe
     from fastapi.responses import HTMLResponse
     from . import avisos_certificado as av
     p = db.get(models.Prestador, pid)
-    c = p.certificado_ativo if p else None
-    if c is None:
-        return HTMLResponse("<p>Empresa sem certificado.</p>")
-    assunto, _texto, html = av.montar_email_renovacao(db, p, c)
+    if p is None:
+        return HTMLResponse("<p>Empresa não encontrada.</p>")
+    assunto, _texto, html = av.montar_email_renovacao(db, p, p.certificado_ativo)
     return HTMLResponse(f"<p style='font-family:sans-serif'><b>Assunto:</b> {_h.escape(assunto)}</p>" + html)
 
 

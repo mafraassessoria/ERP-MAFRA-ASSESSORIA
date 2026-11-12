@@ -157,28 +157,37 @@ Atenciosamente,
 
 
 
-def montar_email_renovacao(db: Session, p: models.Prestador, c: models.Certificado) -> tuple[str, str, str]:
-    """(assunto, texto, html) do pedido de renovação de certificado já vencido."""
+def montar_email_renovacao(db: Session, p: models.Prestador, c: models.Certificado | None) -> tuple[str, str, str]:
+    """(assunto, texto, html) do pedido de renovação: certificado vencido (c) ou empresa sem certificado (c=None)."""
     esc = escritorio(db)
     nome_esc = "MAFRA ASSESSORIA CONTÁBIL"
     tel = (esc.telefone if esc else "") or ""
     mail = (esc.email if esc else "") or ""
     contato = " · ".join(x for x in (tel, mail) if x)
-    venc = f"{c.validade_fim:%d/%m/%Y}"
+    venc = f"{c.validade_fim:%d/%m/%Y}" if c else ""
     empresa = p.razao_social
     cd = CERTIFICADORA
-    assunto = f"🔴 Certificado digital VENCIDO – renove agora – {empresa}"
+    if c:
+        assunto = f"🔴 Certificado digital VENCIDO – renove agora – {empresa}"
+        frase = f"O CERTIFICADO DIGITAL A1 (e-CNPJ) da sua empresa VENCEU em {venc}."
+        faixa, faixa2 = "Seu certificado digital VENCEU", f"Venceu em <b>{venc}</b>"
+        enquanto = "Enquanto ele não for renovado"
+    else:
+        assunto = f"🔴 Sua empresa está sem certificado digital – {empresa}"
+        frase = "Não temos cadastrado um CERTIFICADO DIGITAL A1 (e-CNPJ) válido da sua empresa."
+        faixa, faixa2 = "Sua empresa está sem certificado digital", "Providencie o e-CNPJ A1"
+        enquanto = "Sem ele"
     texto = f"""Olá, {empresa}!
 
-O CERTIFICADO DIGITAL A1 (e-CNPJ) da sua empresa VENCEU em {venc}.
+{frase}
 
-Enquanto ele não for renovado, a empresa fica sujeita a bloqueios na emissão de notas
+{enquanto}, a empresa fica sujeita a bloqueios na emissão de notas
 fiscais e no acesso a serviços como e-CAC, eSocial e DCTFWeb. Para não deixar sua empresa
 parada, estamos usando provisoriamente a procuração do escritório no que é possível,
 mas a renovação é indispensável.
 
-Como renovar (rápido e online):
-Renove o certificado e-CNPJ A1 (validade de 1 ano) com a certificadora de sua preferência.
+Como resolver (rápido e online):
+Emita o certificado e-CNPJ A1 (validade de 1 ano) com a certificadora de sua preferência.
 Sugestão: {cd['nome']}
   • WhatsApp: {cd['whatsapp']} – {cd['link_whatsapp']}
   • Site: {cd['site']}
@@ -204,15 +213,15 @@ Atenciosamente,
 <tr><td style="background:#1f4e79;color:#ffffff;padding:16px 28px;font-size:15px"><b>{e(nome_esc)}</b></td></tr>
 <tr><td style="background:#b42318;color:#ffffff;padding:22px 28px;text-align:center">
   <div style="font-size:14px;letter-spacing:.5px">🔴 ATENÇÃO</div>
-  <div style="font-size:24px;font-weight:700;margin-top:6px">Seu certificado digital VENCEU</div>
-  <div style="font-size:15px;margin-top:4px">Venceu em <b>{venc}</b></div></td></tr>
+  <div style="font-size:24px;font-weight:700;margin-top:6px">{faixa}</div>
+  <div style="font-size:15px;margin-top:4px">{faixa2}</div></td></tr>
 <tr><td style="padding:24px 28px;font-size:15px;line-height:1.55">
   <p style="margin:0 0 14px">Olá, <b>{e(empresa)}</b>!</p>
-  <p style="margin:0 0 14px">Enquanto o certificado <b>e-CNPJ A1</b> não for renovado, a empresa fica sujeita a bloqueios na
+  <p style="margin:0 0 14px">{e(frase)} {enquanto}, a empresa fica sujeita a bloqueios na
     <b>emissão de notas fiscais</b> e no acesso a <b>e-CAC, eSocial e DCTFWeb</b>. Estamos usando provisoriamente a procuração
     do escritório no que é possível, mas a renovação é indispensável.</p>
-  <p style="margin:18px 0 8px;font-weight:700;color:#1f4e79">Como renovar (rápido e online)</p>
-  <p style="margin:0 0 12px">Renove o <b>e-CNPJ A1</b> (validade de 1 ano) com a certificadora de sua preferência. Sugestão: <b>{e(cd['nome'])}</b>.</p>
+  <p style="margin:18px 0 8px;font-weight:700;color:#1f4e79">Como resolver (rápido e online)</p>
+  <p style="margin:0 0 12px">Emita o <b>e-CNPJ A1</b> (validade de 1 ano) com a certificadora de sua preferência. Sugestão: <b>{e(cd['nome'])}</b>.</p>
   <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 4px"><tr>
     <td style="padding-right:10px"><a href="{cd['link_whatsapp']}" style="display:inline-block;background:#1a7f37;color:#ffffff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:700">Falar no WhatsApp</a></td>
     <td><a href="{cd['site']}" style="display:inline-block;background:#1f4e79;color:#ffffff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:700">Acessar o site</a></td>
@@ -235,7 +244,7 @@ def pedir_renovacao(db: Session, p: models.Prestador, usuario: str) -> str:
     """Envia o pedido de renovação do certificado vencido. "" se enviou, senão o motivo."""
     from .configuracoes import ErroEmail, enviar_email
     c = p.certificado_ativo
-    if c is None or c.dias_para_vencer >= 0:
+    if c is not None and c.dias_para_vencer >= 0:
         return "o certificado não está vencido"
     para = [x.strip() for x in (p.email or "").replace(";", ",").split(",") if x.strip()]
     if not para:
@@ -245,7 +254,7 @@ def pedir_renovacao(db: Session, p: models.Prestador, usuario: str) -> str:
         enviar_email(db, para, assunto, texto, html=html)
     except ErroEmail as e:
         return str(e)
-    c.renovacao_pedida_em = datetime.now()
+    p.certificado_pedido_em = datetime.now()
     db.add(models.Auditoria(usuario_login=usuario, acao="PEDIDO_RENOVACAO_CERTIFICADO", entidade="prestador",
                             entidade_id=p.id, detalhes=f"para={','.join(para)}", data_hora=datetime.now()))
     return ""
@@ -317,6 +326,6 @@ def linhas_tela(db: Session) -> list[dict]:
         c = s["cert"]
         saida.append(dict(p=p, **s, em_uso="escritório (procuração)" if p.usa_procuracao else "da empresa",
                           avisos=(c.avisos_enviados if c else ""), pendente=aviso_pendente(c),
-                          renovacao=(c.renovacao_pedida_em if c else None),
+                          renovacao=p.certificado_pedido_em,
                           sem_email=not (p.email or "").strip(), hoje=hoje))
     return saida

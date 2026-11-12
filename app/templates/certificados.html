@@ -40,10 +40,11 @@
   <input type="search" id="busca-cert" placeholder="Buscar por nome, código ou CNPJ" style="max-width:320px">
 </div>
 
-{% if filtro == 'VENCIDO' and cont['VENCIDO'] %}
+{% if filtro in ('VENCIDO', 'SEM') and cont[filtro] %}
 <form method="post" action="/certificados/renovacao-todos" class="em-linha" style="margin:.4rem 0 .6rem;gap:.6rem"
-      onsubmit="return confirm('Enviar o pedido de renovação para todas as empresas com certificado vencido (que têm e-mail)?')">
-  <button {{ 'disabled' if not smtp_ok }}>Pedir renovação a todos os vencidos</button>
+      onsubmit="return confirm('Enviar o pedido de certificado para todas as empresas desta aba que têm e-mail?')">
+  <input type="hidden" name="grupo" value="{{ filtro }}">
+  <button {{ 'disabled' if not smtp_ok }}>{{ 'Pedir renovação a todos os vencidos' if filtro == 'VENCIDO' else 'Pedir certificado a todas sem certificado' }}</button>
   <span class="linha-pequena" style="margin:0">Sugere a InfoPUB Certificação Digital (WhatsApp e site no e-mail). Não repete no mesmo dia.</span>
 </form>{% endif %}
 <table class="notas ordenavel tabela-cert">
@@ -65,9 +66,9 @@
         <form method="post" action="/certificados/aviso/{{ p.id }}" class="em-linha" style="gap:.4rem" onsubmit="return confirm('Enviar agora o aviso de vencimento para ' + (this.closest('tr').querySelector('.email-aviso').value || 'a empresa') + '?')">
           <button class="link" {{ 'disabled' if not smtp_ok }}>enviar aviso</button>
           <a href="/certificados/modelo-email/{{ p.id }}" target="_blank"><small>ver e-mail</small></a></form>{% endif %}
-      {% if x.codigo == 'VENCIDO' %}{% if x.renovacao %}<br><small class="sutil">renovação pedida {{ x.renovacao|data }}</small>{% endif %}
+      {% if x.codigo in ('VENCIDO', 'SEM') %}{% if x.renovacao %}<br><small class="sutil">pedido enviado {{ x.renovacao|data }}</small>{% endif %}
         <form method="post" action="/certificados/renovacao/{{ p.id }}" class="em-linha" style="gap:.4rem" onsubmit="return confirm('Enviar pedido de renovação para ' + (this.closest('tr').querySelector('.email-aviso').value || 'a empresa') + '?')">
-          <button class="link" {{ 'disabled' if not smtp_ok }}>pedir renovação</button>
+          <button class="link" {{ 'disabled' if not smtp_ok }}>{{ 'pedir renovação' if x.codigo == 'VENCIDO' else 'pedir certificado' }}</button>
           <a href="/certificados/modelo-renovacao/{{ p.id }}" target="_blank"><small>ver e-mail</small></a></form>{% endif %}</td>
     <td><button type="button" class="secundario mini abrir-cert" data-pid="{{ p.id }}" data-nome="{{ p.codigo_fmt }} · {{ p.razao_social }}">{{ 'Substituir' if c else 'Cadastrar' }}</button></td>
   </tr>

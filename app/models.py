@@ -194,6 +194,8 @@ class Prestador(Timestamps, Base):
     enviar_email_automatico: Mapped[bool] = mapped_column(Boolean, default=False)
     # Emissão em lote (planilha): só para as empresas que usam
     usa_lote: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Último pedido de renovação/emissão de certificado enviado à empresa (vencido ou sem certificado)
+    certificado_pedido_em: Mapped[datetime | None] = mapped_column(DateTime)
 
     observacoes: Mapped[str] = mapped_column(Text, default="")
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
