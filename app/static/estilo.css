@@ -335,3 +335,32 @@ table.parcelas button.mini { padding:.1rem .6rem; font-size:.8rem; margin:0; }
 
 details.pgfn > summary { cursor:pointer; color:var(--azul); }
 details.pgfn .pgfn-item { margin:.35rem 0 .5rem; font-size:.88rem; }
+
+/* ---- Interruptor (liga/desliga) no lugar da caixa de seleção ---- */
+input.interruptor { -webkit-appearance:none; appearance:none; width:38px !important; height:22px; min-width:38px; padding:0 !important;
+  border:none !important; border-radius:11px; background:#c4ccd5; position:relative; cursor:pointer; transition:background .15s; margin:0; vertical-align:middle; flex:none; }
+input.interruptor::before { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff;
+  box-shadow:0 1px 2px rgba(0,0,0,.25); transition:left .15s; }
+input.interruptor:checked { background:var(--verde); }
+input.interruptor:checked::before { left:19px; }
+input.interruptor:focus-visible { outline:2px solid var(--azul); outline-offset:2px; }
+input.interruptor:disabled { opacity:.5; cursor:default; }
+.estado-interruptor { font-size:.8rem; font-weight:600; color:var(--sutil); min-width:5.2rem; display:inline-block; }
+.estado-interruptor.ligado { color:var(--verde); }
+label.check:has(> input.interruptor), label.interruptor-linha { display:flex; align-items:center; gap:.55rem; margin:.35rem 0; }
+label.check > input.interruptor { margin:0; }
+
+/* ---- Cabeçalho da empresa (uma linha) ---- */
+.cab-empresa { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin:.2rem 0 1rem; }
+.cab-empresa h1 { font-size:1.35rem; margin:0; }
+.cab-empresa .info { color:var(--sutil); font-size:.9rem; display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
+.cab-empresa .acoes { margin-left:auto; display:flex; gap:.5rem; }
+.barra-empresa nav a.ativo { background:rgba(255,255,255,.25); font-weight:600; border-radius:6px; }
+.export-rodape { display:flex; justify-content:flex-end; margin-top:.8rem; }
+.linha-pequena { font-size:.82rem; color:var(--sutil); margin:.2rem 0 .8rem; }
+
+/* ---- Certificados ---- */
+.cert-status { white-space:nowrap; }
+.cert-envio { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
+.cert-envio input[type=file] { max-width:210px; font-size:.8rem; }
+.cert-envio input[type=password] { width:120px; }

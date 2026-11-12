@@ -4,23 +4,24 @@
 {% block conteudo %}
 {% include "_cabecalho_empresa.html" %}
 {% include "_certidoes_execucao.html" %}
-<div class="linha-titulo">
-  <p class="sutil">Certidões do Pack CND (e-Contador){% if not p.usa_econtador %} — <b>o módulo e-Contador está desligado para esta empresa</b>{% endif %}.
-    {% if p.pasta_drive %}Pasta no Drive: {{ p.pasta_drive }}{% else %}Sem pasta do Drive cadastrada.{% endif %}</p>
-  <form method="post" action="/certidoes/consultar" class="em-linha"><input type="hidden" name="prestador_id" value="{{ p.id }}">
-    <button {{ 'disabled' if execucao.rodando or ((not tem_token or not p.usa_econtador) and not federal_auto) }}>Consultar esta empresa</button></form>
-</div>
+<p class="linha-pequena">Certidões do Pack CND (e-Contador){% if not p.usa_econtador %} — <b>módulo e-Contador desligado para esta empresa</b>{% endif %}
+  · {% if p.pasta_drive %}Pasta no Drive: {{ p.pasta_drive }}{% else %}sem pasta do Drive cadastrada{% endif %}</p>
 <section class="cartao" id="federal">
   <div class="linha-titulo">
     <div><h2>Certidão federal (Receita/PGFN)</h2>
     <p class="sutil">{% if fed_atual %}Atual: <b>{{ fed_atual.situacao }}</b>{% if fed_atual.vencimento %}, válida até <b>{{ fed_atual.vencimento.strftime('%d/%m/%Y') }}</b>{% endif %}
       ({{ 'emitida pela API Consulta CND' if fed_atual.pack_id.startswith('RFB-') else 'do Pack CND' }}).{% else %}Nenhuma certidão federal registrada.{% endif %}
       {% if fed_tentativa %}Última consulta na Receita: {{ fed_tentativa.data_hora.strftime('%d/%m/%Y %H:%M') }} — {{ fed_tentativa.resumo }}.{% endif %}</p></div>
+    <div class="acoes">
+    <form method="post" action="/certidoes/consultar" class="em-linha"><input type="hidden" name="prestador_id" value="{{ p.id }}">
+      <button {{ 'disabled' if execucao.rodando or ((not tem_token or not p.usa_econtador) and not federal_auto) }}>Consultar esta empresa</button></form>
     {% if cnd_modo != 'desligado' and usuario.perfil == 'ADMIN' %}<form method="post" action="/prestadores/{{ p.id }}/certidoes/federal" class="em-linha"
       onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Emitindo…'"><button class="secundario">Emitir certidão federal agora</button></form>
-    {% elif cnd_modo != 'desligado' %}<p class="sutil">A emissão pela Receita é feita pelo administrador.</p>
-    {% else %}<p class="sutil">Ative a Consulta CND em <a href="/configuracoes#apis-serpro">Configurações → APIs do Serpro</a>.</p>{% endif %}
+    {% endif %}
+    </div>
   </div>
+  {% if cnd_modo != 'desligado' and usuario.perfil != 'ADMIN' %}<p class="linha-pequena">A emissão pela Receita é feita pelo administrador.</p>
+  {% elif cnd_modo == 'desligado' %}<p class="linha-pequena">Para emitir a federal pela Receita, ative a Consulta CND em <a href="/configuracoes#apis-serpro">Configurações → APIs do Serpro</a>.</p>{% endif %}
 </section>
 <section class="cartao">
   {% set mostrar_empresa = False %}{% set volta = '/prestadores/%d/certidoes' % p.id %}

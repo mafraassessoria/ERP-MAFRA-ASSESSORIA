@@ -1,22 +1,12 @@
-<div class="linha-titulo">
-  <div>
-    <h1>{% if p.codigo_interno %}<span class="sutil">{{ p.codigo_fmt }} ·</span> {% endif %}{{ p.razao_social }}</h1>
-    <p class="sutil">{{ p.cnpj|doc }} · {{ REGIMES[p.regime] }}{% if p.usa_nfse %} · {{ MODOS[p.modo] }}{% endif %}
-      {% for m in p.modulos %}<span class="etiqueta mini">{{ m }}</span> {% endfor %}
-      {% if not p.ativo %}<span class="etiqueta erro">inativo</span>{% endif %}</p>
-  </div>
+<div class="cab-empresa">
+  <h1>{% if p.codigo_interno %}<span class="sutil">{{ p.codigo_fmt }} ·</span> {% endif %}{{ p.razao_social }}</h1>
+  <span class="info">{{ p.cnpj|doc }} · {{ REGIMES[p.regime] }}
+    {% for m in p.modulos %}<span class="etiqueta mini">{{ m }}</span>{% endfor %}
+    {% if p.usa_nfse and p.modo != 'EMISSAO' %}<span class="etiqueta mini">só importação</span>{% endif %}
+    {% if p.usa_nfse and p.usa_procuracao %}<span class="etiqueta mini producao" title="Sem certificado próprio válido: usa o do escritório">cert. do escritório</span>{% endif %}
+    {% if not p.ativo %}<span class="etiqueta erro">inativo</span>{% endif %}</span>
   <div class="acoes">
-    {% if p.usa_nfse and p.modo == 'EMISSAO' %}<a class="botao secundario" href="/prestadores/{{ p.id }}/notas/lote">Emitir em lote (planilha)</a>
+    {% if p.usa_nfse and p.modo == 'EMISSAO' %}{% if p.usa_lote %}<a class="botao secundario" href="/prestadores/{{ p.id }}/notas/lote">Emitir em lote</a>{% endif %}
     <a class="botao" href="/prestadores/{{ p.id }}/notas/nova">+ Emitir nota</a>{% endif %}
   </div>
 </div>
-
-<nav class="abas">
-  {% if p.usa_nfse %}
-  <a href="/prestadores/{{ p.id }}?aba=notas" class="{{ 'ativa' if aba == 'notas' }}">Notas fiscais</a>
-  <a href="/prestadores/{{ p.id }}?aba=cadastros" class="{{ 'ativa' if aba == 'cadastros' }}">Cadastros (tomadores, códigos e intermediários)</a>
-  {% endif %}
-  {% if p.usa_cnd %}<a href="/prestadores/{{ p.id }}/certidoes" class="{{ 'ativa' if aba == 'certidoes' }}">Certidões</a>{% endif %}
-  {% if p.usa_receita %}<a href="/prestadores/{{ p.id }}/receita" class="{{ 'ativa' if aba == 'receita' }}">Receita Federal</a>{% endif %}
-  <a href="/prestadores/{{ p.id }}?aba=config" class="{{ 'ativa' if aba == 'config' }}">Dados e configurações</a>
-</nav>

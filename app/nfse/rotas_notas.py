@@ -716,6 +716,9 @@ def lote_form(pid: int, request: Request, db: Session = Depends(get_db), u=Depen
     if not p or not p.emite_nfse:
         flash(request, "Só empresas no modo 'emissão pelo escritório' emitem em lote.", "erro")
         return _redir(f"/prestadores/{pid}" if p else "/prestadores")
+    if not p.usa_lote:
+        flash(request, "Emissão em lote desligada para esta empresa. Para ligar: Dados → Editar → Emissão em lote.", "erro")
+        return _redir(f"/prestadores/{pid}?aba=notas")
     return _form_lote(request, db, p)
 
 
@@ -723,8 +726,8 @@ def lote_form(pid: int, request: Request, db: Session = Depends(get_db), u=Depen
 async def lote_previa(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
     from . import lote, tabelas
     p = db.get(models.Prestador, pid)
-    if not p or not p.emite_nfse:
-        return _redir("/prestadores")
+    if not p or not p.emite_nfse or not p.usa_lote:
+        return _redir(f"/prestadores/{pid}" if p else "/prestadores")
     form = await request.form()
     params = {
         "codigo_tributacao_nacional": so_digitos(form.get("codigo_tributacao_nacional")),
@@ -778,6 +781,8 @@ async def lote_confirmar(pid: int, request: Request, db: Session = Depends(get_d
     p = db.get(models.Prestador, pid)
     form = await request.form()
     dados = lote.abrir_previa(form.get("token"))
+    if p is not None and not p.usa_lote:
+        return _redir(f"/prestadores/{pid}")
     if not p or not dados or dados["pid"] != pid:
         flash(request, "A prévia expirou. Envie a planilha de novo.", "erro")
         return _redir(f"/prestadores/{pid}/notas/lote")

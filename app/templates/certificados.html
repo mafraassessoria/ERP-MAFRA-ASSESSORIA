@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}Certificados digitais{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <h1>Certificados digitais</h1>
+  <form method="post" action="/certificados/avisos" class="em-linha">
+    <label class="interruptor-linha"><input type="checkbox" class="interruptor" data-auto name="ligado" value="1" {{ 'checked' if avisos_ligado }}> Avisar as empresas por e-mail</label>
+  </form>
+</div>
+<p class="linha-pequena">Cadastrou um certificado válido, a empresa já passa a usá-lo. Vencido ou sem certificado, o sistema usa <b>automaticamente o do escritório (procuração)</b>.
+  Avisos por e-mail a partir de 15 dias do vencimento, de 3 em 3 dias ({{ MARCOS|join(', ') }} dias), às 8h, para o e-mail do cadastro da empresa.
+  {% if not smtp_ok %}<b class="erro">E-mail do sistema não configurado (Configurações).</b>{% endif %}</p>
+
+{% if escritorio %}
+<div class="msg {{ 'erro' if esc_sit.codigo in ('SEM', 'VENCIDO') or (esc_sit.dias is not none and esc_sit.dias <= 15) else '' }}">
+  Certificado do escritório (procuração) — <b>{{ escritorio.nome_exibicao }}</b>: {{ esc_sit.rotulo }}{% if esc_sit.cert %} · até {{ esc_sit.cert.validade_fim|data }}{% endif %}.
+  {% if esc_sit.codigo in ('SEM', 'VENCIDO') %}Sem ele, as empresas sem certificado próprio não conseguem emitir nem importar.{% endif %}
+</div>
+{% else %}
+<div class="msg erro">Defina em Configurações qual empresa é o escritório (procurador) e cadastre o certificado dela.</div>
+{% endif %}
+
+<nav class="abas">
+  {% for k, v in FILTROS_CERT.items() %}<a href="/certificados{{ ('?filtro=' ~ k) if k }}" class="{{ 'ativa' if filtro == k }}">{{ v }} ({{ cont[k] if k else total }})</a>{% endfor %}
+</nav>
+
+<table class="notas ordenavel">
+  <thead><tr><th>Cód.</th><th>Empresa</th><th>Titular</th><th>Validade</th><th>Situação</th><th>Em uso</th><th>Avisos enviados</th><th class="sem-ordem">Cadastrar / substituir certificado</th></tr></thead>
+  <tbody>
+  {% for x in linhas %}{% set p = x.p %}{% set c = x.cert %}
+  <tr>
+    <td>{{ p.codigo_fmt }}</td>
+    <td><a class="nome-empresa" href="/prestadores/{{ p.id }}?aba=config#certificado">{{ p.razao_social }}</a>
+      {% if x.sem_email %}<br><small class="sutil">sem e-mail para aviso</small>{% endif %}</td>
+    <td><small>{{ c.titular if c else '—' }}</small></td>
+    <td data-valor="{{ c.validade_fim.strftime('%Y%m%d') if c else '0' }}">{{ c.validade_fim|data if c else '—' }}</td>
+    <td class="cert-status">{% if x.classe in ('erro', 'aviso') %}<span class="etiqueta {{ x.classe }}">{{ x.rotulo }}</span>{% elif x.classe == 'ok' %}{{ x.rotulo }}{% else %}<span class="sutil">{{ x.rotulo }}</span>{% endif %}</td>
+    <td>{% if p.usa_procuracao %}<span class="etiqueta producao">escritório</span>{% else %}empresa{% endif %}</td>
+    <td><small>{{ x.avisos|replace(',', ', ') if x.avisos else '—' }}</small>
+      {% if c and x.dias is not none and 0 <= x.dias <= 30 %}<br>
+        <form method="post" action="/certificados/aviso/{{ p.id }}" class="em-linha" style="gap:.4rem" onsubmit="return confirm('Enviar agora o aviso de vencimento para {{ p.email or 'a empresa' }}?')">
+          <button class="link" {{ 'disabled' if x.sem_email or not smtp_ok }}>enviar aviso agora</button>
+          <a href="/certificados/modelo-email/{{ p.id }}" target="_blank"><small>ver e-mail</small></a></form>{% endif %}</td>
+    <td><form method="post" action="/prestadores/{{ p.id }}/certificado" enctype="multipart/form-data" class="cert-envio">
+        <input type="hidden" name="volta" value="/certificados{{ ('?filtro=' ~ filtro) if filtro }}">
+        <input type="file" name="arquivo" accept=".pfx,.p12" required>
+        <input type="password" name="senha" placeholder="senha" required autocomplete="off">
+        <button class="secundario mini">{{ 'Substituir' if c else 'Cadastrar' }}</button></form></td>
+  </tr>
+  {% else %}<tr><td colspan="8" class="sutil">Nenhuma empresa neste filtro.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -7,14 +7,12 @@
 {% if aba == 'notas' %}
 {% set p_fixo = p %}
 {% include "_filtros_notas.html" %}
-<div class="linha-titulo">
-  <p class="sutil resumo-lista">{{ lista|length }} nota(s){% if lista|length >= 300 %} — exibindo as 300 mais recentes{% endif %}
+<p class="sutil resumo-lista">{{ lista|length }} nota(s){% if lista|length >= 300 %} — exibindo as 300 mais recentes{% endif %}
     · Total prestado autorizado: <b>R$ {{ total|moeda }}</b></p>
-  {% if lista %}<div class="export-filtro"><span class="tipos-export" title="O que vai no ZIP"><label><input type="checkbox" class="exp-pdf" checked> PDF</label><label><input type="checkbox" class="exp-xml" checked> XML</label></span><a class="botao secundario exportar-zip" href="/notas/exportar.zip?prestador_id={{ p.id }}&{{ qs }}">Exportar todas do filtro (ZIP)</a></div>{% endif %}
-</div>
 {% set mostrar_prestador = True %}{% set doc_empresa = p.cnpj %}{% set permitir_clonar = p.emite_nfse %}{% set selecionavel = True %}
 {% set volta_sel = '/prestadores/%d?aba=notas%s' % (p.id, ('&' ~ qs) if qs else '') %}
 {% include "_tabela_notas.html" %}
+{% if lista %}<div class="export-rodape"><div class="export-filtro"><span class="tipos-export" title="O que vai no ZIP"><label><input type="checkbox" class="exp-pdf" checked> PDF</label><label><input type="checkbox" class="exp-xml" checked> XML</label></span><a class="botao secundario exportar-zip" href="/notas/exportar.zip?prestador_id={{ p.id }}&{{ qs }}">Exportar todas do filtro (ZIP)</a></div></div>{% endif %}
 
 {% elif aba == 'cadastros' %}
 <section class="cartao" id="tomadores">
@@ -111,9 +109,9 @@
   </section>
 
   <section class="cartao">
-    <h2>Certificado A1</h2>
-    {% if p.importar_por_procuracao %}
-      <div class="msg">Esta empresa usa o <b>certificado do escritório (procuração eletrônica)</b> para emitir, cancelar e importar.
+    <h2 id="certificado">Certificado A1</h2>
+    {% if p.usa_procuracao %}
+      <div class="msg">Sem certificado próprio válido: a empresa usa <b>automaticamente o certificado do escritório (procuração eletrônica)</b> para emitir e importar. Ao cadastrar um certificado válido, passa a usar o dela.
         {% if dono_cert %}Procurador: <a href="/prestadores/{{ dono_cert.id }}">{{ dono_cert.razao_social }}</a>{% if dono_cert.certificado_ativo %}, certificado válido até {{ dono_cert.certificado_ativo.validade_fim|data }}{% endif %}.{% endif %}
         {% if problema_cert %}<br><b>{{ problema_cert }}</b>{% endif %}
         <br><small>O cliente precisa ter concedido procuração ao escritório no serviço de NFS-e (Portal de Serviços da Receita).</small></div>
@@ -149,17 +147,13 @@
     <div class="linha-titulo">
       <h2>Importação pelo ADN</h2>
       <div class="acoes">
-        <form method="post" action="/prestadores/{{ p.id }}/procuracao">
-          <input type="hidden" name="valor" value="{{ '0' if p.importar_por_procuracao else '1' }}">
-          <button class="secundario">{{ 'Usar certificado da própria empresa' if p.importar_por_procuracao else 'Usar certificado do escritório (procuração)' }}</button>
-        </form>
         <form method="post" action="/prestadores/{{ p.id }}/importar" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Importando...';">
           <button>Importar agora</button>
         </form>
       </div>
     </div>
     <p class="sutil">Traz as notas que a empresa emitiu (inclusive pelo portal) e as que recebeu como tomadora, além dos cancelamentos.
-      Certificado: <b>{{ 'do escritório (procuração)' if p.importar_por_procuracao else 'da própria empresa' }}</b> (vale também para emitir e cancelar) ·
+      Certificado em uso: <b>{{ 'do escritório (procuração)' if p.usa_procuracao else 'da própria empresa' }}</b> (automático) ·
       Automática: {{ 'sim' if p.importar_automaticamente else 'não' }}</p>
     {% if ctrl %}<p>Última consulta: {{ ctrl.ultima_consulta|datahora }} · NSU {{ ctrl.ultimo_nsu }}<br><small>{{ ctrl.ultimo_resultado }}</small></p>
     {% else %}<p class="sutil">Nenhuma importação feita ainda.</p>{% endif %}

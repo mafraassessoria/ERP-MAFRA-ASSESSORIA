@@ -23,7 +23,7 @@
       ('Empresas', '/prestadores', [], ['/prestadores', '/tomadores']),
       ('Fiscal', '/notas', [('Notas fiscais', '/notas'), ('Relatórios', '/relatorios')], ['/notas', '/relatorios']),
       ('Receita', '/monitor', [('Monitor e-CAC', '/monitor'), ('Guias', '/guias'), ('Pagamentos', '/monitor/pagamentos')], ['/monitor', '/receita', '/guias']),
-      ('Documentos', '/certidoes', [('Certidões', '/certidoes')], ['/certidoes']),
+      ('Documentos', '/certidoes', [('Certidões', '/certidoes'), ('Certificados digitais', '/certificados')], ['/certidoes', '/certificados']),
       ('Financeiro', '/honorarios', [('Honorários', '/honorarios')], ['/honorarios']),
   ] %}
   {% if usuario.perfil == 'ADMIN' %}{% set grupos = grupos + [('Sistema', '/configuracoes',
@@ -40,17 +40,18 @@
 </header>
 {% endif %}
 {% if empresa_sel %}
+{% set e = empresa_sel %}{% set aba_q = request.query_params.get('aba', '') %}{% set base_e = '/prestadores/%d' % e.id %}
 <div class="barra-empresa">
-  <span class="nome"><b>{{ empresa_sel.nome_exibicao }}</b>
-    <small>{{ empresa_sel.cnpj|doc }}</small></span>
+  <span class="nome"><b>{{ e.nome_exibicao }}</b>
+    <small>{{ e.cnpj|doc }}</small></span>
   <nav>
-    {% if empresa_sel.usa_nfse %}<a href="/prestadores/{{ empresa_sel.id }}?aba=notas">Notas</a>
-    {% if empresa_sel.modo == 'EMISSAO' %}<a href="/prestadores/{{ empresa_sel.id }}/notas/nova">Emitir nota</a>
-    <a href="/prestadores/{{ empresa_sel.id }}/notas/lote">Emitir em lote</a>{% endif %}
-    <a href="/prestadores/{{ empresa_sel.id }}?aba=cadastros">Cadastros</a>{% endif %}
-    {% if empresa_sel.usa_cnd %}<a href="/prestadores/{{ empresa_sel.id }}/certidoes">Certidões</a>{% endif %}
-    {% if empresa_sel.usa_receita %}<a href="/prestadores/{{ empresa_sel.id }}/receita">Receita Federal</a>{% endif %}
-    <a href="/prestadores/{{ empresa_sel.id }}?aba=config">Dados</a>
+    {% if e.usa_nfse %}<a href="{{ base_e }}?aba=notas" class="{{ 'ativo' if atual == base_e and aba_q in ('', 'notas') }}">Notas</a>
+    {% if e.modo == 'EMISSAO' %}<a href="{{ base_e }}/notas/nova" class="{{ 'ativo' if atual.startswith(base_e ~ '/notas/nova') }}">Emitir nota</a>
+    {% if e.usa_lote %}<a href="{{ base_e }}/notas/lote" class="{{ 'ativo' if atual.startswith(base_e ~ '/notas/lote') }}">Emitir em lote</a>{% endif %}{% endif %}
+    <a href="{{ base_e }}?aba=cadastros" class="{{ 'ativo' if aba_q == 'cadastros' }}">Cadastros</a>{% endif %}
+    {% if e.usa_cnd %}<a href="{{ base_e }}/certidoes" class="{{ 'ativo' if atual.startswith(base_e ~ '/certidoes') }}">Certidões</a>{% endif %}
+    {% if e.usa_receita %}<a href="{{ base_e }}/receita" class="{{ 'ativo' if atual.startswith(base_e ~ '/receita') }}">Receita Federal</a>{% endif %}
+    <a href="{{ base_e }}?aba=config" class="{{ 'ativo' if aba_q == 'config' or (atual == base_e and aba_q == '' and not e.usa_nfse) }}">Dados</a>
   </nav>
   <a class="botao secundario sair-empresa" href="/prestadores/sair">Sair da empresa</a>
 </div>

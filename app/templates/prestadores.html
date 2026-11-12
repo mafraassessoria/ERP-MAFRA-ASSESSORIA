@@ -36,8 +36,6 @@
   <select name="acao" required>
     <option value="">Ação para as selecionadas…</option>
     <optgroup label="Certificado e importação">
-      <option value="procuracao_sim">Usar certificado do escritório (procuração)</option>
-      <option value="procuracao_nao">Usar certificado da própria empresa</option>
       <option value="auto_sim">Ativar importação automática</option>
       <option value="auto_nao">Desativar importação automática</option>
       <option value="email_sim">Ligar envio automático da nota por e-mail ao tomador</option>
@@ -53,13 +51,15 @@
       <option value="modo_emissao">Modo: emissão pelo escritório</option>
       <option value="aderente_sim">Município aderente ao Emissor Nacional: sim</option>
       <option value="aderente_nao">Município aderente ao Emissor Nacional: não</option>
+      <option value="lote_sim">Ligar emissão em lote (planilha)</option>
+      <option value="lote_nao">Desligar emissão em lote (planilha)</option>
     </optgroup>
   </select>
   <button>Aplicar</button>
 </div>
 <table class="notas ordenavel" id="tab-prestadores">
   <colgroup><col style="width:42px"><col style="width:70px"><col><col style="width:170px"><col style="width:150px"><col style="width:200px"><col style="width:150px"><col style="width:140px"></colgroup>
-  <tr><th><input type="checkbox" id="todos" title="Selecionar todos"></th><th>Cód.</th><th>Razão social</th><th>CNPJ</th><th>Regime</th><th>Módulos</th><th>Certificado</th><th>Certificado usado</th></tr>
+  <tr><th><input type="checkbox" id="todos" title="Selecionar todos"></th><th>Cód.</th><th>Razão social</th><th>CNPJ</th><th>Regime</th><th>Módulos</th><th>Certificado</th><th>Em uso</th></tr>
   {% for p in lista %}
   {% set c = p.certificado_ativo %}
   <tr class="{{ '' if p.ativo else 'inativo' }}">
@@ -71,13 +71,12 @@
     <td class="linha" title="{{ p.modulos|join(', ') }}">{% if p.usa_nfse %}{{ 'Emissão' if p.modo == 'EMISSAO' else 'Importação' }}{% else %}<span class="sutil">sem NFS-e</span>{% endif %}
       {% if p.usa_receita %}<span class="etiqueta mini">RF</span>{% endif %}{% if p.usa_econtador %}<span class="etiqueta mini">eC</span>{% endif %}{% if p.usa_cnd %}<span class="etiqueta mini">CND</span>{% endif %}</td>
     {% if not p.usa_nfse %}<td class="linha sutil">—</td><td class="linha sutil">—</td>{% else %}
-    <td class="linha">{% if not c %}<span class="etiqueta {{ 'erro' if not p.importar_por_procuracao else '' }}">sem certificado</span>
+    <td class="linha">{% if not c %}<span class="sutil">sem certificado</span>
         {% elif c.dias_para_vencer < 0 %}<span class="etiqueta erro">vencido</span>
         {% elif c.dias_para_vencer < 30 %}<span class="etiqueta aviso">vence em {{ c.dias_para_vencer }} d</span>
         {% else %}até {{ c.validade_fim|data }}{% endif %}</td>
-    <td class="linha">{% if not p.importar_automaticamente %}<span class="sutil">desativada</span>
-        {% elif p.importar_por_procuracao %}<span class="etiqueta producao">procuração</span>
-        {% else %}cert. próprio{% endif %}</td>{% endif %}
+    <td class="linha">{% if p.usa_procuracao %}<span class="etiqueta producao">escritório (procuração)</span>
+        {% else %}da empresa{% endif %}</td>{% endif %}
   </tr>
   {% else %}
   <tr><td colspan="8" class="sutil">Nenhuma empresa cadastrada.</td></tr>

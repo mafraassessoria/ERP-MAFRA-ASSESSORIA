@@ -297,8 +297,9 @@ def importar_todos(db: Session, usuario: str = "agendador", pausa_s: float = 2.0
         models.Prestador.importar_automaticamente.is_(True))
         .order_by(*models.ordem_prestador_sql())).all()
     for i, p in enumerate(prestadores):
-        if not p.importar_por_procuracao and p.certificado_ativo is None:
-            continue
+        from .emissao import descricao_certificado
+        if descricao_certificado(db, p)[1]:
+            continue  # sem certificado utilizável (nem da empresa, nem do escritório)
         if i:
             time.sleep(pausa_s)  # o ADN limita a taxa de consultas
         saida.append((p, importar(db, p, usuario)))

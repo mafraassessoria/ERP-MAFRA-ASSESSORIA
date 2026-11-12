@@ -60,8 +60,9 @@ def dono_certificado(db: Session, p: models.Prestador) -> models.Prestador:
     """Quem fornece o certificado A1: a própria empresa ou, com procuração eletrônica,
     o escritório (procurador). Pela regra da NFS-e Nacional (desde 01/11/2026), com procuração
     o certificado do procurador é usado na conexão (mTLS) e na assinatura da DPS/eventos;
-    a DPS continua trazendo o CNPJ do prestador representado."""
-    if not p.importar_por_procuracao:
+    a DPS continua trazendo o CNPJ do prestador representado.
+    Automático: certificado próprio válido → a empresa; vencido ou inexistente → o escritório."""
+    if not p.usa_procuracao:
         return p
     from ..configuracoes import ler_config
     pid = ler_config(db, "prestador_procurador_id")

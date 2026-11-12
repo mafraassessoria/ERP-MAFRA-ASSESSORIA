@@ -24,7 +24,7 @@
     <label>UF <input name="uf" value="{{ i.uf or '' }}" maxlength="2"></label>
     <label>Código IBGE <input name="codigo_municipio_ibge" value="{{ i.codigo_municipio_ibge or '' }}" maxlength="7"></label>
   </div>
-  <label class="check"><input type="checkbox" name="ativo" value="1" {{ 'checked' if i.ativo }}> Ativo</label>
+  <label class="check"><input type="checkbox" class="interruptor" name="ativo" value="1" {{ 'checked' if i.ativo }}> Ativo</label>
   <div class="acoes"><button>Salvar</button><a href="{{ volta or ('/prestadores/%d?aba=cadastros#intermediarios' % p.id) }}">Cancelar</a></div>
 </form>
 {% endblock %}

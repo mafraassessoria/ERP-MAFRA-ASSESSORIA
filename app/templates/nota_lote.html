@@ -57,7 +57,7 @@
 {% if previa.validas %}
 <form class="cartao" method="post" action="/prestadores/{{ p.id }}/notas/lote/confirmar" onsubmit="this.querySelectorAll('button').forEach(b => b.disabled = true); document.getElementById('aguarde').style.display='block'">
   <input type="hidden" name="token" value="{{ token }}">
-  <label class="check"><input type="checkbox" name="enviar_email" value="1" checked> Enviar PDF + XML por e-mail para cada cliente que tiver e-mail, logo após autorizar</label>
+  <label class="check"><input type="checkbox" class="interruptor" name="enviar_email" value="1" checked> Enviar PDF + XML por e-mail para cada cliente que tiver e-mail, logo após autorizar</label>
   <div class="acoes">
     <button name="acao" value="transmitir" class="grande">Emitir {{ previa.validas }} nota(s) agora</button>
     <button name="acao" value="rascunhos" class="secundario">Só criar os rascunhos</button>

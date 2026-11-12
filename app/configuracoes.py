@@ -71,7 +71,7 @@ def smtp_configurado(db: Session) -> bool:
 
 
 def enviar_email(db: Session, para: list[str], assunto: str, corpo: str,
-                 anexos: list[Path] | None = None, sem_copia: bool = False) -> None:
+                 anexos: list[Path] | None = None, sem_copia: bool = False, html: str = "") -> None:
     if not smtp_configurado(db):
         raise ErroEmail("E-mail não configurado. Um administrador deve preencher em Configurações.")
     host = ler_config(db, "smtp_host")
@@ -87,6 +87,8 @@ def enviar_email(db: Session, para: list[str], assunto: str, corpo: str,
     msg["To"] = ", ".join(para)
     msg["Subject"] = assunto
     msg.set_content(corpo)
+    if html:
+        msg.add_alternative(html, subtype="html")
     for a in anexos or []:
         tipo = ("application", "pdf") if a.suffix.lower() == ".pdf" else ("application", "xml")
         msg.add_attachment(a.read_bytes(), maintype=tipo[0], subtype=tipo[1], filename=a.name)

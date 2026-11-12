@@ -58,6 +58,7 @@ def _inicio():
     _ajuste_texto_parcelamentos()
     _marcar_historico_certidoes()
     _completar_parcelas_guias()
+    _ligar_lote_80_105()
     from .agendador import iniciar as iniciar_agendador
     iniciar_agendador()
 
@@ -126,6 +127,19 @@ def _marcar_historico_certidoes():
         except Exception:  # noqa: BLE001
             db.rollback()
             logging.getLogger("emissor").exception("histórico das certidões")
+
+
+def _ligar_lote_80_105():
+    """Uma vez: emissão em lote passa a ser por empresa; fica ligada só nas empresas 80 e 105."""
+    from .db import SessionLocal
+    chave = "ajuste_2026_11_lote_80_105"
+    with SessionLocal() as db:
+        if db.get(models.Configuracao, chave) is not None:
+            return
+        for p in db.query(models.Prestador).all():
+            p.usa_lote = (p.codigo_interno or "").strip().lstrip("0") in ("80", "105")
+        db.add(models.Configuracao(chave=chave, valor=datetime.now().isoformat()))
+        db.commit()
 
 
 def _completar_parcelas_guias():

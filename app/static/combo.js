@@ -186,3 +186,26 @@ document.addEventListener("change", function (e) {
   });
   window.formatarDinheiro = formatar;
 })();
+
+/* Interruptor: mostra "Ligado/Desligado" ao lado e, com data-auto, salva sozinho (envia o formulário). */
+(function () {
+  function preparar(el) {
+    if (el.dataset.prep) return;
+    el.dataset.prep = "1";
+    var txt = document.createElement("span");
+    txt.className = "estado-interruptor";
+    el.insertAdjacentElement("afterend", txt);
+    function marcar() { txt.textContent = el.checked ? "Ligado" : "Desligado"; txt.classList.toggle("ligado", el.checked); }
+    marcar();
+    el.addEventListener("change", function () {
+      marcar();
+      if (el.hasAttribute("data-auto") && el.form) {
+        txt.textContent = "Salvando…";
+        if (el.form.requestSubmit) el.form.requestSubmit(); else el.form.submit();
+      }
+    });
+  }
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll("input.interruptor").forEach(preparar);
+  });
+})();

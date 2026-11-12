@@ -79,7 +79,7 @@
         <select name="certidoes_dia"><option value="-1" {{ 'selected' if ec.dia == -1 }}>desligada</option>
           {% for d in DIAS_SEMANA %}<option value="{{ loop.index0 }}" {{ 'selected' if ec.dia == loop.index0 }}>toda {{ d }}{{ '-feira' if loop.index0 < 5 }}</option>{% endfor %}</select></label>
       <label>Horário <input name="certidoes_hora" value="{{ ec.hora }}" placeholder="17:00"></label>
-      <label class="rf-radio" style="margin-top:1.6rem"><input type="checkbox" name="certidoes_publicar" value="1" {{ 'checked' if ec.publicar }}> Entregar as novas ao Bot Arquivador automaticamente</label>
+      <label class="rf-radio" style="margin-top:1.6rem"><input type="checkbox" class="interruptor" data-auto name="certidoes_publicar" value="1" {{ 'checked' if ec.publicar }}> Entregar as novas ao Bot Arquivador automaticamente</label>
     </div>
     <p class="sutil">Última consulta geral: {{ ec.ultima[:16]|replace('T', ' ') if ec.ultima else 'nunca' }}{% if ec.proxima %} · próxima: {{ ec.proxima|datahora }}{% endif %}.
       Desative a tarefa de sexta do Monitor e-Contador antes de ligar a entrega automática, para não haver duas entregas.</p>
@@ -159,7 +159,7 @@
       {% if prod == 'CND' %}
       <div class="duas-colunas">
         <label>Código de identificação da consulta <input name="cnd_codigo" value="{{ cnd_codigo }}" maxlength="10"></label>
-        <label class="check"><input type="checkbox" name="federal_auto" value="1" {{ 'checked' if federal_auto }}> Renovar a federal automaticamente na consulta agendada de certidões (só quando faltar ≤ 15 dias ou não houver)</label>
+        <label class="check"><input type="checkbox" class="interruptor" data-auto name="federal_auto" value="1" {{ 'checked' if federal_auto }}> Renovar a federal automaticamente na consulta agendada de certidões (só quando faltar ≤ 15 dias ou não houver)</label>
       </div>
       {% endif %}
     </fieldset>

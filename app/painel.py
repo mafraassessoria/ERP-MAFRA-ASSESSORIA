@@ -63,26 +63,19 @@ def montar(db: Session, u: models.Usuario) -> dict:
         for p in prest:
             if not p.usa_nfse:
                 continue
-            if p.importar_por_procuracao:
+            c = p.certificado_valido
+            if c is None:
+                # sem certificado próprio válido: usa o do escritório (procuração), automaticamente
                 _dono, problema = descricao_certificado(db, p)
                 if problema:
                     detalhes_nfse.append((p, problema, None))
-                c = None
-            else:
-                c = p.certificado_ativo
-            if c is None:
-                if not p.importar_por_procuracao:
-                    detalhes_nfse.append((p, "sem certificado A1 cadastrado", None))
-            elif c.validade_fim < datetime.now():
-                cert_venc += 1
-                detalhes_nfse.append((p, f"certificado VENCIDO em {c.validade_fim:%d/%m/%Y}", None))
             elif c.validade_fim < limite:
                 cert_logo += 1
                 detalhes_nfse.append((p, f"certificado vence em {c.dias_para_vencer} dias ({c.validade_fim:%d/%m/%Y})", None))
             if p.modo == "EMISSAO":
                 if not p.municipio_aderente:
                     detalhes_nfse.append((p, "município não confirmado como aderente ao Emissor Nacional", None))
-                if not p.autorizacao_uso_certificado and not p.importar_por_procuracao:
+                if not p.autorizacao_uso_certificado and not p.usa_procuracao:
                     detalhes_nfse.append((p, "sem autorização registrada para uso do certificado", None))
         problemas = db.scalars(select(models.NotaFiscal).where(
             models.NotaFiscal.situacao.in_(("PROCESSANDO", "REJEITADA")), models.NotaFiscal.ambiente == "PRODUCAO")).all()
@@ -90,7 +83,7 @@ def montar(db: Session, u: models.Usuario) -> dict:
             detalhes_nfse.append((n.prestador, f"nota de R$ {n.valor_servicos:.2f} para {n.tomador_nome} está "
                                   f"{models.SITUACOES_NOTA[n.situacao].lower()} (rascunho #{n.id})", n.id))
         acao("erro", cert_venc, "certificado(s) A1 vencido(s)", "#pendencias-nfse")
-        acao("aviso", cert_logo, f"certificado(s) A1 vencem em até {DIAS_AVISO_CERTIFICADO} dias", "#pendencias-nfse")
+        acao("aviso", cert_logo, f"certificado(s) A1 vencem em até {DIAS_AVISO_CERTIFICADO} dias", "/certificados?filtro=VENCENDO")
         acao("erro", len(problemas), "nota(s) rejeitada(s) ou sem resposta da Sefin", "/notas?situacao=REJEITADA")
         aut = select(models.NotaFiscal).where(models.NotaFiscal.situacao == "AUTORIZADA", models.NotaFiscal.ambiente == "PRODUCAO",
                                               models.NotaFiscal.papel == "PRESTADO", models.NotaFiscal.competencia >= ini_mes)

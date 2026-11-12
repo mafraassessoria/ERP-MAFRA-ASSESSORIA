@@ -27,10 +27,10 @@
     <input type="hidden" name="form_modulos" value="1">
     <p class="sutil">Marque o que o escritório usa para esta empresa. O que estiver desmarcado não aparece na tela da empresa nem entra nas rotinas automáticas.</p>
     <div class="modulos-empresa">
-      <label class="check"><input type="checkbox" name="usa_nfse" value="1" id="usa_nfse" {{ 'checked' if p.usa_nfse }}> <b>NFS-e</b> — emissão e/ou importação de notas</label>
-      <label class="check"><input type="checkbox" name="usa_receita" value="1" {{ 'checked' if p.usa_receita }}> <b>Receita Federal</b> — consultas pelo Integra Contador</label>
-      <label class="check"><input type="checkbox" name="usa_econtador" value="1" {{ 'checked' if p.usa_econtador }}> <b>e-Contador</b> — integração (documentos, baixas)</label>
-      <label class="check"><input type="checkbox" name="usa_cnd" value="1" {{ 'checked' if p.usa_cnd }}> <b>Certidões</b> — acompanhamento pelo Pack CND</label>
+      <label class="check"><input type="checkbox" class="interruptor" name="usa_nfse" value="1" id="usa_nfse" {{ 'checked' if p.usa_nfse }}> <b>NFS-e</b> — emissão e/ou importação de notas</label>
+      <label class="check"><input type="checkbox" class="interruptor" name="usa_receita" value="1" {{ 'checked' if p.usa_receita }}> <b>Receita Federal</b> — consultas pelo Integra Contador</label>
+      <label class="check"><input type="checkbox" class="interruptor" name="usa_econtador" value="1" {{ 'checked' if p.usa_econtador }}> <b>e-Contador</b> — integração (documentos, baixas)</label>
+      <label class="check"><input type="checkbox" class="interruptor" name="usa_cnd" value="1" {{ 'checked' if p.usa_cnd }}> <b>Certidões</b> — acompanhamento pelo Pack CND</label>
     </div>
     <div class="grade">
       <label class="larga">Pasta da empresa no Drive <input name="pasta_drive" value="{{ p.pasta_drive or '' }}" placeholder="G:\Meu Drive\Empresas 01 a 10\01 - NOME"></label>
@@ -58,14 +58,15 @@
       <label>Regime especial (0 = nenhum) <input name="reg_esp_trib" value="{{ p.reg_esp_trib or 0 }}" maxlength="1"></label>
     </div>
     <p class="sutil">O "% aproximado de tributos do Simples" (Lei da Transparência) é obrigatório para ME/EPP (E0712) e sai na nota. Use a alíquota efetiva do mês. MEI não informa.</p>
-    <label class="check"><input type="checkbox" name="municipio_aderente" value="1" {{ 'checked' if p.municipio_aderente }}> Município confirmado como aderente ao Emissor Nacional</label>
-    <label class="check"><input type="checkbox" name="autorizacao_uso_certificado" value="1" {{ 'checked' if p.autorizacao_uso_certificado }}> Cliente autorizou formalmente o uso do certificado A1 pelo escritório</label>
-    <label class="check"><input type="checkbox" name="enviar_email_automatico" value="1" {{ 'checked' if p.enviar_email_automatico }}> Enviar a nota (PDF + XML) por e-mail ao tomador automaticamente após a autorização</label>
+    <label class="check"><input type="checkbox" class="interruptor" name="municipio_aderente" value="1" {{ 'checked' if p.municipio_aderente }}> Município confirmado como aderente ao Emissor Nacional</label>
+    <label class="check"><input type="checkbox" class="interruptor" name="autorizacao_uso_certificado" value="1" {{ 'checked' if p.autorizacao_uso_certificado }}> Cliente autorizou formalmente o uso do certificado A1 pelo escritório</label>
+    <label class="check"><input type="checkbox" class="interruptor" name="enviar_email_automatico" value="1" {{ 'checked' if p.enviar_email_automatico }}> Enviar a nota (PDF + XML) por e-mail ao tomador automaticamente após a autorização</label>
+    <label class="check"><input type="checkbox" class="interruptor" name="usa_lote" value="1" {{ 'checked' if p.usa_lote }}> Emissão em lote (planilha) — só para as empresas que usam</label>
   </fieldset>
 
   <fieldset><legend>Importação de notas pelo ADN</legend>
-    <label class="check"><input type="checkbox" name="importar_automaticamente" value="1" {{ 'checked' if p.importar_automaticamente }}> Importar automaticamente (rotina diária) as notas emitidas e recebidas</label>
-    <label class="check"><input type="checkbox" name="importar_por_procuracao" value="1" {{ 'checked' if p.importar_por_procuracao }}> Usar o certificado do escritório (procuração eletrônica) para emitir, cancelar e importar, em vez do certificado da empresa</label>
+    <label class="check"><input type="checkbox" class="interruptor" name="importar_automaticamente" value="1" {{ 'checked' if p.importar_automaticamente }}> Importar automaticamente (rotina diária) as notas emitidas e recebidas</label>
+    <p class="sutil">Certificado: automático — com certificado próprio válido usa o da empresa; vencido ou sem certificado, usa o do escritório (procuração eletrônica).</p>
   </fieldset>
 
   </div>
@@ -86,7 +87,7 @@
   </fieldset>
 
   <label>Observações <textarea name="observacoes" rows="3">{{ p.observacoes or '' }}</textarea></label>
-  <label class="check"><input type="checkbox" name="ativo" value="1" {{ 'checked' if p.ativo }}> Ativo</label>
+  <label class="check"><input type="checkbox" class="interruptor" name="ativo" value="1" {{ 'checked' if p.ativo }}> Ativo</label>
   <div class="acoes"><button>Salvar</button><a href="{{ '/prestadores/%d' % p.id if p.id else '/prestadores' }}">Cancelar</a></div>
 </form>
 <script>

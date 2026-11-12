@@ -192,6 +192,8 @@ class Prestador(Timestamps, Base):
     importar_automaticamente: Mapped[bool] = mapped_column(Boolean, default=True)
     # Envia PDF + XML ao tomador assim que a nota for autorizada
     enviar_email_automatico: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Emissão em lote (planilha): só para as empresas que usam
+    usa_lote: Mapped[bool] = mapped_column(Boolean, default=False)
 
     observacoes: Mapped[str] = mapped_column(Text, default="")
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -233,6 +235,17 @@ class Prestador(Timestamps, Base):
                 return c
         return None
 
+    @property
+    def certificado_valido(self) -> "Certificado | None":
+        """Certificado da própria empresa ativo e dentro da validade."""
+        c = self.certificado_ativo
+        return c if c is not None and c.validade_fim >= datetime.now() else None
+
+    @property
+    def usa_procuracao(self) -> bool:
+        """Automático: sem certificado próprio válido, usa o do escritório (procuração)."""
+        return self.certificado_valido is None
+
 
 class Certificado(Base):
     """Certificado A1 (.pfx) guardado CRIPTOGRAFADO com a chave mestra."""
@@ -251,6 +264,8 @@ class Certificado(Base):
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     enviado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     enviado_por: Mapped[str] = mapped_column(String(60), default="")
+    # Avisos de vencimento já enviados por e-mail (dias, ex.: "15,12,9")
+    avisos_enviados: Mapped[str] = mapped_column(String(60), default="")
 
     prestador: Mapped[Prestador] = relationship(back_populates="certificados")
 

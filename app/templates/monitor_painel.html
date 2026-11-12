@@ -50,7 +50,7 @@
       <td>{{ x.empresas }}</td><td>R$ {{ x.custo|moeda }}</td>
       <td>{% if usuario.perfil == 'ADMIN' %}
         <form method="post" action="/monitor/rotinas/{{ x.r.codigo }}/agenda" class="mon-agenda">
-          <label class="rf-radio"><input type="checkbox" name="ligada" value="1" {{ 'checked' if x.ligada }}> ligada</label>
+          <label class="rf-radio"><input type="checkbox" class="interruptor" data-auto name="ligada" value="1" {{ 'checked' if x.ligada }}></label>
           <select name="tipo">{% for t, n in (('S', 'semanal'), ('M', 'mensal'), ('A', 'anual')) %}<option value="{{ t }}" {{ 'selected' if x.regra[0] == t }}>{{ n }}</option>{% endfor %}</select>
           <input name="valor" value="{{ x.regra.split(' ')[0][1:] }}" title="semanal: 0=segunda … 6=domingo · mensal: dia 1-28 · anual: MM-DD" size="5">
           <input name="hora" value="{{ x.regra.split(' ')[1] }}" size="5"><button class="secundario mini">Salvar</button>

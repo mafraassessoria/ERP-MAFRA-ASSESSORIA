@@ -127,20 +127,6 @@ def prestadores(request: Request, q: str = "", modo: str = "", situacao: str = "
                   MODULOS_EMPRESA=MODULOS_EMPRESA)
 
 
-@router.post("/prestadores/{pid}/procuracao")
-async def prestador_procuracao(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
-    p = db.get(models.Prestador, pid)
-    if not p:
-        return _redir("/prestadores")
-    form = await request.form()
-    p.importar_por_procuracao = form.get("valor") == "1"
-    auditar(db, request, u, "PROCURACAO_PRESTADOR", "prestador", pid, f"procuracao={p.importar_por_procuracao}")
-    db.commit()
-    flash(request, "Emissão, cancelamento e importação agora usam o certificado do escritório (procuração)."
-          if p.importar_por_procuracao else "Emissão, cancelamento e importação agora usam o certificado da própria empresa.")
-    return _redir(f"/prestadores/{pid}?aba=config#importacao")
-
-
 @router.post("/prestadores/lote")
 async def prestadores_lote(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
     """Ações em várias empresas de uma vez (selecionadas na lista)."""
@@ -148,8 +134,8 @@ async def prestadores_lote(request: Request, db: Session = Depends(get_db), u=De
     ids = [int(x) for x in form.getlist("ids") if str(x).isdigit()]
     acao = form.get("acao", "")
     acoes = {
-        "procuracao_sim": ("importar_por_procuracao", True, "certificado do escritório (procuração) ativado"),
-        "procuracao_nao": ("importar_por_procuracao", False, "certificado da própria empresa"),
+        "lote_sim": ("usa_lote", True, "emissão em lote ligada"),
+        "lote_nao": ("usa_lote", False, "emissão em lote desligada"),
         "aderente_sim": ("municipio_aderente", True, "município aderente ao Emissor Nacional: sim"),
         "aderente_nao": ("municipio_aderente", False, "município aderente ao Emissor Nacional: não"),
         "auto_sim": ("importar_automaticamente", True, "importação automática ativada"),
@@ -226,7 +212,7 @@ def prestador_novo(request: Request, u=Depends(usuario_atual)):
     return render(request, "prestador_form.html", p=models.Prestador(
         regime="SIMPLES", modo="EMISSAO", ambiente="PRODUCAO", serie_dps="00001", proximo_numero_dps=1,
         proximo_numero_dps_homologacao=1, reg_ap_trib_sn=1, reg_esp_trib=0, cst_piscofins="08", ativo=True,
-        importar_automaticamente=True, importar_por_procuracao=False, enviar_email_automatico=False,
+        importar_automaticamente=True, usa_lote=False, enviar_email_automatico=False,
         municipio_aderente=True, usa_nfse=True, usa_receita=True, usa_econtador=True, usa_cnd=True))
 
 
@@ -292,7 +278,8 @@ def _preencher_prestador(p: models.Prestador, form) -> str | None:
     p.autorizacao_uso_certificado = form.get("autorizacao_uso_certificado") == "1"
     p.enviar_email_automatico = form.get("enviar_email_automatico") == "1"
     p.importar_automaticamente = form.get("importar_automaticamente") == "1"
-    p.importar_por_procuracao = form.get("importar_por_procuracao") == "1"
+    if form.get("form_modulos") == "1":
+        p.usa_lote = form.get("usa_lote") == "1"
     p.observacoes = texto(form, "observacoes")
     p.ativo = form.get("ativo") == "1"
     for m in ("usa_nfse", "usa_receita", "usa_econtador", "usa_cnd"):
@@ -386,7 +373,7 @@ def prestador_detalhe(pid: int, request: Request, aba: str = "notas", competenci
     else:
         from .nfse.emissao import descricao_certificado
         ctx["ctrl"] = db.scalar(select(models.ControleNSU).where(models.ControleNSU.prestador_id == pid))
-        ctx["dono_cert"], ctx["problema_cert"] = descricao_certificado(db, p) if p.importar_por_procuracao else (None, "")
+        ctx["dono_cert"], ctx["problema_cert"] = descricao_certificado(db, p) if p.usa_procuracao else (None, "")
     return render(request, "prestador_detalhe.html", **ctx)
 
 
@@ -400,26 +387,28 @@ async def certificado_enviar(pid: int, request: Request, db: Session = Depends(g
     form = await request.form()
     arquivo = form.get("arquivo")
     senha = form.get("senha", "")
+    volta = form.get("volta", "")
+    destino = volta if volta.startswith("/certificados") else f"/prestadores/{pid}?aba=config"
     if not arquivo or not getattr(arquivo, "filename", ""):
         flash(request, "Selecione o arquivo .pfx do certificado.", "erro")
-        return _redir(f"/prestadores/{pid}?aba=config")
+        return _redir(destino)
     conteudo = await arquivo.read(TAMANHO_MAX_PFX + 1)
     if len(conteudo) > TAMANHO_MAX_PFX:
         flash(request, "Arquivo grande demais para um certificado A1.", "erro")
-        return _redir(f"/prestadores/{pid}?aba=config")
+        return _redir(destino)
     try:
         dados = ler_pfx(conteudo, senha)
     except CertificadoInvalido as e:
         flash(request, str(e), "erro")
-        return _redir(f"/prestadores/{pid}?aba=config")
+        return _redir(destino)
 
     # O CNPJ do certificado precisa ser o do prestador (ou da matriz, mesma raiz de 8 dígitos).
     if dados.cnpj and dados.cnpj[:8] != p.cnpj[:8]:
         flash(request, f"Certificado pertence a {formatar_documento(dados.cnpj)}, não a este prestador. Não foi salvo.", "erro")
-        return _redir(f"/prestadores/{pid}?aba=config")
+        return _redir(destino)
     if dados.validade_fim < datetime.now():
         flash(request, f"Certificado vencido em {dados.validade_fim:%d/%m/%Y}. Não foi salvo.", "erro")
-        return _redir(f"/prestadores/{pid}?aba=config")
+        return _redir(destino)
 
     for c in p.certificados:
         c.ativo = False
@@ -435,8 +424,8 @@ async def certificado_enviar(pid: int, request: Request, db: Session = Depends(g
             f"serie={dados.numero_serie} validade={dados.validade_fim:%d/%m/%Y}")
     db.commit()
     aviso = "" if dados.cnpj else " Atenção: não foi possível ler o CNPJ dentro do certificado; confira o titular."
-    flash(request, f"Certificado salvo (válido até {dados.validade_fim:%d/%m/%Y}).{aviso}")
-    return _redir(f"/prestadores/{pid}?aba=config")
+    flash(request, f"Certificado de {p.nome_exibicao} salvo (válido até {dados.validade_fim:%d/%m/%Y}). A partir de agora a empresa usa o próprio certificado.{aviso}")
+    return _redir(destino)
 
 
 @router.post("/certificados/{cid}/excluir")
@@ -698,3 +687,59 @@ async def tomador_salvar(pid: int, request: Request, db: Session = Depends(get_d
     if volta.startswith("/notas/") or volta.startswith("/prestadores/"):
         return _redir(volta + ("&" if "?" in volta else "?") + f"tomador_id={t.id}")
     return _redir(f"/prestadores/{pid}?aba=cadastros#tomadores")
+
+
+# ---- Certificados digitais (controle geral) ---------------------------------
+
+FILTROS_CERT = {"": "Todas", "VENCENDO": "Vencendo (até 30 dias)", "VENCIDO": "Vencidos", "SEM": "Sem certificado", "VALIDO": "Válidos"}
+
+
+@router.get("/certificados")
+def certificados_tela(request: Request, filtro: str = "", db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from . import avisos_certificado as av
+    from .configuracoes import smtp_configurado
+    request.session.pop("prestador_atual", None)
+    todas = av.linhas_tela(db)
+    cont = {k: sum(1 for x in todas if x["codigo"] == k) for k in FILTROS_CERT if k}
+    linhas = [x for x in todas if not filtro or x["codigo"] == filtro]
+    esc = av.escritorio(db)
+    return render(request, "certificados.html", linhas=linhas, filtro=filtro, FILTROS_CERT=FILTROS_CERT, cont=cont,
+                  total=len(todas), avisos_ligado=av.ligado(db), smtp_ok=smtp_configurado(db), escritorio=esc,
+                  esc_sit=av.situacao(esc) if esc else None, MARCOS=av.MARCOS)
+
+
+@router.post("/certificados/avisos")
+async def certificados_avisos(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from . import avisos_certificado as av
+    from .configuracoes import gravar_config
+    form = await request.form()
+    gravar_config(db, av.CHAVE_LIGADO, "1" if form.get("ligado") == "1" else "0")
+    auditar(db, request, u, "CONFIG_AVISO_CERTIFICADO", "", None, f"ligado={form.get('ligado') == '1'}")
+    db.commit()
+    flash(request, "Avisos de vencimento por e-mail " + ("ligados." if form.get("ligado") == "1" else "desligados."))
+    return _redir("/certificados")
+
+
+@router.post("/certificados/aviso/{pid}")
+def certificado_aviso_agora(pid: int, request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from . import avisos_certificado as av
+    p = db.get(models.Prestador, pid)
+    if not p:
+        return _redir("/certificados")
+    motivo = av.enviar_aviso(db, p, u.login)
+    db.commit()
+    flash(request, f"Aviso enviado para {p.email}." if not motivo else f"Aviso não enviado: {motivo}.", "erro" if motivo else "ok")
+    return _redir("/certificados?filtro=VENCENDO" if not motivo else "/certificados")
+
+
+@router.get("/certificados/modelo-email/{pid}")
+def certificado_modelo_email(pid: int, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from fastapi.responses import HTMLResponse
+    from . import avisos_certificado as av
+    p = db.get(models.Prestador, pid)
+    c = p.certificado_ativo if p else None
+    if c is None:
+        return HTMLResponse("<p>Empresa sem certificado ativo.</p>")
+    assunto, _texto, html = av.montar_email(db, p, c)
+    import html as _h
+    return HTMLResponse(f"<p style='font-family:sans-serif'><b>Assunto:</b> {_h.escape(assunto)}</p>" + html)

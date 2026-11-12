@@ -36,7 +36,7 @@
     <label class="c2">Código IBGE <input name="codigo_municipio_ibge" value="{{ t.codigo_municipio_ibge or '' }}" maxlength="7"></label>
   </div>
   </fieldset>
-  <label class="check"><input type="checkbox" name="ativo" value="1" {{ 'checked' if t.ativo }}> Ativo</label>
+  <label class="check"><input type="checkbox" class="interruptor" name="ativo" value="1" {{ 'checked' if t.ativo }}> Ativo</label>
   <div class="acoes"><button>Salvar</button><a href="{{ volta or ('/prestadores/%d?aba=cadastros#tomadores' % p.id) }}">Cancelar</a></div>
 </form>
 
