@@ -54,16 +54,12 @@
   </div>
 {% endmacro %}
 
-<h2 class="mon-secao">Principais <small class="sutil">Integra Contador · gasto no mês R$ {{ gasto|moeda }}{% if limite %} de R$ {{ limite|moeda }}{% endif %}</small></h2>
-<div class="mon-grade tres">
+<h2 class="mon-secao">Painel <small class="sutil">Integra Contador · gasto no mês R$ {{ gasto|moeda }}{% if limite %} de R$ {{ limite|moeda }}{% endif %}</small></h2>
+<div class="mon-grade quatro">
   {{ quadro_sit('SITFIS', 'Situação fiscal', 'PENDENCIA', 'com pendência', ['REGULAR', 'INDEFINIDO']) }}
   {{ quadro_entrega('PGDASD', 'PGDAS-D') }}
   {{ quadro_entrega('DCTFWEB', 'DCTFWeb') }}
-</div>
-<h2 class="mon-secao">Outros</h2>
-<div class="mon-grade tres">
   {{ quadro_sit('PARCELAMENTO', 'Parcelamentos', 'COM', 'com parcelamento ativo', ['SEM'], 'aviso') }}
-  {{ quadro_sit('CAIXA', 'Caixa postal', 'NOVAS', 'com mensagens não lidas', ['SEM'], 'aviso') }}
   <div class="cartao mon-quadro" id="q-PAGAMENTOS">
     <a href="/monitor/pagamentos"><h2>Pagamentos <small class="sutil">mês atual e anterior</small></h2></a>
     {% if pn.pagamentos_mes.total %}
@@ -73,6 +69,7 @@
     {% else %}<p class="mon-vazio">Ainda não consultado</p>{% endif %}
     {{ rodape('PAGAMENTOS') }}
   </div>
+  {{ quadro_sit('CAIXA', 'Caixa postal', 'NOVAS', 'com mensagens não lidas', ['SEM'], 'aviso') }}
   {{ quadro_entrega('MIT', 'MIT') }}
   {{ quadro_entrega('DEFIS', 'DEFIS') }}
 </div>
