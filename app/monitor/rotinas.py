@@ -201,7 +201,9 @@ _NUMERO_CEL = re.compile(r"^[\d.,]+$")
 def tabela_de(celulas: list[list[tuple[float, str]]]) -> dict | None:
     """Monta a tabela de débitos de uma seção: o cabeçalho é a linha que começa por "Receita"; cada valor vai para a
     coluna pela posição (números são alinhados à direita: usa a borda direita estimada)."""
-    cab_i = next((i for i, row in enumerate(celulas) if len(row) >= 3 and row[0][1].lower().startswith("receita")), None)
+    # cabeçalho: primeira linha com 3+ colunas e nenhum número (ex.: "Receita PA/Exerc. Dt. Vcto…", "Inscrição Receita Situação")
+    cab_i = next((i for i, row in enumerate(celulas)
+                  if len(row) >= 3 and not any(re.search(r"\d", t) for _, t in row)), None)
     if cab_i is None:
         return None
     cab = celulas[cab_i]
@@ -262,9 +264,15 @@ def ler_sitfis(caminho) -> dict:
             continue
         atual["linhas"].append(l)
         atual["celulas"].append(cel)
+    r["pgfn"] = []
     for s in secoes:
         t = re.sub(r"^Pend[êe]ncia\s*[-–]\s*", "", s["titulo"])
-        if any("BASE INDISPON" in x.upper() for x in s["linhas"]):
+        indisp = any("BASE INDISPON" in x.upper() for x in s["linhas"])
+        if not indisp and ("procuradoria" in s.get("grupo", "").lower() or re.search(r"\b(SIDA|SISPAR|DIVIDA|PGFN)\b", t)):
+            tab = tabela_de(s["celulas"])
+            r["pgfn"].append({"titulo": t, "suspensa": bool(re.search(r"exigibilidade suspensa", t, re.I)),
+                              "linhas": s["linhas"][:60], **({"tabela": tab} if tab else {})})
+        if indisp:
             r["indisponiveis"].append(t)
         elif re.search(r"exigibilidade suspensa", t, re.I):
             r["suspensas"].append(t)

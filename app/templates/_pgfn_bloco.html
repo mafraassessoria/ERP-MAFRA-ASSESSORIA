@@ -1,0 +1,8 @@
+{# PGFN segundo a situação fiscal. Espera: pgfn (lista), quando #}
+<details class="pgfn"><summary>PGFN — segundo a situação fiscal ({{ pgfn|length }}){% if pgfn|rejectattr('suspensa')|list %} <span class="etiqueta erro">{{ pgfn|rejectattr('suspensa')|list|length }} pendência(s)</span>{% endif %}</summary>
+  {% for x in pgfn %}<div class="pgfn-item"><b>{{ x.titulo }}</b> {% if x.suspensa %}<span class="etiqueta cinza">exigibilidade suspensa</span>{% else %}<span class="etiqueta erro">pendência</span>{% endif %}
+    {% if x.tabela %}<table class="debitos"><thead><tr>{% for c in x.tabela.cab %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for l in x.tabela.linhas %}<tr>{% for v in l %}<td class="{{ 'num' if v and v.replace('.', '').replace(',', '').isdigit() and ',' in v }}">{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+    {% else %}{% for l in x.linhas %}<br><small>{{ l }}</small>{% endfor %}{% endif %}</div>{% endfor %}
+  <p class="sutil" style="font-size:.78rem;margin:.2rem 0">Situação fiscal de {{ quando|datahora }}. Parcelamentos e negociações da PGFN: portal Regularize.</p>
+</details>

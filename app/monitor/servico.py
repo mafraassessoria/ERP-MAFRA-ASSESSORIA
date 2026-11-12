@@ -312,6 +312,7 @@ def atrasos_sitfis(db: Session, prestador_id: int | None = None) -> dict[int, di
                 continue
             n = _re.search(r"Parcelas em atraso\s+(\d+)", " ".join(str(l) for l in x.get("linhas") or []), _re.I)
             itens.append((_re.sub(r"^Parcelamento\s*", "", tit).strip("() ") or tit, int(n.group(1)) if n else None))
-        if itens:
-            out[m.prestador_id] = {"itens": itens, "quando": m.atualizado_em}
+        pgfn = d.get("pgfn") or []
+        if itens or pgfn:
+            out[m.prestador_id] = {"itens": itens, "pgfn": pgfn, "quando": m.atualizado_em}
     return out

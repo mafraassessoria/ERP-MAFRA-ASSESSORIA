@@ -79,7 +79,7 @@ def _reler_sitfis():
     """Uma vez: relê os relatórios de situação fiscal já baixados com o leitor por seções (sem nova consulta)."""
     from .db import SessionLocal
     from .monitor.rotinas import gravar_sitfis
-    chave = "ajuste_2026_11_releitura_sitfis_v5"
+    chave = "ajuste_2026_11_releitura_sitfis_v6"
     with SessionLocal() as db:
         if db.get(models.Configuracao, chave) is not None:
             return
