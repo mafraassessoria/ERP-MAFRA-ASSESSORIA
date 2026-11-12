@@ -383,3 +383,5 @@ dialog.janela label { display:block; margin:.5rem 0; }
 .zona-soltar.sobre { border-color:var(--azul); background:var(--azul-claro); }
 .link-arquivo { color:var(--azul); text-decoration:underline; cursor:pointer; }
 .cert-massa tr.feito td { background:#f1f9f3; }
+.tabela-cert td.cel-empresa .nome-empresa { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tabela-cert td.cel-empresa .msg-linha { white-space:normal; }

@@ -41,14 +41,15 @@
 </div>
 
 <table class="notas ordenavel tabela-cert">
+  <colgroup><col style="width:70px"><col><col style="width:200px"><col style="width:100px"><col style="width:140px"><col style="width:150px"><col style="width:240px"><col style="width:120px"><col style="width:105px"></colgroup>
   <thead><tr><th>Cód.</th><th>Empresa</th><th>Titular</th><th>Validade</th><th>Situação</th><th>Em uso</th><th class="sem-ordem">E-mail para aviso</th><th>Avisos</th><th class="sem-ordem"></th></tr></thead>
   <tbody>
   {% for x in linhas %}{% set p = x.p %}{% set c = x.cert %}
   <tr id="emp-{{ p.id }}" class="{{ 'foco' if foco and foco[0] == p.id }}" data-busca="{{ p.codigo_fmt }} {{ p.razao_social|lower }} {{ p.cnpj }} {{ p.cnpj|doc }}">
     <td>{{ p.codigo_fmt }}</td>
-    <td><a class="nome-empresa" href="/prestadores/{{ p.id }}?aba=config#certificado">{{ p.razao_social }}</a>
+    <td class="cel-empresa"><a class="nome-empresa" href="/prestadores/{{ p.id }}?aba=config#certificado" title="{{ p.razao_social }}">{{ p.razao_social }}</a>
       {% if foco and foco[0] == p.id %}<div class="msg-linha ok">{{ foco[1] }}</div>{% endif %}</td>
-    <td>{% if c %}<small title="{{ c.titular }}{% if c.cnpj_certificado %} · CNPJ {{ c.cnpj_certificado|doc }}{% endif %}">{{ c.titular.split(':')[0] }}</small>{% else %}—{% endif %}</td>
+    <td class="linha">{% if c %}<small title="{{ c.titular }}{% if c.cnpj_certificado %} · CNPJ {{ c.cnpj_certificado|doc }}{% endif %}">{{ c.titular.split(':')[0] }}</small>{% else %}—{% endif %}</td>
     <td data-valor="{{ c.validade_fim.strftime('%Y%m%d') if c else '0' }}">{{ c.validade_fim|data if c else '—' }}</td>
     <td class="cert-status">{% if x.classe in ('erro', 'aviso') %}<span class="etiqueta {{ x.classe }}">{{ x.rotulo }}</span>{% elif x.classe == 'ok' %}{{ x.rotulo }}{% else %}<span class="sutil">{{ x.rotulo }}</span>{% endif %}</td>
     <td>{% if p.usa_procuracao %}<span class="etiqueta producao" title="Sem certificado próprio válido">usa o do escritório</span>{% else %}da empresa{% endif %}</td>
