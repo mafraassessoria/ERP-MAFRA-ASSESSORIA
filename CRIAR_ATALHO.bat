@@ -5,9 +5,12 @@ setlocal
 set "PASTA=%~dp0"
 for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')"`) do set "DESKTOP=%%D"
 set "ATALHO=%DESKTOP%\ERP MAFRA ASSESSORIA.url"
+rem Endereco configurado pelo CONFIGURAR_ENDERECO.bat (se houver); senao, o padrao localhost:8800
+set "URL=http://localhost:8800/"
+if exist "%PASTA%dados\endereco.txt" set /p URL=<"%PASTA%dados\endereco.txt"
 (
   echo [InternetShortcut]
-  echo URL=http://localhost:8800/
+  echo URL=%URL%
   echo IconFile=%PASTA%app\static\emissor.ico
   echo IconIndex=0
 ) > "%ATALHO%"

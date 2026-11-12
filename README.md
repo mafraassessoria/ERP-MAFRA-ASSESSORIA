@@ -22,7 +22,7 @@ e os **relatórios por competência**.
    - cria a tarefa **"Emissor NFS-e - Backup diario"**, que roda todo dia às 23h. Se o servidor estiver desligado nesse horário, o backup roda quando ele ligar;
    - cria a tarefa **"Emissor NFS-e - Importacao ADN"**, que importa as notas todo dia às 07h e às 13h;
    - já sobe o sistema e faz um primeiro backup de teste.
-5. Acesse pelo navegador **no servidor** (via RDP): `http://localhost:8800`.
+5. Acesse pelo navegador **no servidor** (via RDP): `http://localhost:8800` — ou `http://erp.mafra` depois de rodar `CONFIGURAR_ENDERECO.bat` como administrador (nome no arquivo hosts + porta 80 redirecionada para 8800 + atalho para todos os usuários).
 6. **Outras contas do Windows no servidor:** o emissor roda para todas as contas (a tarefa usa a conta do sistema).
    Entre com a conta da pessoa e dê dois cliques em `CRIAR_ATALHO.bat` para criar o atalho "Emissor NFS-e"
    na Área de Trabalho dela. Depois crie o login dela em **Usuários** (dentro do emissor).
