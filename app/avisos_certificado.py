@@ -84,7 +84,7 @@ def _registrar(c: models.Certificado) -> None:
 def montar_email(db: Session, p: models.Prestador, c: models.Certificado) -> tuple[str, str, str]:
     """(assunto, texto, html) do aviso de vencimento."""
     esc = escritorio(db)
-    nome_esc = "M & R Assessoria Contábil"
+    nome_esc = "MAFRA ASSESSORIA CONTÁBIL"
     tel = (esc.telefone if esc else "") or ""
     mail = (esc.email if esc else "") or ""
     dias = c.dias_para_vencer
@@ -160,7 +160,7 @@ Atenciosamente,
 def montar_email_renovacao(db: Session, p: models.Prestador, c: models.Certificado) -> tuple[str, str, str]:
     """(assunto, texto, html) do pedido de renovação de certificado já vencido."""
     esc = escritorio(db)
-    nome_esc = "M & R Assessoria Contábil"
+    nome_esc = "MAFRA ASSESSORIA CONTÁBIL"
     tel = (esc.telefone if esc else "") or ""
     mail = (esc.email if esc else "") or ""
     contato = " · ".join(x for x in (tel, mail) if x)
