@@ -108,8 +108,8 @@ DCTFWeb podem ficar bloqueados, gerando atrasos, multas e transtornos.
 O que fazer:
 1. Renove o certificado A1 com a certificadora de sua preferência
    (se preferir, a {nome_esc} indica uma).
-2. Envie o novo certificado (arquivo .pfx ou .p12) e a senha para a {nome_esc}
-   pelo canal habitual do escritório.
+2. Envie o novo certificado (.pfx ou .p12) e a senha para o seu contador
+   (MAFRA ASSESSORIA CONTÁBIL) pelo canal habitual do escritório.
 3. Pronto! Atualizamos o cadastro no mesmo dia e você não precisa fazer mais nada.
 
 Já renovou e nos enviou? Desconsidere este aviso.
@@ -137,7 +137,7 @@ Atenciosamente,
   <p style="margin:18px 0 8px;font-weight:700;color:#1f4e79">O que fazer</p>
   <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:15px">
    <tr><td valign="top" style="padding:4px 10px 4px 0;font-weight:700;color:#1f4e79">1.</td><td style="padding:4px 0">Renove o certificado A1 com a certificadora de sua preferência (se preferir, nós indicamos uma).</td></tr>
-   <tr><td valign="top" style="padding:4px 10px 4px 0;font-weight:700;color:#1f4e79">2.</td><td style="padding:4px 0">Envie o novo certificado (arquivo <b>.pfx</b> ou <b>.p12</b>) e a senha para a {e(nome_esc)} pelo canal habitual do escritório.</td></tr>
+   <tr><td valign="top" style="padding:4px 10px 4px 0;font-weight:700;color:#1f4e79">2.</td><td style="padding:4px 0">Envie o novo certificado (<b>.pfx</b> ou <b>.p12</b>) e a senha para o seu contador (<b>MAFRA ASSESSORIA CONTÁBIL</b>) pelo canal habitual do escritório.</td></tr>
    <tr><td valign="top" style="padding:4px 10px 4px 0;font-weight:700;color:#1f4e79">3.</td><td style="padding:4px 0">Pronto! Atualizamos o cadastro no mesmo dia.</td></tr>
   </table>
   <p style="margin:18px 0 0;color:#66727f;font-size:14px">Já renovou e nos enviou? Desconsidere este aviso.</p>
