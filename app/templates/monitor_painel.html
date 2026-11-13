@@ -24,7 +24,7 @@
 {% endmacro %}
 
 {% macro vazio(cod) %}{% set d = pn[cod] %}
-  {% if not d.total %}<p class="mon-vazio">Ainda não consultado</p>
+  {% if not d.total %}<p class="mon-vazio">{{ 'Nada encontrado na última consulta' if d.ultimo else 'Ainda não consultado' }}</p>
   {% elif d.so_erro %}<p class="mon-vazio">Erro na última consulta{% if d.ultimo %} ({{ d.ultimo.strftime('%d/%m') }}){% endif %} — consulte de novo</p>{% endif %}
 {% endmacro %}
 
@@ -66,7 +66,7 @@
     <a href="/monitor/pagamentos" class="mon-num">{{ pn.pagamentos_mes.total }}<small> pagamento(s)</small></a>
     <div class="mon-partes"><span class="etiqueta {{ 'erro' if pn.pagamentos_mes.atraso }}">Pagos em atraso {{ pn.pagamentos_mes.atraso }}</span>
       <span class="etiqueta">Total R$ {{ pn.pagamentos_mes.valor|moeda }}</span></div>
-    {% else %}<p class="mon-vazio">Ainda não consultado</p>{% endif %}
+    {% else %}<p class="mon-vazio">{{ 'Nenhum pagamento no período' if pn['PAGAMENTOS'].ultimo else 'Ainda não consultado' }}</p>{% endif %}
     {{ rodape('PAGAMENTOS') }}
   </div>
   {{ quadro_sit('CAIXA', 'Caixa postal', 'NOVAS', 'com mensagens não lidas', ['SEM'], 'aviso') }}

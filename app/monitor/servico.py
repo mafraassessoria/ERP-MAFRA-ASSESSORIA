@@ -308,6 +308,12 @@ def painel(db: Session) -> dict:
         ref = referencia_padrao(cod)
         cont = Counter(m.status for m in lista)
         ult = max((m.atualizado_em for m in lista if m.atualizado_em), default=None)
+        if ult is None:   # consultou e não achou nada: vale a data da última execução da rotina
+            try:
+                v = ler_config(db, f"monitor_ultima_{cod}")
+                ult = datetime.fromisoformat(v) if v else None
+            except ValueError:
+                ult = None
         prazo = prazo_entrega(cod, ref)
         out[cod] = dict(ref=ref, total=len(lista), cont=cont, ultimo=ult, prazo=prazo,
                         dias=(prazo - hoje).days if prazo else None, vencido=bool(prazo and prazo < hoje),

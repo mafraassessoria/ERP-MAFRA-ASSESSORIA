@@ -4,18 +4,19 @@
 {% block conteudo %}
 <div class="linha-titulo">
   <div><h1>Guias vencidas e de parcelamento</h1>
-    <p class="sutil">Geradas pelo Integra Contador (as guias dentro do prazo continuam saindo do sistema contábil). Uma guia nova da mesma
-      empresa, tipo e competência substitui a anterior. A baixa é feita pelos pagamentos que o Monitor e-CAC encontra na Receita.</p></div>
+    <p class="sutil" title="As guias dentro do prazo continuam saindo do sistema contábil. Uma guia nova da mesma empresa, tipo e competência substitui a anterior. A baixa é feita pelos pagamentos que o Monitor e-CAC encontra na Receita.">Geradas pelo Integra Contador · baixa pelos pagamentos do Monitor e-CAC</p></div>
   <div class="acoes">
-    <form method="post" action="/guias/conciliar" class="em-linha"><button class="secundario">Conferir pagamentos agora</button></form>
+    <button type="button" onclick="abrirPainel('gerar')">+ Gerar guia</button>
+    <form method="post" action="/guias/conciliar" class="em-linha"><button class="secundario">Conferir pagamentos</button></form>
     <form method="post" action="/guias/parcelas-do-mes" class="em-linha" onsubmit="return confirm('Gerar a parcela de {{ hoje.strftime('%m/%Y') }} para as {{ n_parc }} empresa(s) com parcelamento em andamento (segundo o Monitor e-CAC)?')">
-      <button {{ 'disabled' if not n_parc or modo == 'desligado' or usuario.perfil != 'ADMIN' }}>Gerar parcelas do mês ({{ n_parc }})</button></form>
+      <button class="secundario" {{ 'disabled' if not n_parc or modo == 'desligado' or usuario.perfil != 'ADMIN' }}>Gerar parcelas do mês ({{ n_parc }})</button></form>
+    <button type="button" class="secundario" onclick="abrirPainel('econtador')">e-Contador</button>
   </div>
 </div>
 {% if modo == 'desligado' %}<div class="cartao aviso">O Integra Contador está desligado (Configurações → Integra Contador).</div>{% endif %}
 
-<section class="cartao">
-  <h2>Gerar guia</h2>
+<details class="cartao recolhivel" id="gerar" {{ 'open' if abrir_gerar }}>
+  <summary><h2>Gerar guia</h2></summary>
   <form method="post" action="/guias/gerar" class="rf-campos">
     <label>Empresa <select name="prestador_id" class="combo" required>
       <option value="">— escolha —</option>
@@ -30,10 +31,11 @@
   <form method="post" action="/configuracoes/guias" class="em-linha" style="margin-top:.6rem">
     <label class="rf-radio"><input type="checkbox" class="interruptor" data-auto name="guias_entregar" value="1" {{ 'checked' if entregar_auto }}> Entregar as guias geradas ao Bot Arquivador automaticamente</label>
   </form>{% endif %}
-</section>
+</details>
 
-<section class="cartao" id="econtador">
-  <div class="linha-titulo"><div><h2>e-Contador</h2>
+<details class="cartao recolhivel" id="econtador">
+  <summary><h2>e-Contador</h2> <small class="sutil">{{ 'conectado' if ec.tem else 'não conectado' }}{% if ec.envio_auto %} · envio automático{% endif %}{% if ec.pagas_pendentes %} · {{ ec.pagas_pendentes }} baixa(s) pendente(s){% endif %}</small></summary>
+  <div class="linha-titulo"><div>
     <p class="sutil">{% if ec.tem %}Conectado em {{ ec.conectado_em }}{% if ec.ultimo_teste %} · último teste: {{ ec.ultimo_teste }}{% endif %}.
       Marque guias em aberto e envie para o cliente no e-Contador (categoria Guias); a guia anterior do mesmo período, se foi enviada pelo ERP, é excluída de lá.
       {% else %}Não conectado.{% endif %}</p></div>
@@ -44,13 +46,13 @@
         <label class="rf-radio"><input type="checkbox" class="interruptor" data-auto name="econtador_enviar_guias_auto" value="1" {{ 'checked' if ec.envio_auto }}> Enviar ao e-Contador automaticamente assim que a guia é gerada</label>
         <label class="rf-radio"><input type="checkbox" class="interruptor" data-auto name="econtador_baixa_guias_auto" value="1" {{ 'checked' if ec.baixa_auto }}> Baixa automática no e-Contador depois da conferência de pagamentos</label></form>{% endif %}
     </div></div>
-</section>
+</details>
 
 <form class="busca filtros" method="get">
   <select name="situacao"><option value="">Todas</option>{% for k, v in SITUACOES.items() %}<option value="{{ k }}" {{ 'selected' if k == situacao }}>{{ v[0] }}</option>{% endfor %}</select>
   <select name="tipo"><option value="">Todos os tipos</option>{% for k, v in TIPOS.items() %}<option value="{{ k }}" {{ 'selected' if k == tipo }}>{{ v[0] }}</option>{% endfor %}</select>
   <select name="empresa"><option value="0">Todas as empresas</option>{% for p in empresas %}<option value="{{ p.id }}" {{ 'selected' if p.id == empresa }}>{{ p.nome_exibicao }}</option>{% endfor %}</select>
-  <button>Filtrar</button><span class="sutil" style="margin-left:auto">{{ lista|length }} guia(s)</span>
+  <button>Filtrar</button><span class="sutil" style="margin-left:auto">{{ lista|length }} guia(s){% set abertas = lista|selectattr('situacao', 'equalto', 'ABERTA')|list %}{% if abertas %} · em aberto <b>R$ {{ abertas|sum(attribute='valor')|moeda }}</b>{% endif %}</span>
 </form>
 <form method="post" action="/guias/econtador/enviar" id="form-ec-enviar">
 <input type="hidden" name="volta" value="/guias?situacao={{ situacao }}&tipo={{ tipo }}&empresa={{ empresa }}">
@@ -85,4 +87,8 @@
 </table>
 </section>
 <script src="/static/combo.js"></script>
+<script>
+function abrirPainel(id) { var d = document.getElementById(id); d.open = true; d.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+if (location.hash === '#econtador') document.getElementById('econtador').open = true;
+</script>
 {% endblock %}

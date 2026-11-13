@@ -4,7 +4,6 @@
 {% block conteudo %}
 <div class="linha-titulo">
   <h1>Notas fiscais</h1>
-  {% if qtd_total %}<div class="export-filtro"><span class="tipos-export" title="O que vai no ZIP"><label><input type="checkbox" class="exp-pdf" checked> PDF</label><label><input type="checkbox" class="exp-xml" checked> XML</label></span><a class="botao exportar-zip" href="/notas/exportar.zip?{{ qs }}">Exportar todas do filtro (ZIP)</a></div>{% endif %}
 </div>
 
 {% include "_filtros_notas.html" %}
@@ -14,4 +13,5 @@
 
 {% set mostrar_prestador = True %}{% set permitir_clonar = False %}{% set selecionavel = True %}{% set volta_sel = request.url.path ~ ("?" ~ qs if qs else "") %}
 {% include "_tabela_notas.html" %}
+{% if qtd_total %}<div class="export-rodape"><div class="export-filtro"><span class="tipos-export" title="O que vai no ZIP"><label><input type="checkbox" class="exp-pdf" checked> PDF</label><label><input type="checkbox" class="exp-xml" checked> XML</label></span><a class="botao secundario exportar-zip" href="/notas/exportar.zip?{{ qs }}">Exportar todas do filtro (ZIP)</a></div></div>{% endif %}
 {% endblock %}

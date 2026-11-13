@@ -436,3 +436,25 @@ table td:has(+ td > .nome-empresa), table td.cod-empresa { font-weight:600; colo
 .cel-avisos { font-size:.85rem; line-height:1.35; }
 .cel-avisos .acoes-linha { display:block; margin:.15rem 0 0; padding:0; border:0; font-size:.8rem; }
 .cel-avisos .acoes-linha button.link { padding:0; font-size:.8rem; }
+
+/* Painel: faixa de alerta discreta e rodapé do sistema */
+.faixa-alerta { background:#fff8e6; border:1px solid #f3dc9c; color:#6b4a00; border-radius:6px; padding:.35rem .75rem; font-size:.88rem; margin:.4rem 0 .8rem; }
+.faixa-alerta.erro { background:#fdf0f0; border-color:#f5c2c2; color:#8a1c1c; }
+.faixa-alerta a { margin-left:.4rem; }
+.rodape-sistema { font-size:.84rem; color:var(--sutil, #666); margin-top:1.2rem; border-top:1px solid #e5e5e5; padding-top:.6rem; }
+.rodape-sistema b { font-weight:600; }
+
+details.recolhivel > summary { cursor:pointer; list-style:none; }
+details.recolhivel > summary::-webkit-details-marker { display:none; }
+details.recolhivel > summary h2 { display:inline; margin:0; font-size:1.05rem; }
+details.recolhivel > summary::before { content:"▸ "; color:#888; }
+details.recolhivel[open] > summary::before { content:"▾ "; }
+details.recolhivel[open] > summary { margin-bottom:.6rem; }
+
+table.tabela-cnd td { padding-top:.25rem; padding-bottom:.25rem; }
+table.tabela-cnd tr.grupo-empresa td { background:#f2f6fb; padding:.35rem .5rem; border-top:1px solid #d9e3ef; }
+table.tabela-cnd tr.grupo-empresa .nome-empresa { font-weight:600; }
+table.tabela-cnd td.icones a { text-decoration:none; font-size:1.05rem; }
+table.tabela-cnd tr.grupo-empresa td { width:auto; }
+
+.icones-modulo span { margin-left:.25rem; cursor:help; font-size:.95rem; }

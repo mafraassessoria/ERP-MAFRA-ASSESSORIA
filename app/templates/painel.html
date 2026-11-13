@@ -1,9 +1,19 @@
 {% extends "base.html" %}
-{% block titulo %}Painel{% endblock %}
+{% block titulo %}Painel{% if sistema %}
+<p class="rodape-sistema"><a href="{{ sistema.link }}"><span aria-hidden="true">{{ sistema.icone }}</span> Sistema</a>
+  {% for l in sistema.linhas %} · {% if l.link %}<a href="{{ l.link }}">{{ l.rotulo }}</a>{% else %}{{ l.rotulo }}{% endif %}: <b class="{{ l.nivel }}">{{ l.valor }}</b>{% endfor %}</p>
+{% endif %}
+{% endblock %}
 {% block conteudo %}
 <div class="linha-titulo"><h1>Painel</h1>
   <p class="sutil"><a href="/prestadores?situacao=ativos">{{ empresas.ativas }} empresas ativas</a> · {{ empresas.nfse }} com NFS-e ·
     {{ empresas.receita }} com Integra Contador · {{ empresas.cnd }} com certidões</p></div>
+
+{% if serpro %}
+<div class="faixa-alerta {{ 'erro' if serpro.estourou }}">Gasto com o Serpro em <b>{{ serpro.pct }}%</b> do limite do mês ({{ serpro.gasto }} de {{ serpro.limite }}).
+  {% if serpro.estourou %}Novas consultas pagas ficam bloqueadas até o próximo mês.{% else %}Consultas pagas param ao atingir o limite.{% endif %}
+  <a href="/configuracoes#apis-serpro">Ajustar limite</a></div>
+{% endif %}
 
 <section class="para-hoje">
   <h2>Para hoje <small class="sutil">· {{ hoje_txt }}</small></h2>
@@ -41,5 +51,9 @@
     {% endfor %}
   </table>
 </details>
+{% endif %}
+{% if sistema %}
+<p class="rodape-sistema"><a href="{{ sistema.link }}"><span aria-hidden="true">{{ sistema.icone }}</span> Sistema</a>
+  {% for l in sistema.linhas %} · {% if l.link %}<a href="{{ l.link }}">{{ l.rotulo }}</a>{% else %}{{ l.rotulo }}{% endif %}: <b class="{{ l.nivel }}">{{ l.valor }}</b>{% endfor %}</p>
 {% endif %}
 {% endblock %}

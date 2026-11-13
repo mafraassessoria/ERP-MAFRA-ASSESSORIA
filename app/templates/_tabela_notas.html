@@ -6,10 +6,10 @@
 <table class="notas ordenavel" id="tab-notas">
   <colgroup>
     {% if selecionavel %}<col style="width:42px">{% endif %}<col style="width:calc({{ [ns_num.m, 24]|min }}ch + 2.2rem)">{% if mostrar_prestador %}<col>{% endif %}<col><col style="width:150px">
-    <col style="width:135px"><col style="width:120px">{% if tem_iss %}<col style="width:115px">{% endif %}{% if tem_inss %}<col style="width:115px">{% endif %}
+    <col style="width:110px"><col style="width:120px"><col style="width:120px">{% if tem_iss %}<col style="width:115px">{% endif %}{% if tem_inss %}<col style="width:115px">{% endif %}
     <col style="width:115px">{% if permitir_clonar %}<col style="width:80px">{% endif %}
   </colgroup>
-  <tr>{% if selecionavel %}<th class="sem-ordem"><input type="checkbox" id="sel-todas" title="Marcar todas"></th>{% endif %}<th>Nº NFS-e</th>{% if mostrar_prestador %}<th>Prestador</th>{% endif %}<th>Tomador</th><th>Tipo</th><th>Competência</th>
+  <tr>{% if selecionavel %}<th class="sem-ordem"><input type="checkbox" id="sel-todas" title="Marcar todas"></th>{% endif %}<th>Nº NFS-e</th>{% if mostrar_prestador %}<th>Prestador</th>{% endif %}<th>Tomador</th><th>Tipo</th><th title="Data de emissão (base da escrituração)">Emissão</th><th>Competência</th>
     <th class="num">Valor</th>{% if tem_iss %}<th class="num" title="ISS retido pelo tomador/intermediário">ISS retido</th>{% endif %}
     {% if tem_inss %}<th class="num" title="Contribuição previdenciária (INSS) retida">INSS retido</th>{% endif %}
     <th>Situação</th>{% if permitir_clonar %}<th class="sem-ordem"></th>{% endif %}</tr>
@@ -21,7 +21,8 @@
     {% if mostrar_prestador %}<td class="linha {{ 'propria' if doc_empresa and doc_prest == doc_empresa }}" title="{{ n.nome_prestador }} · {{ doc_prest|doc }}">{{ n.nome_prestador }}</td>{% endif %}
     <td class="linha {{ 'propria' if doc_empresa and n.tomador_documento == doc_empresa }}" title="{{ n.tomador_nome }}{% if n.tomador_documento %} · {{ n.tomador_documento|doc }}{% endif %}">{{ n.tomador_nome }}</td>
     <td class="linha">{{ 'Prestada' if n.papel == 'PRESTADO' else 'Tomada' }}{% if n.origem == 'IMPORTADA' %} <span class="etiqueta mini" title="Importada do ADN">ADN</span>{% endif %}</td>
-    <td class="linha">{{ n.competencia|data }}</td>
+    <td class="linha">{{ n.data_emissao|data if n.data_emissao else '—' }}</td>
+    <td class="linha {{ 'sutil' if n.data_emissao and n.competencia and n.data_emissao.strftime('%Y-%m') != n.competencia.strftime('%Y-%m') }}" {% if n.data_emissao and n.competencia and n.data_emissao.strftime('%Y-%m') != n.competencia.strftime('%Y-%m') %}title="Competência diferente do mês de emissão"{% endif %}>{{ n.competencia|data }}</td>
     <td class="linha num">{{ n.valor_servicos|moeda }}</td>
     {% if tem_iss %}<td class="linha num">{{ n.iss_retido|vazio_se_zero }}</td>{% endif %}
     {% if tem_inss %}<td class="linha num">{{ n.ret_inss|vazio_se_zero }}</td>{% endif %}
@@ -33,7 +34,7 @@
   <tr><td colspan="13" class="sutil">Nenhuma nota encontrada.</td></tr>
   {% endfor %}
   {% if lista %}
-  <tr class="total">{% if selecionavel %}<td></td>{% endif %}<td>Total</td>{% if mostrar_prestador %}<td></td>{% endif %}<td></td><td></td><td></td>
+  <tr class="total">{% if selecionavel %}<td></td>{% endif %}<td>Total</td>{% if mostrar_prestador %}<td></td>{% endif %}<td></td><td></td><td></td><td></td>
     <td class="num">{{ lista|sum(attribute='valor_servicos')|moeda }}</td>
     {% if tem_iss %}<td class="num">{{ lista|sum(attribute='iss_retido')|moeda }}</td>{% endif %}
     {% if tem_inss %}<td class="num">{{ lista|sum(attribute='ret_inss')|moeda }}</td>{% endif %}

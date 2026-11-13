@@ -58,8 +58,8 @@
   <button>Aplicar</button>
 </div>
 <table class="notas ordenavel" id="tab-prestadores">
-  <colgroup><col style="width:42px"><col style="width:70px"><col><col style="width:170px"><col style="width:150px"><col style="width:200px"><col style="width:150px"><col style="width:140px"></colgroup>
-  <tr><th><input type="checkbox" id="todos" title="Selecionar todos"></th><th>Cód.</th><th>Razão social</th><th>CNPJ</th><th>Regime</th><th>Módulos</th><th>Certificado</th><th>Em uso</th></tr>
+  <colgroup><col style="width:42px"><col style="width:70px"><col><col style="width:170px"><col style="width:150px"><col style="width:190px"><col style="width:200px"></colgroup>
+  <tr><th><input type="checkbox" id="todos" title="Selecionar todos"></th><th>Cód.</th><th>Razão social</th><th>CNPJ</th><th>Regime</th><th>Módulos</th><th>Certificado</th></tr>
   {% for p in lista %}
   {% set c = p.certificado_ativo %}
   <tr class="{{ '' if p.ativo else 'inativo' }}">
@@ -69,17 +69,15 @@
     <td class="linha">{{ p.cnpj|doc }}</td>
     <td class="linha" title="{{ REGIMES[p.regime] }}">{{ REGIMES_CURTO[p.regime] }}</td>
     <td class="linha" title="{{ p.modulos|join(', ') }}">{% if p.usa_nfse %}{{ 'Emissão' if p.modo == 'EMISSAO' else 'Importação' }}{% else %}<span class="sutil">sem NFS-e</span>{% endif %}
-      {% if p.usa_receita %}<span class="etiqueta mini">RF</span>{% endif %}{% if p.usa_econtador %}<span class="etiqueta mini">eC</span>{% endif %}{% if p.usa_cnd %}<span class="etiqueta mini">CND</span>{% endif %}</td>
-    {% if not p.usa_nfse %}<td class="linha sutil">—</td><td class="linha sutil">—</td>{% else %}
-    <td class="linha">{% if not c %}<span class="sutil">sem certificado</span>
-        {% elif c.dias_para_vencer < 0 %}<span class="etiqueta erro">vencido</span>
-        {% elif c.dias_para_vencer < 30 %}<span class="etiqueta aviso">vence em {{ c.dias_para_vencer }} d</span>
-        {% else %}até {{ c.validade_fim|data }}{% endif %}</td>
+      <span class="icones-modulo">{% if p.usa_receita %}<span title="Integra Contador">🏛️</span>{% endif %}{% if p.usa_econtador %}<span title="e-Contador">📂</span>{% endif %}{% if p.usa_cnd %}<span title="Certidões">📜</span>{% endif %}</span></td>
+    {% if not p.usa_nfse %}<td class="linha sutil">—</td>{% else %}
     <td class="linha">{% if p.usa_procuracao %}<span class="etiqueta producao" title="Sem certificado próprio válido: usa o certificado do escritório">Procuração</span>
-        {% else %}da empresa{% endif %}</td>{% endif %}
+          {% if c and c.dias_para_vencer < 0 %} <small class="sutil">venceu {{ c.validade_fim|data }}</small>{% endif %}
+        {% else %}{% set cv = p.certificado_valido %}{% if cv.dias_para_vencer < 30 %}<span class="etiqueta aviso">vence em {{ cv.dias_para_vencer }} d</span>
+        {% else %}até {{ cv.validade_fim|data }}{% endif %}{% endif %}</td>{% endif %}
   </tr>
   {% else %}
-  <tr><td colspan="8" class="sutil">Nenhuma empresa cadastrada.</td></tr>
+  <tr><td colspan="7" class="sutil">Nenhuma empresa cadastrada.</td></tr>
   {% endfor %}
 </table>
 </form>

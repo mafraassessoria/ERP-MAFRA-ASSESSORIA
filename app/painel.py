@@ -196,6 +196,7 @@ def montar(db: Session, u: models.Usuario) -> dict:
     backup_atrasado = ultimo_backup is None or ultimo_backup < datetime.now() - timedelta(days=2)
     acao("erro", 1 if backup_atrasado else 0, "backup atrasado: " + (f"o último é de {ultimo_backup:%d/%m %H:%M}" if ultimo_backup else "nenhum backup feito"), "/configuracoes")
     seguranca = None
+    serpro = None
     if u.perfil == "ADMIN":
         from .seguranca import login_bloqueado
         from .serpro import servico as sv
@@ -208,6 +209,9 @@ def montar(db: Session, u: models.Usuario) -> dict:
         acao("erro", len(bloqueados), "usuário(s) bloqueado(s) agora por senha errada: " + ", ".join(bloqueados), "/auditoria?acao=LOGIN_FALHOU")
         gasto, limite = sv.gasto_mes(db), sv.limite_mensal(db)
         perto = limite and gasto >= limite * Decimal("0.8")
+        if perto:
+            serpro = dict(gasto=_brl(gasto), limite=_brl(limite), pct=f"{gasto / limite * 100:.0f}",
+                          estourou=gasto >= limite)
         acao("aviso", 1 if perto else 0, f"gasto com o Serpro em {gasto / limite * 100:.0f}% do limite do mês" if limite else "", "/configuracoes#receita")
         cartoes.append(dict(titulo="Sistema", icone="⚙️", link="/configuracoes", linhas=[
             _linha("Gasto Serpro no mês", f"{_brl(gasto)} de {_brl(limite)}", "/configuracoes#apis-serpro", "aviso" if perto else ""),
@@ -219,7 +223,8 @@ def montar(db: Session, u: models.Usuario) -> dict:
 
     ordem = {"erro": 0, "aviso": 1, "info": 2}
     acoes.sort(key=lambda a: ordem[a["nivel"]])
-    return dict(acoes=acoes, cartoes=cartoes, detalhes_nfse=detalhes_nfse, seguranca=seguranca,
+    return dict(acoes=acoes, cartoes=[c for c in cartoes if c['titulo'] != 'Sistema'],
+                sistema=next((c for c in cartoes if c['titulo'] == 'Sistema'), None), serpro=serpro, detalhes_nfse=detalhes_nfse, seguranca=seguranca,
                 hoje_txt=f"{DIAS_SEMANA[hoje.weekday()]}, {hoje:%d/%m/%Y}",
                 empresas=dict(ativas=len(prest), nfse=sum(1 for p in prest if p.usa_nfse),
                               receita=sum(1 for p in prest if p.usa_receita), cnd=sum(1 for p in prest if p.usa_cnd)))

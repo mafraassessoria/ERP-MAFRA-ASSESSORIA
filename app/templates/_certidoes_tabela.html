@@ -1,25 +1,28 @@
 {# Espera: lista (linhas de certidoes.servico.linhas), mostrar_empresa, volta #}
-<table class="compacta">
-  <thead><tr>{% if mostrar_empresa %}<th>Empresa</th>{% endif %}<th>Certidão</th><th>Emissão</th><th>Validade</th><th>Situação no Pack</th><th>Estado</th><th>O que fazer</th><th>Arquivo</th><th>Arquivador</th></tr></thead>
+<table class="compacta tabela-cnd">
+  <thead><tr><th>Certidão</th><th>Emissão</th><th>Validade</th><th>Situação no Pack</th><th>Estado</th><th>O que fazer</th><th title="Abrir / baixar">Arquivo</th><th>Arquivador</th></tr></thead>
   <tbody>
+  {% set ns = namespace(ult=None) %}
   {% for r in lista %}{% set c = r.c %}
+    {% if mostrar_empresa and c.prestador_id != ns.ult %}{% set ns.ult = c.prestador_id %}
+    <tr class="grupo-empresa"><td colspan="8"><a class="nome-empresa" href="/prestadores/{{ c.prestador_id }}/certidoes">{{ c.prestador.nome_exibicao }}</a></td></tr>
+    {% endif %}
     <tr class="{{ 'inativo' if r.substituida }}">
-      {% if mostrar_empresa %}<td><a class="nome-empresa" href="/prestadores/{{ c.prestador_id }}/certidoes">{{ c.prestador.nome_exibicao }}</a></td>{% endif %}
-      <td>{{ c.tipo_nome }}<br><small class="sutil">registro {{ c.pack_id }}{% if not c.tipo %} · tipo não mapeado{% endif %}{% if c.avisos and r.estado not in ('NAO_EMITIDA', 'IMPEDIMENTO', 'INDISPONIVEL') %} · {{ c.avisos if c.pack_id.startswith('RFB-') else 'data ilegível: ' ~ c.avisos }}{% endif %}</small></td>
+      <td title="registro {{ c.pack_id }}">{{ c.tipo_nome }}{% if not c.tipo %} <small class="sutil">· tipo não mapeado</small>{% endif %}{% if c.avisos and r.estado not in ('NAO_EMITIDA', 'IMPEDIMENTO', 'INDISPONIVEL') %}<br><small class="sutil">{{ c.avisos if c.pack_id.startswith('RFB-') else 'data ilegível: ' ~ c.avisos }}</small>{% endif %}</td>
       <td>{{ c.emissao|data if c.emissao else '—' }}</td>
       <td>{{ c.vencimento|data if c.vencimento else '—' }}</td>
       <td>{{ c.situacao or '—' }}</td>
       <td><span class="etiqueta {{ r.classe }}">{{ r.rotulo }}</span></td>
       <td>{% if r.acao and r.estado != 'VALIDA' %}<small>{{ r.acao }}</small>{% else %}<span class="sutil">—</span>{% endif %}</td>
-      <td>{% if c.arquivo %}<a href="/certidoes/{{ c.id }}/arquivo" target="_blank">Abrir</a> · <a href="/certidoes/{{ c.id }}/arquivo?download=1">Baixar</a>{% else %}<span class="sutil">—</span>{% endif %}
-        {% if c.erro %}<br><small class="erro-texto" title="{{ c.erro }}">{{ c.erro[:90] }}</small>{% endif %}</td>
-      <td>{% if c.publicado_em %}<small title="{{ c.publicado_como }}">{{ c.publicado_em|datahora }}<br>{{ c.publicado_como.replace('/', '\\').split('\\')[-1][:70] }}</small>
+      <td class="icones">{% if c.arquivo %}<a href="/certidoes/{{ c.id }}/arquivo" target="_blank" title="Abrir">📄</a> <a href="/certidoes/{{ c.id }}/arquivo?download=1" title="Baixar">⬇</a>{% else %}<span class="sutil">—</span>{% endif %}
+        {% if c.erro %}<br><small class="erro-texto" title="{{ c.erro }}">{{ c.erro[:60] }}</small>{% endif %}</td>
+      <td>{% if c.publicado_em %}<small title="{{ c.publicado_como }}">✓ {{ c.publicado_em|data }}</small>
           {% elif c.arquivo and not r.substituida and r.estado in ('VALIDA', 'VENCE_LOGO') %}
           <form method="post" action="/certidoes/{{ c.id }}/entregar" class="em-linha"><input type="hidden" name="volta" value="{{ volta }}"><button class="secundario mini">Entregar</button></form>
           {% else %}<span class="sutil">—</span>{% endif %}</td>
     </tr>
   {% else %}
-    <tr><td colspan="9" class="sutil">Nenhuma certidão. {% if tem_token %}Use "Consultar o Pack CND".{% else %}Configure a chave do e-Contador em Configurações.{% endif %}</td></tr>
+    <tr><td colspan="8" class="sutil">Nenhuma certidão. {% if tem_token %}Use "Consultar o Pack CND".{% else %}Configure a chave do e-Contador em Configurações.{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table>
