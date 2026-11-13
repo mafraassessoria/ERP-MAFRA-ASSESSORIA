@@ -3,7 +3,7 @@
   <span class="info">{{ p.cnpj|doc }} · {{ REGIMES[p.regime] }}
     {% for m in p.modulos %}<span class="etiqueta mini">{{ m }}</span>{% endfor %}
     {% if p.usa_nfse and p.modo != 'EMISSAO' %}<span class="etiqueta mini">só importação</span>{% endif %}
-    {% if p.usa_nfse and p.usa_procuracao %}<span class="etiqueta mini producao" title="Sem certificado próprio válido: usa o do escritório">cert. do escritório</span>{% endif %}
+    {% if p.usa_nfse and p.usa_procuracao %}<span class="etiqueta mini producao" title="Sem certificado próprio válido: usa o do escritório">Procuração</span>{% endif %}
     {% if not p.ativo %}<span class="etiqueta erro">inativo</span>{% endif %}</span>
   <div class="acoes">
     {% if p.usa_nfse and p.modo == 'EMISSAO' %}{% if p.usa_lote %}<a class="botao secundario" href="/prestadores/{{ p.id }}/notas/lote">Emitir em lote</a>{% endif %}

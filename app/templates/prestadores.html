@@ -75,7 +75,7 @@
         {% elif c.dias_para_vencer < 0 %}<span class="etiqueta erro">vencido</span>
         {% elif c.dias_para_vencer < 30 %}<span class="etiqueta aviso">vence em {{ c.dias_para_vencer }} d</span>
         {% else %}até {{ c.validade_fim|data }}{% endif %}</td>
-    <td class="linha">{% if p.usa_procuracao %}<span class="etiqueta producao">escritório (procuração)</span>
+    <td class="linha">{% if p.usa_procuracao %}<span class="etiqueta producao" title="Sem certificado próprio válido: usa o certificado do escritório">Procuração</span>
         {% else %}da empresa{% endif %}</td>{% endif %}
   </tr>
   {% else %}

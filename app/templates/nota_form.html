@@ -5,7 +5,7 @@
   <div>
     <h1>{{ 'Editar rascunho' if n.id else 'Emitir NFS-e' }}</h1>
     <p class="sutil">{{ p.razao_social }} · {{ p.cnpj|doc }} · {{ REGIMES[p.regime] }}
-      {% if p.usa_procuracao %}· <span class="etiqueta">certificado do escritório (procuração)</span>{% endif %}</p>
+      {% if p.usa_procuracao %}· <span class="etiqueta" title="Sem certificado próprio válido: usa o certificado do escritório">Procuração</span>{% endif %}</p>
   </div>
 </div>
 

@@ -58,7 +58,7 @@
     <td class="linha">{% if c %}<small title="{{ c.titular }}{% if c.cnpj_certificado %} · CNPJ {{ c.cnpj_certificado|doc }}{% endif %}">{{ c.titular.split(':')[0] }}</small>{% else %}—{% endif %}</td>
     <td data-valor="{{ c.validade_fim.strftime('%Y%m%d') if c else '0' }}">{{ c.validade_fim|data if c else '—' }}</td>
     <td class="cert-status">{% if x.classe in ('erro', 'aviso') %}<span class="etiqueta {{ x.classe }}">{{ x.rotulo }}</span>{% elif x.classe == 'ok' %}{{ x.rotulo }}{% else %}<span class="sutil">{{ x.rotulo }}</span>{% endif %}</td>
-    <td>{% if p.usa_procuracao %}<span class="etiqueta producao" title="Sem certificado próprio válido">usa o do escritório</span>{% else %}da empresa{% endif %}</td>
+    <td>{% if p.usa_procuracao %}<span class="etiqueta producao" title="Sem certificado próprio válido: usa o certificado do escritório">Procuração</span>{% else %}da empresa{% endif %}</td>
     <td><input type="email" class="email-aviso" data-pid="{{ p.id }}" value="{{ p.email or '' }}" placeholder="sem e-mail" multiple>
       <small class="email-estado"></small></td>
     <td class="cel-avisos">
