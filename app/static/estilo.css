@@ -414,3 +414,8 @@ table.notas.tabela-cert { table-layout:auto; width:100%; }
   gap:.5rem; font-size:.78rem; color:var(--sutil); }
 .mon-grade.quatro { grid-template-columns:repeat(4, minmax(0, 1fr)); }
 @media (max-width:1200px) { .mon-grade.quatro { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+.tabela-conf td, .tabela-conf th { white-space:nowrap; }
+.tabela-conf tr.linha-link { cursor:pointer; }
+.tabela-conf tr.linha-link:hover td { background:#f3f7fb; }
+.aviso-icone { display:inline-block; width:16px; height:16px; line-height:16px; text-align:center; border-radius:50%; background:#fdecea;
+  color:var(--verm); font-style:normal; font-weight:700; font-size:11px; margin-left:4px; cursor:help; }

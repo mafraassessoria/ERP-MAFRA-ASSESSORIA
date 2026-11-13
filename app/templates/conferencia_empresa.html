@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block titulo %}Conferência PGDAS-D · {{ p.razao_social }}{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+{% set r = d.r %}
+<div class="linha-titulo">
+  <div><a href="/conferencia-pgdas?ref={{ ref }}#emp-{{ p.id }}" class="sutil">← Conferência {{ ref[5:] }}/{{ ref[:4] }}</a>
+    <h1 style="margin:.2rem 0"><span class="sutil">{{ p.codigo_fmt }} ·</span> {{ p.razao_social }}</h1>
+    <span class="sutil">{{ p.cnpj|doc }} · competência {{ ref[5:] }}/{{ ref[:4] }}</span>
+    {% if d.classe %}<span class="etiqueta {{ d.classe }}">{{ d.situacao }}</span>{% else %}<span class="etiqueta">{{ d.situacao }}</span>{% endif %}</div>
+  <div class="em-linha" style="gap:.5rem">
+    {% if ant %}<a class="botao secundario" href="/conferencia-pgdas/empresa/{{ ant }}?ref={{ ref }}">← anterior</a>{% endif %}
+    {% if prox %}<a class="botao secundario" href="/conferencia-pgdas/empresa/{{ prox }}?ref={{ ref }}">próxima →</a>{% endif %}
+  </div>
+</div>
+{% for e in d.erros %}<div class="msg erro">NF-Stock — {{ e }}</div>{% endfor %}
+{% if r and r.erro_nfstock %}<div class="msg erro">NF-Stock — {{ r.erro_nfstock }}</div>{% endif %}
+{% if r and r.obs %}<div class="msg">{{ r.obs }}</div>{% endif %}
+
+<div class="mon-grade tres" style="margin:.8rem 0 1.2rem">
+  <div class="cartao mon-quadro"><h2>Faturamento</h2>
+    {% if r and r.faturamento_em %}
+    <table class="compacta"><tbody>
+      <tr><td>{{ ROTULO.NFSE_ERP }}</td><td class="num">{{ r.qtd_nfse }}</td><td class="num">{{ r.nfse|moeda }}</td></tr>
+      <tr><td>NF-e</td><td class="num">{{ r.qtd_nfe }}</td><td class="num">{{ r.nfe|moeda }}</td></tr>
+      <tr><td>NFC-e</td><td class="num">{{ r.qtd_nfce }}</td><td class="num">{{ r.nfce|moeda }}</td></tr>
+      {% for m, qv in r.detalhe.items() %}<tr><td>{{ ROTULO.get(m, m) }}</td><td class="num">{{ qv[0] }}</td><td class="num">{{ qv[1]|moeda }}</td></tr>{% endfor %}
+      <tr><td><b>Total</b></td><td></td><td class="num"><b>{{ r.faturamento|moeda }}</b></td></tr>
+    </tbody></table>
+    <small class="sutil">atualizado {{ r.faturamento_em|datahora }}</small>
+    {% else %}<p class="mon-vazio">Clique em "Atualizar" na conferência.</p>{% endif %}
+  </div>
+  <div class="cartao mon-quadro"><h2>Declarado no PGDAS-D</h2>
+    {% if r and r.declarado is not none %}
+    <span class="mon-num">{{ r.declarado|moeda }}<small> receita do período (RPA)</small></span>
+    <div>RBT12: <b>{{ r.rbt12|moeda if r.rbt12 is not none else '—' }}</b>
+      {% if d.alerta[0] %}<span class="etiqueta {{ d.alerta[1] }}">{{ d.alerta[0] }}</span>{% endif %}</div>
+    {% if r.arquivo_extrato %}<a href="/conferencia-pgdas/extrato/{{ r.id }}" target="_blank">abrir extrato</a>
+    {% elif r.consulta_id %}<a href="/receita/consultas/{{ r.consulta_id }}/arquivo/0" target="_blank">abrir declaração</a>{% endif %}
+    {% else %}<p class="mon-vazio">Sem extrato na pasta para esta competência.</p>{% endif %}
+  </div>
+  <div class="cartao mon-quadro"><h2>Diferença</h2>
+    {% if d.dif is not none %}<span class="mon-num {{ 'ok' if d.dif|abs <= 1 else 'aviso' }}">{{ d.dif|moeda }}</span>
+      <small class="sutil">{{ 'faturamento maior que o declarado' if d.dif > 1 else ('declarado maior que o faturamento' if d.dif < -1 else 'confere') }}</small>
+    {% else %}<p class="mon-vazio">—</p>{% endif %}
+  </div>
+</div>
+
+<h2 class="mon-secao">NFS-e prestadas (ERP) — emitidas em {{ ref[5:] }}/{{ ref[:4] }}</h2>
+<table class="notas compacta"><thead><tr><th>Número</th><th>Emissão</th><th>Competência</th><th>Tomador</th><th>Situação</th><th class="num">Valor</th></tr></thead><tbody>
+{% for n in d.nfse %}<tr class="{{ 'sutil' if n.situacao != 'AUTORIZADA' }}">
+  <td>{{ n.numero_nfse or '—' }}</td><td>{{ n.data_emissao|data }}</td>
+  <td>{{ n.competencia.strftime('%m/%Y') if n.competencia else '—' }}{% if n.competencia and n.competencia.strftime('%Y-%m') != ref %} <span class="etiqueta aviso mini">outro mês</span>{% endif %}</td>
+  <td>{{ n.tomador_nome }}</td><td>{{ n.situacao|capitalize }}</td><td class="num">{{ n.valor_servicos|moeda }}</td></tr>
+{% else %}<tr><td colspan="6" class="sutil">Nenhuma NFS-e emitida no mês.</td></tr>{% endfor %}
+</tbody></table>
+{% if d.comp_fora %}<p class="linha-pequena">Com competência {{ ref[5:] }}/{{ ref[:4] }} mas emitidas em outro mês (não entram na soma):
+  {% for n in d.comp_fora %}nº {{ n.numero_nfse }} de {{ n.data_emissao|data }} (R$ {{ n.valor_servicos|moeda }}){{ '; ' if not loop.last }}{% endfor %}</p>{% endif %}
+
+{% for titulo, lista in (('NF-e emitidas (NF-Stock)', d.nfe), ('NFC-e emitidas (NF-Stock)', d.nfce)) %}{% if lista %}
+<h2 class="mon-secao">{{ titulo }}</h2>
+<table class="notas compacta"><thead><tr><th>Série/número</th><th>Emissão</th><th>Destinatário</th><th>Situação</th><th class="num">Valor</th></tr></thead><tbody>
+{% for x in lista %}<tr><td>{{ x.numero }}</td><td>{{ x.emissao[8:10] }}/{{ x.emissao[5:7] }}/{{ x.emissao[:4] }}</td><td>{{ x.destinatario }}</td><td>{{ x.status }}</td><td class="num">{{ x.valor|moeda }}</td></tr>{% endfor %}
+</tbody></table>{% endif %}{% endfor %}
+
+{% if d.outros %}
+<h2 class="mon-secao">Outros documentos (NF-Stock)</h2>
+<table class="notas compacta"><thead><tr><th>Modelo</th><th>Número</th><th>Emissão</th><th>Destinatário</th><th>Situação</th><th class="num">Valor</th></tr></thead><tbody>
+{% for x in d.outros %}<tr class="{{ 'sutil' if x.emitente[:8] != p.cnpj[:8] }}"><td>{{ ROTULO.get(x.modelo, x.modelo) }}</td><td>{{ x.numero }}</td><td>{{ x.emissao|data }}</td>
+  <td>{{ x.destinatario }}{% if x.emitente and x.emitente[:8] != p.cnpj[:8] %} <small>(recebido)</small>{% endif %}</td><td>{{ x.status|capitalize }}{% if x.erro %} <small class="erro-texto">{{ x.erro }}</small>{% endif %}</td>
+  <td class="num">{{ x.valor|moeda if x.valor is not none else '—' }}</td></tr>{% endfor %}
+</tbody></table>{% endif %}
+{% endblock %}

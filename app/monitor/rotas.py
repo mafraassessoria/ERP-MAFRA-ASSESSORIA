@@ -410,3 +410,19 @@ def conferencia_diag_tipos(cnpj: str, ref: str = "", db: Session = Depends(get_d
             except requests.RequestException as e:
                 out.append(dict(doc=doc, params=params, status=0, corpo=str(e)[:200]))
     return JSONResponse(out)
+
+
+@router.get("/conferencia-pgdas/empresa/{pid}")
+def conferencia_empresa(pid: int, request: Request, ref: str = "", db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from .. import conferencia as cf
+    from .rotinas import mes_anterior
+    p = db.get(models.Prestador, pid)
+    if not p:
+        return _redir("/conferencia-pgdas")
+    ref = ref if len(ref) == 7 and ref[4] == "-" else mes_anterior(date.today())
+    lista = [x["p"].id for x in cf.linhas(db, ref)]
+    i = lista.index(pid) if pid in lista else -1
+    ant = lista[i - 1] if i > 0 else None
+    prox = lista[i + 1] if 0 <= i < len(lista) - 1 else None
+    return render(request, "conferencia_empresa.html", p=p, ref=ref, d=cf.detalhe_empresa(db, p, ref),
+                  ROTULO=cf.ROTULO_MODELO, ant=ant, prox=prox, e_admin=getattr(u, "perfil", "") == "ADMIN")

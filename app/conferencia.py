@@ -58,7 +58,7 @@ def registro(db: Session, p: models.Prestador, ref: str) -> models.ConferenciaPG
 def nfse_do_mes(db: Session, p: models.Prestador, ref: str) -> tuple[Decimal, int]:
     ini, fim = periodo(ref)
     N = models.NotaFiscal
-    data = func.coalesce(N.competencia, func.date(N.data_emissao))
+    data = func.date(N.data_emissao)   # escrituração pela data de emissão (a competência pode ser de mês anterior)
     q = select(func.coalesce(func.sum(N.valor_servicos), 0), func.count()).where(
         N.prestador_id == p.id, N.papel == "PRESTADO", N.situacao == "AUTORIZADA", N.ambiente == "PRODUCAO",
         data >= ini.isoformat(), data <= fim.isoformat())
@@ -162,6 +162,109 @@ def nfstock_emitidas(tk: str, crm: str, cnpj: str, tipo_doc: str, ref: str, sess
     raise ErroConferencia(f"NF-Stock não aceitou a consulta de {tipo_doc} (400): {ultimo}")
 
 
+# ---------------------------------------------------------------- outros modelos (NF-Stock por NSU)
+
+OUTROS_MODELOS = ("CTe", "CFe", "SAT", "NFCom", "NF3e", "NFAg", "NFSe")
+ROTULO_MODELO = {"NFSE_ERP": "NFS-e (ERP)", "NFe": "NF-e", "NFCe": "NFC-e", "CTe": "CT-e", "CFe": "CF-e/SAT", "SAT": "CF-e/SAT",
+                 "NFCom": "NFCom", "NF3e": "NF3-e", "NFAg": "NFAg", "NFSe": "NFS-e (NF-Stock)"}
+_TAGS_VALOR = {"CTe": ("vTPrest",), "CFe": ("vCFe",), "SAT": ("vCFe",), "NFCom": ("vNF",), "NF3e": ("vNF",), "NFAg": ("vNF", "vTotal"),
+               "NFSe": ("vServ", "ValorServicos", "vServPrest", "ValorServico")}
+
+
+def _local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def ler_xml(conteudo: bytes, modelo: str) -> dict:
+    """Emitente, valor, número e destinatário de um XML fiscal (CT-e, CF-e, NFCom, NF3-e, NFAg, NFS-e nacional/ABRASF)."""
+    import xml.etree.ElementTree as ET
+    raiz = ET.fromstring(conteudo)
+    todos = list(raiz.iter())
+
+    def primeiro(nomes, dentro=None):
+        for el in (dentro.iter() if dentro is not None else todos):
+            if _local(el.tag) in nomes and (el.text or "").strip():
+                return el.text.strip()
+        return ""
+
+    emit = next((el for el in todos if _local(el.tag) in ("emit", "Prestador", "PrestadorServico", "prest")), None)
+    emitente = re.sub(r"\D", "", primeiro(("CNPJ", "Cnpj", "CPF", "Cpf"), emit) if emit is not None else "")
+    dest = next((el for el in todos if _local(el.tag) in ("dest", "toma", "Tomador", "TomadorServico", "rem")), None)
+    destinatario = primeiro(("xNome", "RazaoSocial", "xNomeTom"), dest) if dest is not None else ""
+    valor = primeiro(_TAGS_VALOR.get(modelo, ("vNF",)))
+    numero = primeiro(("nCT", "nCFe", "nNF", "nNFSe", "Numero", "nDFSe"))
+    return dict(emitente=emitente[:14], valor=Decimal(valor) if valor else None, numero=numero[:30], destinatario=destinatario[:150])
+
+
+def sincronizar_docs(db: Session, p: models.Prestador, tk: str, crm: str, sessao=None) -> int:
+    """Lê do NF-Stock (por NSU) os documentos dos modelos sem endpoint de lista e guarda emitente/valor. Incremental."""
+    from .configuracoes import gravar_config, ler_config
+    s = sessao or requests
+    chave_nsu = f"nfstock_nsu_{p.id}"
+    v = ler_config(db, chave_nsu)
+    nsu = int(v) if v.isdigit() else 0
+    limite = date.today() - timedelta(days=430)
+    existentes = set(db.scalars(select(models.NFStockDoc.chave).where(models.NFStockDoc.prestador_id == p.id)))
+    novos, maior, pagina = 0, nsu, 1
+    while True:
+        r = s.get(f"{EXPORTACAO}/api/v1/{crm}/{p.cnpj}/documentos/{nsu}/novos", params={"Tamanho": 100, "Pagina": pagina},
+                  headers={"Authorization": f"Bearer {tk}", "Accept": "application/json"}, timeout=60)
+        if r.status_code == 404:
+            break
+        if r.status_code in (401, 403):
+            raise ErroConferencia(f"NF-Stock negou acesso a este CNPJ ({r.status_code}): {_texto(r) or 'empresa não cadastrada no NF-Stock'}")
+        if r.status_code >= 300:
+            raise ErroConferencia(f"NF-Stock respondeu {r.status_code} (documentos): {_texto(r)}")
+        dados = r.json() or {}
+        for d in dados.get("documentos") or []:
+            maior = max(maior, int(d.get("nsu") or 0))
+            modelo = str(d.get("modelo") or "")
+            chave = str(d.get("chave") or "")
+            if modelo not in OUTROS_MODELOS or not chave or chave in existentes:
+                continue
+            try:
+                emissao = date.fromisoformat(str(d.get("data_emissao"))[:10])
+            except ValueError:
+                emissao = None
+            doc = models.NFStockDoc(prestador_id=p.id, nsu=int(d.get("nsu") or 0), chave=chave, modelo=modelo,
+                                    status=str(d.get("status") or "")[:20], emissao=emissao)
+            if emissao and emissao >= limite and d.get("url_download"):
+                try:
+                    x = s.get(d["url_download"], timeout=60)
+                    info = ler_xml(x.content, modelo)
+                    doc.emitente, doc.valor, doc.numero, doc.destinatario = info["emitente"], info["valor"], info["numero"], info["destinatario"]
+                except Exception as e:  # noqa: BLE001
+                    doc.erro = f"XML não lido: {e.__class__.__name__}"[:200]
+            db.add(doc)
+            existentes.add(chave)
+            novos += 1
+        if pagina >= int(dados.get("paginas") or 1):
+            break
+        pagina += 1
+    gravar_config(db, chave_nsu, str(maior))
+    db.commit()
+    return novos
+
+
+def outros_do_mes(db: Session, p: models.Prestador, ref: str) -> tuple[Decimal, dict]:
+    """Soma dos outros modelos emitidos pela empresa no mês (autorizados), sem repetir NFS-e que já está no ERP."""
+    ini, fim = periodo(ref)
+    chaves_erp = set(db.scalars(select(models.NotaFiscal.chave_acesso).where(models.NotaFiscal.prestador_id == p.id,
+                                                                              models.NotaFiscal.chave_acesso.is_not(None))))
+    total, det = Decimal("0"), {}
+    for d in db.scalars(select(models.NFStockDoc).where(models.NFStockDoc.prestador_id == p.id,
+                                                       models.NFStockDoc.emissao >= ini, models.NFStockDoc.emissao <= fim)):
+        if d.valor is None or d.emitente[:8] != p.cnpj[:8] or not d.status.upper().startswith("AUTORIZ"):
+            continue
+        if d.modelo == "NFSe" and d.chave in chaves_erp:
+            continue
+        m = "CFe" if d.modelo == "SAT" else d.modelo
+        q, v = det.get(m, [0, "0"])
+        det[m] = [q + 1, str(Decimal(v) + d.valor)]
+        total += d.valor
+    return total.quantize(Decimal("0.01")), det
+
+
 def atualizar_faturamento(db: Session, ref: str, sessao=None) -> dict:
     """Recalcula o faturamento de todas as empresas do Simples no mês (sem custo)."""
     from .configuracoes import ler_config
@@ -181,6 +284,9 @@ def atualizar_faturamento(db: Session, ref: str, sessao=None) -> dict:
                 r.nfe, r.qtd_nfe, variante = nfstock_emitidas(tk, crm, p.cnpj, "nfe", ref, sessao, variante)
                 r.nfce, r.qtd_nfce, variante = nfstock_emitidas(tk, crm, p.cnpj, "nfce", ref, sessao, variante)
                 gravar_config(db, CHAVE_VARIANTE, str(variante))
+                sincronizar_docs(db, p, tk, crm, sessao)
+                r.outros, det = outros_do_mes(db, p, ref)
+                r.detalhe_json = json.dumps(det)
             except (ErroConferencia, requests.RequestException, ValueError) as e:
                 r.erro_nfstock = str(e)[:300]
                 erros.append(f"{p.codigo_fmt}: {str(e)[:120]}")
@@ -381,3 +487,63 @@ def linhas(db: Session, ref: str) -> list[dict]:
         out.append(dict(p=p, r=r, situacao=rot, classe=cls, dif=dif, alerta=a, alerta_cls=acls,
                         entregue=entregas.get(p.id, "")))
     return out
+
+
+# ---------------------------------------------------------------- tela da empresa
+
+def listar_nfstock(db: Session, p: models.Prestador, tipo_doc: str, ref: str, sessao=None) -> list[dict]:
+    """NF-e/NFC-e emitidas e autorizadas no mês, com número, data, destinatário e valor (consulta ao NF-Stock na hora)."""
+    from .configuracoes import ler_config
+    from . import nfstock
+    s = sessao or requests
+    tk = nfstock.token(db)
+    crm = (ler_config(db, nfstock.CHAVE_CRM) or "592534").zfill(6)
+    v = ler_config(db, CHAVE_VARIANTE)
+    var = VARIANTES[int(v)] if v.isdigit() and int(v) < len(VARIANTES) else VARIANTES[0]
+    ini, fim = periodo(ref)
+    out, pagina = [], 1
+    while True:
+        r = s.get(f"{EXPORTACAO}/api/v1/{crm}/{p.cnpj}/{tipo_doc}", params=_params(var, ini, fim, pagina),
+                  headers={"Authorization": f"Bearer {tk}", "Accept": "application/json"}, timeout=60)
+        if r.status_code == 404:
+            return out
+        if r.status_code >= 300:
+            raise ErroConferencia(f"NF-Stock respondeu {r.status_code}: {_texto(r)}")
+        dados = r.json() or {}
+        for d in dados.get("documentos") or []:
+            if re.sub(r"\D", "", str(d.get("cpfcnpj_emitente") or p.cnpj))[:8] != p.cnpj[:8]:
+                continue
+            out.append(dict(numero=f"{d.get('serie') or ''}/{d.get('numero') or ''}".strip("/"), emissao=d.get("emissao"),
+                            destinatario=d.get("nome_destinatario") or d.get("cpfcnpj_destinatario") or "",
+                            valor=Decimal(str(d.get("valor") or 0)), status=d.get("status") or "", chave=d.get("chave") or ""))
+        if pagina >= int(dados.get("paginas") or 1):
+            return out
+        pagina += 1
+
+
+def detalhe_empresa(db: Session, p: models.Prestador, ref: str) -> dict:
+    ini, fim = periodo(ref)
+    N = models.NotaFiscal
+    r = db.scalar(select(models.ConferenciaPGDAS).where(models.ConferenciaPGDAS.prestador_id == p.id,
+                                                         models.ConferenciaPGDAS.referencia == ref))
+    base = select(N).where(N.prestador_id == p.id, N.papel == "PRESTADO", N.ambiente == "PRODUCAO")
+    nfse = list(db.scalars(base.where(func.date(N.data_emissao) >= ini.isoformat(), func.date(N.data_emissao) <= fim.isoformat())
+                           .order_by(N.data_emissao)))
+    comp_fora = list(db.scalars(base.where(N.situacao == "AUTORIZADA", N.competencia >= ini, N.competencia <= fim,
+                                           (func.date(N.data_emissao) < ini.isoformat()) | (func.date(N.data_emissao) > fim.isoformat()))
+                                .order_by(N.data_emissao)))
+    erros, nfe, nfce = [], [], []
+    for tipo, lista in (("nfe", nfe), ("nfce", nfce)):
+        try:
+            lista += listar_nfstock(db, p, tipo, ref)
+        except (ErroConferencia, requests.RequestException, ValueError) as e:
+            erros.append(f"{tipo.upper()}: {e}")
+    outros = list(db.scalars(select(models.NFStockDoc).where(models.NFStockDoc.prestador_id == p.id,
+                                                            models.NFStockDoc.emissao >= ini, models.NFStockDoc.emissao <= fim)
+                             .order_by(models.NFStockDoc.emissao)))
+    entregue = db.scalar(select(models.MonitorItem.status).where(models.MonitorItem.prestador_id == p.id,
+                                                                models.MonitorItem.item == "PGDASD", models.MonitorItem.referencia == ref))
+    rot, cls = situacao(r, entregue)
+    return dict(r=r, nfse=nfse, comp_fora=comp_fora, nfe=nfe, nfce=nfce, outros=outros, erros=erros,
+                situacao=rot, classe=cls, alerta=alerta_rbt12(r.rbt12 if r else None),
+                dif=(r.faturamento - r.declarado) if r and r.declarado is not None and r.faturamento_em else None)

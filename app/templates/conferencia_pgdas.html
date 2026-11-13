@@ -4,7 +4,7 @@
 {% block conteudo %}
 <div class="linha-titulo">
   <div><h1>Conferência faturamento x PGDAS-D</h1>
-    <p class="linha-pequena">Faturamento = NFS-e prestadas (ERP) + NF-e e NFC-e emitidas e autorizadas (NF-Stock). Declarado = Receita Bruta do PA (RPA) e RBT12 lidos do extrato do PGDAS-D salvo na pasta da empresa
+    <p class="linha-pequena">Faturamento = NFS-e prestadas (ERP, pela data de emissão) + NF-e, NFC-e, CT-e, CF-e, NFCom, NF3-e, NFAg e NFS-e de fora do ERP emitidas e autorizadas (NF-Stock). Declarado = Receita Bruta do PA (RPA) e RBT12 lidos do extrato do PGDAS-D salvo na pasta da empresa
       (<code>{{ pasta }}\00094 - EMPRESA\{{ ref[5:] }}-{{ ref[:4] }}</code>).
       Confira remessas e devoluções nas NF-e: elas entram na soma, mas não são receita.</p></div>
   <form method="get" class="em-linha"><label>Competência
@@ -17,33 +17,27 @@
   <span class="sutil">{% for k, v in cont.items() %}{{ k }}: <b>{{ v }}</b>{{ ' · ' if not loop.last }}{% endfor %}</span>
 </div>
 
-<table class="notas ordenavel">
-  <thead><tr><th>Cód.</th><th>Empresa</th><th class="num">NFS-e</th><th class="num">NF-e</th><th class="num">NFC-e</th><th class="num">Faturamento</th>
-    <th class="num">Declarado</th><th class="num">Diferença</th><th class="num">RBT12</th><th>Situação</th><th class="sem-ordem"></th></tr></thead>
+<table class="notas ordenavel tabela-conf">
+  <thead><tr><th>Cód.</th><th>Empresa</th><th class="num">NFS-e</th><th class="num">NF-e / NFC-e</th><th class="num">Outros</th><th class="num">Faturamento</th>
+    <th class="num">Declarado</th><th class="num">Diferença</th><th class="num">RBT12</th><th>Situação</th></tr></thead>
   <tbody>
-  {% for x in lista %}{% set p = x.p %}{% set r = x.r %}
-  <tr id="emp-{{ p.id }}">
+  {% for x in lista %}{% set p = x.p %}{% set r = x.r %}{% set ok = r and r.faturamento_em %}
+  <tr id="emp-{{ p.id }}" class="linha-link" onclick="location.href='/conferencia-pgdas/empresa/{{ p.id }}?ref={{ ref }}'">
     <td>{{ p.codigo_fmt }}</td>
-    <td><a class="nome-empresa" href="/prestadores/{{ p.id }}/receita">{{ p.razao_social }}</a>
-      {% if r and r.erro_nfstock %}<br><small class="erro-texto" title="{{ r.erro_nfstock }}">NF-Stock: {{ r.erro_nfstock[:60] }}</small>{% endif %}
-      {% if r and r.obs %}<br><small class="sutil">{{ r.obs }}</small>{% endif %}</td>
-    <td class="num" data-valor="{{ r.nfse if r else 0 }}">{% if r and r.faturamento_em %}{{ r.nfse|moeda }}<br><small class="sutil">{{ r.qtd_nfse }} nota(s)</small>{% else %}—{% endif %}</td>
-    <td class="num" data-valor="{{ r.nfe if r else 0 }}">{% if r and r.faturamento_em %}{{ r.nfe|moeda }}{% if r.qtd_nfe %}<br><small class="sutil">{{ r.qtd_nfe }}</small>{% endif %}{% else %}—{% endif %}</td>
-    <td class="num" data-valor="{{ r.nfce if r else 0 }}">{% if r and r.faturamento_em %}{{ r.nfce|moeda }}{% if r.qtd_nfce %}<br><small class="sutil">{{ r.qtd_nfce }}</small>{% endif %}{% else %}—{% endif %}</td>
-    <td class="num" data-valor="{{ r.faturamento if r else 0 }}"><b>{{ r.faturamento|moeda if r and r.faturamento_em else '—' }}</b></td>
+    <td><a class="nome-empresa" href="/conferencia-pgdas/empresa/{{ p.id }}?ref={{ ref }}">{{ p.razao_social }}</a>
+      {% if r and r.erro_nfstock %}<i class="aviso-icone" title="NF-Stock: {{ r.erro_nfstock }}">!</i>{% endif %}</td>
+    <td class="num" data-valor="{{ r.nfse if ok else 0 }}">{{ r.nfse|moeda if ok else '—' }}</td>
+    <td class="num" data-valor="{{ (r.nfe + r.nfce) if ok else 0 }}">{{ (r.nfe + r.nfce)|moeda if ok else '—' }}</td>
+    <td class="num" data-valor="{{ r.outros if ok else 0 }}">{{ r.outros|moeda if ok and r.outros else ('—' if not ok else '0,00') }}</td>
+    <td class="num" data-valor="{{ r.faturamento if ok else 0 }}"><b>{{ r.faturamento|moeda if ok else '—' }}</b></td>
     <td class="num" data-valor="{{ r.declarado if r and r.declarado is not none else 0 }}">{{ r.declarado|moeda if r and r.declarado is not none else '—' }}</td>
     <td class="num" data-valor="{{ x.dif if x.dif is not none else 0 }}">{% if x.dif is not none %}<span class="{{ 'erro-texto' if x.dif|abs > 1 }}">{{ x.dif|moeda }}</span>{% else %}—{% endif %}</td>
     <td class="num" data-valor="{{ r.rbt12 if r and r.rbt12 is not none else 0 }}">{{ r.rbt12|moeda if r and r.rbt12 is not none else '—' }}
-      {% if x.alerta %}<br><span class="etiqueta {{ x.alerta_cls }}">{{ x.alerta }}</span>{% endif %}</td>
+      {% if x.alerta %}<span class="etiqueta {{ x.alerta_cls }} mini" title="{{ x.alerta }}">!</span>{% endif %}</td>
     <td>{% if x.classe %}<span class="etiqueta {{ x.classe }}">{{ x.situacao }}</span>{% else %}<span class="sutil">{{ x.situacao }}</span>{% endif %}</td>
-    <td class="linha">{% if r and r.arquivo_extrato %}<a href="/conferencia-pgdas/extrato/{{ r.id }}" target="_blank"><small>extrato</small></a>
-      {% elif r and r.consulta_id %}<a href="/receita/consultas/{{ r.consulta_id }}/arquivo/0" target="_blank"><small>declaração</small></a>{% endif %}
-      {% if e_admin and x.entregue != 'NAO_ENTREGUE' and not (r and r.arquivo_extrato) %}<form method="post" action="/conferencia-pgdas/declarado" class="em-linha"
-        onsubmit="return confirm('Ler o valor declarado de {{ p.codigo_fmt }}? Custo: R$ {{ custo_um|moeda }}')">
-        <input type="hidden" name="ref" value="{{ ref }}"><input type="hidden" name="prestador_id" value="{{ p.id }}">
-        <button class="link" style="color:var(--azul)" title="Sem extrato na pasta: baixa a declaração pela Receita (consulta paga)">baixar da Receita · R$ {{ custo_um|moeda }}</button></form>{% endif %}</td>
   </tr>
-  {% else %}<tr><td colspan="11" class="sutil">Nenhuma empresa do Simples Nacional ativa.</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="10" class="sutil">Nenhuma empresa do Simples Nacional ativa.</td></tr>{% endfor %}
   </tbody>
 </table>
+<p class="linha-pequena">Clique na empresa para ver as notas, o extrato e a conferência detalhada. NFS-e contadas pela data de emissão.</p>
 {% endblock %}

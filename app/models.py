@@ -762,10 +762,38 @@ class ConferenciaPGDAS(Base):
     declarado_em: Mapped[datetime | None] = mapped_column(DateTime)
     consulta_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     arquivo_extrato: Mapped[str] = mapped_column(String(400), default="")   # extrato do PGDAS-D lido da pasta (Drive)
+    outros: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)       # CT-e, CF-e, NFCom, NF3e, NFAg, NFS-e de fora do ERP
+    detalhe_json: Mapped[str] = mapped_column(Text, default="")             # {"CTe": [qtd, valor], ...}
     obs: Mapped[str] = mapped_column(String(300), default="")
 
     prestador: Mapped["Prestador"] = relationship()
 
     @property
     def faturamento(self) -> Decimal:
-        return (self.nfse or 0) + (self.nfe or 0) + (self.nfce or 0)
+        return (self.nfse or 0) + (self.nfe or 0) + (self.nfce or 0) + (self.outros or 0)
+
+    @property
+    def detalhe(self) -> dict:
+        import json
+        try:
+            return json.loads(self.detalhe_json or "{}")
+        except ValueError:
+            return {}
+
+
+class NFStockDoc(Base):
+    """Documentos fiscais da empresa lidos do NF-Stock (MS-Exportação, por NSU) — para os modelos sem endpoint de lista."""
+    __tablename__ = "nfstock_documentos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    prestador_id: Mapped[int] = mapped_column(ForeignKey("prestadores.id", ondelete="CASCADE"), index=True)
+    nsu: Mapped[int] = mapped_column(Integer, index=True)
+    chave: Mapped[str] = mapped_column(String(60), default="", index=True)
+    modelo: Mapped[str] = mapped_column(String(10), default="", index=True)
+    status: Mapped[str] = mapped_column(String(20), default="")
+    emissao: Mapped[date | None] = mapped_column(Date, index=True)
+    emitente: Mapped[str] = mapped_column(String(14), default="")
+    destinatario: Mapped[str] = mapped_column(String(150), default="")
+    numero: Mapped[str] = mapped_column(String(30), default="")
+    valor: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
+    erro: Mapped[str] = mapped_column(String(200), default="")
