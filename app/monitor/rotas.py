@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
@@ -254,3 +254,73 @@ def resumo_empresa(db: Session, pid: int) -> list[dict]:
         if m.item not in ult or (m.referencia, m.atualizado_em) > (ult[m.item].referencia, ult[m.item].atualizado_em):
             ult[m.item] = m
     return [dict(m=ult[k], nome=ms.ROTULO_ITEM[k], st=ms.status_de(k, ult[k].status)) for k in ms.ROTULO_ITEM if k in ult]
+
+
+# ---- Conferência faturamento x PGDAS-D ----------------------------------------------------------
+
+@router.get("/conferencia-pgdas")
+def conferencia_pgdas(request: Request, ref: str = "", db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from .. import conferencia as cf
+    from ..serpro.catalogo import POR_CODIGO
+    from .rotinas import mes_anterior
+    ref = ref if len(ref) == 7 and ref[4] == "-" else mes_anterior(date.today())
+    lista = cf.linhas(db, ref)
+    sem_decl = [x for x in lista if x["entregue"] != "NAO_ENTREGUE" and (not x["r"] or x["r"].declarado is None)]
+    custo_um = sv.custo_previsto(db, POR_CODIGO["pgdasd_ultima"]) if sv.modo(db) == "producao" else 0
+    refs = []
+    d = date.today().replace(day=1)
+    for _ in range(12):
+        d = (d - timedelta(days=1)).replace(day=1)
+        refs.append(f"{d:%Y-%m}")
+    cont = {}
+    for x in lista:
+        cont[x["situacao"]] = cont.get(x["situacao"], 0) + 1
+    return render(request, "conferencia_pgdas.html", lista=lista, ref=ref, refs=refs, cont=cont,
+                  n_sem_decl=len(sem_decl), custo_um=custo_um, custo_todos=custo_um * len(sem_decl),
+                  e_admin=getattr(u, "perfil", "") == "ADMIN", modo=sv.modo(db))
+
+
+@router.post("/conferencia-pgdas/faturamento")
+async def conferencia_faturamento(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from .. import conferencia as cf
+    form = await request.form()
+    ref = form.get("ref", "")
+    try:
+        r = cf.atualizar_faturamento(db, ref)
+        msg = f"Faturamento de {ref[5:]}/{ref[:4]} atualizado para {r['feitas']} empresa(s)."
+        if r["erros"]:
+            msg += f" NF-Stock com problema em {len(r['erros'])}: " + "; ".join(r["erros"][:3])
+        flash(request, msg, "erro" if r["erros"] else "ok")
+    except cf.ErroConferencia as e:
+        flash(request, str(e), "erro")
+    return _redir(f"/conferencia-pgdas?ref={ref}")
+
+
+@router.post("/conferencia-pgdas/declarado")
+async def conferencia_declarado(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    """Lê o valor declarado (RPA e RBT12) — de uma empresa (prestador_id) ou de todas sem valor lido."""
+    from .. import conferencia as cf
+    form = await request.form()
+    ref = form.get("ref", "")
+    pid = form.get("prestador_id", "")
+    if pid.isdigit():
+        alvos = [db.get(models.Prestador, int(pid))]
+    else:
+        alvos = [x["p"] for x in cf.linhas(db, ref)
+                 if x["entregue"] != "NAO_ENTREGUE" and (not x["r"] or x["r"].declarado is None)]
+    lidas, falhas = 0, []
+    for p in alvos:
+        if p is None:
+            continue
+        motivo = cf.ler_declarado(db, p, ref, u.login)
+        if motivo:
+            falhas.append(f"{p.codigo_fmt}: {motivo[:80]}")
+        else:
+            lidas += 1
+    auditar(db, request, u, "CONFERENCIA_PGDAS_DECLARADO", "", None, f"ref={ref} lidas={lidas} falhas={len(falhas)}")
+    db.commit()
+    msg = f"Valor declarado lido em {lidas} empresa(s)."
+    if falhas:
+        msg += " Sem valor: " + "; ".join(falhas[:5]) + ("…" if len(falhas) > 5 else "")
+    flash(request, msg, "erro" if falhas and not lidas else "ok")
+    return _redir(f"/conferencia-pgdas?ref={ref}" + (f"#emp-{pid}" if pid.isdigit() else ""))

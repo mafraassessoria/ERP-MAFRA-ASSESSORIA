@@ -740,3 +740,31 @@ class ConsultaAPI(Base):
     resumo: Mapped[str] = mapped_column(String(300), default="")
     dados: Mapped[str] = mapped_column(Text, default="")              # JSON sem o PDF
     custo: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+
+
+class ConferenciaPGDAS(Base):
+    """Faturamento do mês (NFS-e do ERP + NF-e/NFC-e do NF-Stock) x receita declarada no PGDAS-D."""
+    __tablename__ = "conferencia_pgdas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    prestador_id: Mapped[int] = mapped_column(ForeignKey("prestadores.id", ondelete="CASCADE"), index=True)
+    referencia: Mapped[str] = mapped_column(String(7), index=True)          # 2026-10
+    nfse: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    qtd_nfse: Mapped[int] = mapped_column(Integer, default=0)
+    nfe: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    qtd_nfe: Mapped[int] = mapped_column(Integer, default=0)
+    nfce: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    qtd_nfce: Mapped[int] = mapped_column(Integer, default=0)
+    faturamento_em: Mapped[datetime | None] = mapped_column(DateTime)
+    erro_nfstock: Mapped[str] = mapped_column(String(300), default="")
+    declarado: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)   # RPA
+    rbt12: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
+    declarado_em: Mapped[datetime | None] = mapped_column(DateTime)
+    consulta_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    obs: Mapped[str] = mapped_column(String(300), default="")
+
+    prestador: Mapped["Prestador"] = relationship()
+
+    @property
+    def faturamento(self) -> Decimal:
+        return (self.nfse or 0) + (self.nfe or 0) + (self.nfce or 0)

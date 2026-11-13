@@ -642,7 +642,7 @@ ROTINAS = [
            ("parcsn_pedidos",), "M10 07:30", "Pedidos de parcelamento do Simples/MEI e a situação de cada um."),
     Rotina("CAIXA", "Caixa postal", caixa_postal, lambda p: True, ("caixa_lista",), "S0 07:30",
            "Mensagens da caixa postal do e-CAC (lidas e não lidas)."),
-    Rotina("PAGAMENTOS", "Pagamentos", pagamentos, lambda p: True, ("pagamentos",), "M25 07:30",
+    Rotina("PAGAMENTOS", "Pagamentos", pagamentos, lambda p: True, ("pagamentos",), "M28 07:30",
            "Pagamentos do mês anterior e do atual (base para a baixa das guias)."),
     Rotina("PGDASD", "PGDAS-D", pgdasd, _simples, ("pgdasd_declaracoes",), "M21 07:30",
            "Declarações do Simples transmitidas no ano até o mês anterior."),

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titulo %}Conferência PGDAS-D{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <div><h1>Conferência faturamento x PGDAS-D</h1>
+    <p class="linha-pequena">Faturamento = NFS-e prestadas (ERP) + NF-e e NFC-e emitidas e autorizadas (NF-Stock). Declarado = Receita Bruta do PA (RPA) da última declaração do período.
+      Confira remessas e devoluções nas NF-e: elas entram na soma, mas não são receita.</p></div>
+  <form method="get" class="em-linha"><label>Competência
+    <select name="ref" onchange="this.form.submit()">{% for r in refs %}<option value="{{ r }}" {{ 'selected' if r == ref }}>{{ r[5:] }}/{{ r[:4] }}</option>{% endfor %}</select></label></form>
+</div>
+
+<div class="em-linha" style="gap:.6rem;margin:.4rem 0 .8rem;flex-wrap:wrap">
+  <form method="post" action="/conferencia-pgdas/faturamento" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Atualizando…'">
+    <input type="hidden" name="ref" value="{{ ref }}"><button>Atualizar faturamento (sem custo)</button></form>
+  {% if e_admin and n_sem_decl %}
+  <form method="post" action="/conferencia-pgdas/declarado"
+        onsubmit="if(!confirm('Ler o valor declarado de {{ n_sem_decl }} empresa(s)? Custo estimado: R$ {{ custo_todos|moeda }}')) return false; this.querySelector('button').disabled=true; this.querySelector('button').textContent='Lendo…'">
+    <input type="hidden" name="ref" value="{{ ref }}">
+    <button class="secundario" {{ 'disabled' if modo == 'desligado' }}>Ler valor declarado de todas ({{ n_sem_decl }} · R$ {{ custo_todos|moeda }})</button></form>{% endif %}
+  <span class="sutil">{% for k, v in cont.items() %}{{ k }}: <b>{{ v }}</b>{{ ' · ' if not loop.last }}{% endfor %}</span>
+</div>
+
+<table class="notas ordenavel">
+  <thead><tr><th>Cód.</th><th>Empresa</th><th class="num">NFS-e</th><th class="num">NF-e</th><th class="num">NFC-e</th><th class="num">Faturamento</th>
+    <th class="num">Declarado</th><th class="num">Diferença</th><th class="num">RBT12</th><th>Situação</th><th class="sem-ordem"></th></tr></thead>
+  <tbody>
+  {% for x in lista %}{% set p = x.p %}{% set r = x.r %}
+  <tr id="emp-{{ p.id }}">
+    <td>{{ p.codigo_fmt }}</td>
+    <td><a class="nome-empresa" href="/prestadores/{{ p.id }}/receita">{{ p.razao_social }}</a>
+      {% if r and r.erro_nfstock %}<br><small class="erro-texto" title="{{ r.erro_nfstock }}">NF-Stock: {{ r.erro_nfstock[:60] }}</small>{% endif %}
+      {% if r and r.obs %}<br><small class="sutil">{{ r.obs }}</small>{% endif %}</td>
+    <td class="num" data-valor="{{ r.nfse if r else 0 }}">{% if r and r.faturamento_em %}{{ r.nfse|moeda }}<br><small class="sutil">{{ r.qtd_nfse }} nota(s)</small>{% else %}—{% endif %}</td>
+    <td class="num" data-valor="{{ r.nfe if r else 0 }}">{% if r and r.faturamento_em %}{{ r.nfe|moeda }}{% if r.qtd_nfe %}<br><small class="sutil">{{ r.qtd_nfe }}</small>{% endif %}{% else %}—{% endif %}</td>
+    <td class="num" data-valor="{{ r.nfce if r else 0 }}">{% if r and r.faturamento_em %}{{ r.nfce|moeda }}{% if r.qtd_nfce %}<br><small class="sutil">{{ r.qtd_nfce }}</small>{% endif %}{% else %}—{% endif %}</td>
+    <td class="num" data-valor="{{ r.faturamento if r else 0 }}"><b>{{ r.faturamento|moeda if r and r.faturamento_em else '—' }}</b></td>
+    <td class="num" data-valor="{{ r.declarado if r and r.declarado is not none else 0 }}">{{ r.declarado|moeda if r and r.declarado is not none else '—' }}</td>
+    <td class="num" data-valor="{{ x.dif if x.dif is not none else 0 }}">{% if x.dif is not none %}<span class="{{ 'erro-texto' if x.dif|abs > 1 }}">{{ x.dif|moeda }}</span>{% else %}—{% endif %}</td>
+    <td class="num" data-valor="{{ r.rbt12 if r and r.rbt12 is not none else 0 }}">{{ r.rbt12|moeda if r and r.rbt12 is not none else '—' }}
+      {% if x.alerta %}<br><span class="etiqueta {{ x.alerta_cls }}">{{ x.alerta }}</span>{% endif %}</td>
+    <td>{% if x.classe %}<span class="etiqueta {{ x.classe }}">{{ x.situacao }}</span>{% else %}<span class="sutil">{{ x.situacao }}</span>{% endif %}</td>
+    <td class="linha">{% if r and r.consulta_id %}<a href="/receita/consultas/{{ r.consulta_id }}/arquivo/0" target="_blank"><small>declaração</small></a>{% endif %}
+      {% if e_admin and x.entregue != 'NAO_ENTREGUE' %}<form method="post" action="/conferencia-pgdas/declarado" class="em-linha"
+        onsubmit="return confirm('Ler o valor declarado de {{ p.codigo_fmt }}? Custo: R$ {{ custo_um|moeda }}')">
+        <input type="hidden" name="ref" value="{{ ref }}"><input type="hidden" name="prestador_id" value="{{ p.id }}">
+        <button class="link" style="color:var(--azul)">{{ 'reler' if r and r.declarado is not none else 'ler declarado' }}</button></form>{% endif %}</td>
+  </tr>
+  {% else %}<tr><td colspan="11" class="sutil">Nenhuma empresa do Simples Nacional ativa.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}
