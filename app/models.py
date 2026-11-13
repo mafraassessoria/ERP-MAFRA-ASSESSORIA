@@ -222,7 +222,7 @@ class Prestador(Timestamps, Base):
 
     @property
     def modulos(self) -> list[str]:
-        return [n for n, ok in (("NFS-e", self.usa_nfse), ("Receita", self.usa_receita),
+        return [n for n, ok in (("NFS-e", self.usa_nfse), ("Integra Contador", self.usa_receita),
                                 ("e-Contador", self.usa_econtador), ("CND", self.usa_cnd)) if ok]
 
     @property

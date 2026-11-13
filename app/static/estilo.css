@@ -423,3 +423,8 @@ table.notas.tabela-conf { table-layout:auto; width:100%; }
 table.notas.tabela-conf th, table.notas.tabela-conf td { white-space:nowrap; }
 table.notas.tabela-conf td:nth-child(2), table.notas.tabela-conf th:nth-child(2) { width:1%; }
 table.notas.tabela-conf .nome-empresa { white-space:nowrap; overflow:visible; }
+
+/* Nome da empresa sempre em uma linha, em qualquer tabela; as tabelas com nome se ajustam ao conteúdo */
+table .nome-empresa { white-space:nowrap; }
+table.notas:has(.nome-empresa), .tabela-sitfis:has(.nome-empresa) { table-layout:auto; }
+table td:has(> .nome-empresa) { width:1%; }

@@ -8,7 +8,7 @@
       Clique num quadro para ver as empresas.</p></div>
   <a class="botao secundario" href="/receita">Consultas avulsas e uso do mês</a>
 </div>
-{% if modo == 'desligado' %}<div class="cartao aviso">O Integra Contador está desligado. Ative em <a href="/configuracoes#receita">Configurações → Receita Federal</a>.</div>{% endif %}
+{% if modo == 'desligado' %}<div class="cartao aviso">O Integra Contador está desligado. Ative em <a href="/configuracoes#receita">Configurações → Integra Contador</a>.</div>{% endif %}
 {% if execucao.rodando %}<div class="cartao aviso"><b>{{ execucao.rotina }}</b> em andamento: {{ execucao.feitas }} de {{ execucao.total }} empresa(s). <a href="">Atualizar</a></div><meta http-equiv="refresh" content="6">
 {% elif execucao.fim %}<div class="cartao">Última execução ({{ execucao.fim|datahora }}, {{ execucao.por }}): {{ execucao.resumo }}
   {% if execucao.erros %}<details><summary>{{ execucao.erros|length }} problema(s)</summary><ul>{% for e in execucao.erros %}<li>{{ e }}</li>{% endfor %}</ul></details>{% endif %}</div>{% endif %}
@@ -76,7 +76,7 @@
 
 <section class="cartao" id="rotinas">
   <h2>Rotinas automáticas</h2>
-  <p class="sutil">Cada rotina consulta todas as empresas ativas com o módulo Receita Federal ligado e às quais ela se aplica.
+  <p class="sutil">Cada rotina consulta todas as empresas ativas com o módulo Integra Contador ligado e às quais ela se aplica.
     O custo estimado usa os preços de Configurações (zero no modo demonstração). Desligadas até você ligar.</p>
   <table class="compacta">
     <thead><tr><th>Rotina</th><th>Empresas</th><th>Custo por execução</th><th>Agenda</th><th>Última</th><th></th></tr></thead>

@@ -8,7 +8,7 @@
         <form method="post" action="/guias/gerar" class="em-linha" onsubmit="return confirm('Gerar o DAS da parcela {{ x.parcela }} ({{ x.origem }})? A emissão é cobrada pelo Serpro.')">
           <input type="hidden" name="prestador_id" value="{{ pid }}"><input type="hidden" name="tipo" value="{{ TIPO_POR_ORIGEM.get(x.origem, 'PARC_SN') }}">
           <input type="hidden" name="competencia" value="{{ x.competencia }}"><button class="secundario mini">Gerar DAS</button></form>
-      {% else %}<small class="sutil" title="Configurações → Receita Federal → data de corte">antes da data de corte</small>{% endif %}</td>{% endif %}
+      {% else %}<small class="sutil" title="Configurações → Integra Contador → data de corte">antes da data de corte</small>{% endif %}</td>{% endif %}
     </tr>{% endfor %}</tbody>
 </table>
 <p class="sutil" style="font-size:.78rem;margin:.2rem 0 .4rem">Vencimento: último dia útil do mês da parcela.</p>

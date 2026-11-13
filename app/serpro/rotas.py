@@ -63,7 +63,7 @@ def receita_empresa(pid: int, request: Request, ver: int = 0, db: Session = Depe
     if not p:
         return _redir("/prestadores")
     if not p.usa_receita:
-        flash(request, "O módulo Receita Federal está desligado para esta empresa (Dados e configurações → Módulos).", "erro")
+        flash(request, "O módulo Integra Contador está desligado para esta empresa (Dados e configurações → Módulos).", "erro")
         return _redir(f"/prestadores/{pid}?aba=config")
     servs = servicos_para(p.regime)
     grupos = [(g, [s for s in servs if s.grupo == g]) for g in GRUPOS]

@@ -12,7 +12,7 @@
       <button {{ 'disabled' if not n_parc or modo == 'desligado' or usuario.perfil != 'ADMIN' }}>Gerar parcelas do mês ({{ n_parc }})</button></form>
   </div>
 </div>
-{% if modo == 'desligado' %}<div class="cartao aviso">O Integra Contador está desligado (Configurações → Receita Federal).</div>{% endif %}
+{% if modo == 'desligado' %}<div class="cartao aviso">O Integra Contador está desligado (Configurações → Integra Contador).</div>{% endif %}
 
 <section class="cartao">
   <h2>Gerar guia</h2>

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% from "_receita_resultado.html" import valor %}
-{% block titulo %}Receita Federal · {{ p.razao_social }}{% endblock %}
+{% block titulo %}Integra Contador · {{ p.razao_social }}{% endblock %}
 {% block main_classe %}larga{% endblock %}
 {% block conteudo %}
 {% include "_cabecalho_empresa.html" %}
 
 {% if sit.modo == 'desligado' %}
-<div class="cartao aviso">O módulo Receita Federal está <b>desligado</b>.
-  {% if usuario.perfil == 'ADMIN' %}Ative em <a href="/configuracoes#receita">Configurações → Receita Federal</a> (comece pelo modo Demonstração).{% else %}Peça ao administrador para ativar.{% endif %}</div>
+<div class="cartao aviso">O módulo Integra Contador está <b>desligado</b>.
+  {% if usuario.perfil == 'ADMIN' %}Ative em <a href="/configuracoes#receita">Configurações → Integra Contador</a> (comece pelo modo Demonstração).{% else %}Peça ao administrador para ativar.{% endif %}</div>
 {% else %}
 <p class="sutil">Modo: <b>{{ 'Demonstração (dados fictícios do Serpro)' if sit.modo == 'demonstracao' else 'Produção' }}</b>
   {% if sit.modo == 'producao' %}· gasto no mês R$ {{ '%.2f'|format(sit.gasto)|replace('.', ',') }} de R$ {{ '%.2f'|format(sit.limite)|replace('.', ',') }}{% endif %}

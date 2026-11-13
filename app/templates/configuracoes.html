@@ -106,7 +106,7 @@
 </section>
 
 <section class="cartao" id="receita">
-  <h2>Receita Federal (Integra Contador – Serpro)</h2>
+  <h2>Integra Contador (Serpro)</h2>
   <p class="sutil">Consultas no e-CAC das empresas pela API oficial do Serpro, usando o certificado do escritório e a procuração
     eletrônica de cada cliente. Uso neste mês: <b>{{ serpro.chamadas }}</b> chamada(s) do Integra · gasto total com o Serpro (inclui Consulta CPF e CND) <b>R$ {{ '%.2f'|format(serpro.gasto)|replace('.', ',') }}</b>
     (limite R$ {{ serpro.limite }}).</p>
@@ -135,7 +135,7 @@
       </div>
       <p class="sutil">Preencha com os valores da sua faixa no contrato. O sistema soma o custo de cada chamada e bloqueia quando o limite do mês é atingido.</p>
     </fieldset>
-    <button>Salvar Receita Federal</button>
+    <button>Salvar Integra Contador</button>
   </form>
   <form method="post" action="/configuracoes/receita/testar" class="em-linha"><button class="secundario" {{ 'disabled' if serpro.modo == 'desligado' }}>Testar conexão</button></form>
 </section>

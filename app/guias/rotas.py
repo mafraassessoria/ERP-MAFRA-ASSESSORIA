@@ -96,7 +96,7 @@ async def guias_gerar(request: Request, db: Session = Depends(get_db), u=Depends
     p = db.get(models.Prestador, int(form.get("prestador_id") or 0))
     tipo, comp, cons = form.get("tipo") or "", (form.get("competencia") or "").strip(), (form.get("consolidacao") or "").strip()
     if not p or not p.usa_receita:
-        flash(request, "Escolha uma empresa com o módulo Receita Federal ligado.", "erro")
+        flash(request, "Escolha uma empresa com o módulo Integra Contador ligado.", "erro")
         return _redir("/guias")
     try:
         g = await run_in_threadpool(gs.gerar, db, p, tipo, comp, u.login, cons)
