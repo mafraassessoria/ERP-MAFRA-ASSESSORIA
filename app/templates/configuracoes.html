@@ -53,17 +53,6 @@
     volta automática se o sistema não subir. Histórico em <code>logs\atualizacao.log</code>.</p>
 </section>
 
-<section class="cartao" id="importar-empresas">
-  <h2>Cadastro geral de empresas</h2>
-  <p>Importe o <code>empresas.json</code> do Bot Arquivador para trazer a pasta de cada empresa no Drive, os CNPJs adicionais e os
-    outros nomes usados para reconhecer documentos. Empresas que ainda não existem aqui são criadas <b>sem o módulo NFS-e</b>.
-    Nada é apagado e os dados fiscais das empresas existentes não mudam.</p>
-  <form method="post" action="/configuracoes/empresas/importar" enctype="multipart/form-data" class="em-linha">
-    <label>Arquivo <input type="file" name="arquivo" accept=".json" required></label>
-    <button>Importar cadastro</button>
-  </form>
-</section>
-
 <section class="cartao" id="econtador">
   <h2>e-Contador e certidões</h2>
   <p class="sutil">API ePlugin do e-Contador (somente leitura): liga as empresas pelo CNPJ e traz as certidões do Pack CND.
