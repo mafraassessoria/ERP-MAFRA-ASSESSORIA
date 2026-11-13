@@ -66,20 +66,20 @@ def nfse_do_mes(db: Session, p: models.Prestador, ref: str) -> tuple[Decimal, in
     return Decimal(str(v or 0)).quantize(Decimal("0.01")), int(n or 0)
 
 
-VARIANTES = (   # a documentação não fixa o formato; tenta e guarda a que o NF-Stock aceitar
-    {"data": "%Y-%m-%d", "tipo": "emitida", "status": "autorizada"},
-    {"data": "%Y-%m-%d", "tipo": "Emitida", "status": "Autorizada"},
-    {"data": "%Y-%m-%d", "tipo": "EMITIDA", "status": "AUTORIZADA"},
-    {"data": "%d/%m/%Y", "tipo": "emitida", "status": "autorizada"},
-    {"data": "%Y-%m-%dT00:00:00", "tipo": "emitida", "status": "autorizada"},
-    {"data": "%Y-%m-%d", "tipo": "emitida", "status": None},
+VARIANTES = (   # a documentação não fixa os valores; tenta e guarda o que o NF-Stock aceitar.
+    # Visto em 12/11/2026: Status aceita "Autorizada"; Tamanho vai de 1 a 100; "emitida/Emitida/EMITIDA" recusados em Tipo.
+    # Sem Tipo, o ERP filtra as notas em que a empresa é a emitente (cpfcnpj_emitente).
+    {"data": "%Y-%m-%d", "tipo": "Emitidas", "status": "Autorizada"},
+    {"data": "%Y-%m-%d", "tipo": "Emitente", "status": "Autorizada"},
+    {"data": "%Y-%m-%d", "tipo": "Saida", "status": "Autorizada"},
+    {"data": "%Y-%m-%d", "tipo": None, "status": "Autorizada"},
     {"data": "%Y-%m-%d", "tipo": None, "status": None},
 )
-CHAVE_VARIANTE = "conferencia_nfstock_variante"
+CHAVE_VARIANTE = "conferencia_nfstock_variante2"
 
 
 def _params(v: dict, ini: date, fim: date, pagina: int) -> dict:
-    p = {"DataInicial": ini.strftime(v["data"]), "DataFinal": fim.strftime(v["data"]), "Tamanho": 200, "Pagina": pagina}
+    p = {"DataInicial": ini.strftime(v["data"]), "DataFinal": fim.strftime(v["data"]), "Tamanho": 100, "Pagina": pagina}
     if v["tipo"]:
         p["Tipo"] = v["tipo"]
     if v["status"]:
