@@ -4,7 +4,8 @@
 {% block conteudo %}
 <div class="linha-titulo">
   <div><h1>Conferência faturamento x PGDAS-D</h1>
-    <p class="linha-pequena">Faturamento = NFS-e prestadas (ERP) + NF-e e NFC-e emitidas e autorizadas (NF-Stock). Declarado = Receita Bruta do PA (RPA) da última declaração do período.
+    <p class="linha-pequena">Faturamento = NFS-e prestadas (ERP) + NF-e e NFC-e emitidas e autorizadas (NF-Stock). Declarado = Receita Bruta do PA (RPA) e RBT12 lidos do extrato do PGDAS-D salvo na pasta da empresa
+      (<code>{{ pasta }}\00094 - EMPRESA\{{ ref[5:] }}-{{ ref[:4] }}</code>).
       Confira remessas e devoluções nas NF-e: elas entram na soma, mas não são receita.</p></div>
   <form method="get" class="em-linha"><label>Competência
     <select name="ref" onchange="this.form.submit()">{% for r in refs %}<option value="{{ r }}" {{ 'selected' if r == ref }}>{{ r[5:] }}/{{ r[:4] }}</option>{% endfor %}</select></label></form>
@@ -12,12 +13,7 @@
 
 <div class="em-linha" style="gap:.6rem;margin:.4rem 0 .8rem;flex-wrap:wrap">
   <form method="post" action="/conferencia-pgdas/faturamento" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Atualizando…'">
-    <input type="hidden" name="ref" value="{{ ref }}"><button>Atualizar faturamento (sem custo)</button></form>
-  {% if e_admin and n_sem_decl %}
-  <form method="post" action="/conferencia-pgdas/declarado"
-        onsubmit="if(!confirm('Ler o valor declarado de {{ n_sem_decl }} empresa(s)? Custo estimado: R$ {{ custo_todos|moeda }}')) return false; this.querySelector('button').disabled=true; this.querySelector('button').textContent='Lendo…'">
-    <input type="hidden" name="ref" value="{{ ref }}">
-    <button class="secundario" {{ 'disabled' if modo == 'desligado' }}>Ler valor declarado de todas ({{ n_sem_decl }} · R$ {{ custo_todos|moeda }})</button></form>{% endif %}
+    <input type="hidden" name="ref" value="{{ ref }}"><button>Atualizar faturamento e declarado (sem custo)</button></form>
   <span class="sutil">{% for k, v in cont.items() %}{{ k }}: <b>{{ v }}</b>{{ ' · ' if not loop.last }}{% endfor %}</span>
 </div>
 
@@ -40,11 +36,12 @@
     <td class="num" data-valor="{{ r.rbt12 if r and r.rbt12 is not none else 0 }}">{{ r.rbt12|moeda if r and r.rbt12 is not none else '—' }}
       {% if x.alerta %}<br><span class="etiqueta {{ x.alerta_cls }}">{{ x.alerta }}</span>{% endif %}</td>
     <td>{% if x.classe %}<span class="etiqueta {{ x.classe }}">{{ x.situacao }}</span>{% else %}<span class="sutil">{{ x.situacao }}</span>{% endif %}</td>
-    <td class="linha">{% if r and r.consulta_id %}<a href="/receita/consultas/{{ r.consulta_id }}/arquivo/0" target="_blank"><small>declaração</small></a>{% endif %}
-      {% if e_admin and x.entregue != 'NAO_ENTREGUE' %}<form method="post" action="/conferencia-pgdas/declarado" class="em-linha"
+    <td class="linha">{% if r and r.arquivo_extrato %}<a href="/conferencia-pgdas/extrato/{{ r.id }}" target="_blank"><small>extrato</small></a>
+      {% elif r and r.consulta_id %}<a href="/receita/consultas/{{ r.consulta_id }}/arquivo/0" target="_blank"><small>declaração</small></a>{% endif %}
+      {% if e_admin and x.entregue != 'NAO_ENTREGUE' and not (r and r.arquivo_extrato) %}<form method="post" action="/conferencia-pgdas/declarado" class="em-linha"
         onsubmit="return confirm('Ler o valor declarado de {{ p.codigo_fmt }}? Custo: R$ {{ custo_um|moeda }}')">
         <input type="hidden" name="ref" value="{{ ref }}"><input type="hidden" name="prestador_id" value="{{ p.id }}">
-        <button class="link" style="color:var(--azul)">{{ 'reler' if r and r.declarado is not none else 'ler declarado' }}</button></form>{% endif %}</td>
+        <button class="link" style="color:var(--azul)" title="Sem extrato na pasta: baixa a declaração pela Receita (consulta paga)">baixar da Receita · R$ {{ custo_um|moeda }}</button></form>{% endif %}</td>
   </tr>
   {% else %}<tr><td colspan="11" class="sutil">Nenhuma empresa do Simples Nacional ativa.</td></tr>{% endfor %}
   </tbody>

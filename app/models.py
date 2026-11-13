@@ -761,6 +761,7 @@ class ConferenciaPGDAS(Base):
     rbt12: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
     declarado_em: Mapped[datetime | None] = mapped_column(DateTime)
     consulta_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    arquivo_extrato: Mapped[str] = mapped_column(String(400), default="")   # extrato do PGDAS-D lido da pasta (Drive)
     obs: Mapped[str] = mapped_column(String(300), default="")
 
     prestador: Mapped["Prestador"] = relationship()

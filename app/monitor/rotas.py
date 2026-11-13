@@ -277,7 +277,7 @@ def conferencia_pgdas(request: Request, ref: str = "", db: Session = Depends(get
         cont[x["situacao"]] = cont.get(x["situacao"], 0) + 1
     return render(request, "conferencia_pgdas.html", lista=lista, ref=ref, refs=refs, cont=cont,
                   n_sem_decl=len(sem_decl), custo_um=custo_um, custo_todos=custo_um * len(sem_decl),
-                  e_admin=getattr(u, "perfil", "") == "ADMIN", modo=sv.modo(db))
+                  e_admin=getattr(u, "perfil", "") == "ADMIN", modo=sv.modo(db), pasta=str(cf.pasta_extratos(db)))
 
 
 @router.post("/conferencia-pgdas/faturamento")
@@ -285,14 +285,24 @@ async def conferencia_faturamento(request: Request, db: Session = Depends(get_db
     from .. import conferencia as cf
     form = await request.form()
     ref = form.get("ref", "")
+    msgs, erro = [], False
     try:
         r = cf.atualizar_faturamento(db, ref)
-        msg = f"Faturamento de {ref[5:]}/{ref[:4]} atualizado para {r['feitas']} empresa(s)."
+        msgs.append(f"Faturamento atualizado em {r['feitas']} empresa(s).")
         if r["erros"]:
-            msg += f" NF-Stock com problema em {len(r['erros'])}: " + "; ".join(r["erros"][:3])
-        flash(request, msg, "erro" if r["erros"] else "ok")
+            erro = True
+            msgs.append(f"NF-Stock com problema em {len(r['erros'])}: " + "; ".join(r["erros"][:3]) + ".")
     except cf.ErroConferencia as e:
-        flash(request, str(e), "erro")
+        erro = True
+        msgs.append(str(e))
+    try:
+        x = cf.ler_extratos(db, ref)
+        msgs.append(f"Declarado lido dos extratos em {x['lidos']} empresa(s)"
+                    + (f"; sem extrato na pasta: {len(x['sem'])}." if x["sem"] else "."))
+    except cf.ErroConferencia as e:
+        erro = True
+        msgs.append(str(e))
+    flash(request, " ".join(msgs), "erro" if erro else "ok")
     return _redir(f"/conferencia-pgdas?ref={ref}")
 
 
@@ -324,3 +334,21 @@ async def conferencia_declarado(request: Request, db: Session = Depends(get_db),
         msg += " Sem valor: " + "; ".join(falhas[:5]) + ("…" if len(falhas) > 5 else "")
     flash(request, msg, "erro" if falhas and not lidas else "ok")
     return _redir(f"/conferencia-pgdas?ref={ref}" + (f"#emp-{pid}" if pid.isdigit() else ""))
+
+
+@router.get("/conferencia-pgdas/extrato/{rid}")
+def conferencia_extrato(rid: int, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    from .. import conferencia as cf
+    r = db.get(models.ConferenciaPGDAS, rid)
+    if not r or not r.arquivo_extrato:
+        return _redir("/conferencia-pgdas")
+    arq = Path(r.arquivo_extrato)
+    try:
+        arq.resolve().relative_to(cf.pasta_extratos(db).resolve())
+    except ValueError:
+        return _redir("/conferencia-pgdas")
+    if not arq.exists():
+        return _redir(f"/conferencia-pgdas?ref={r.referencia}")
+    return FileResponse(arq, media_type="application/pdf", filename=arq.name, content_disposition_type="inline")

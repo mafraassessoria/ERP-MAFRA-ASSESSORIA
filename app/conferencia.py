@@ -162,6 +162,83 @@ def ler_declaracao(texto: str) -> dict:
     return out
 
 
+CHAVE_PASTA = "conferencia_pasta_extratos"
+PASTA_PADRAO = r"G:\Meu Drive\Rotinas Automáticas Fiscal"
+
+
+def pasta_extratos(db: Session):
+    from pathlib import Path
+    from .configuracoes import ler_config
+    return Path(ler_config(db, CHAVE_PASTA) or PASTA_PADRAO)
+
+
+def _pastas_empresas(base) -> dict[int, object]:
+    """{código: pasta} a partir de nomes como "00094 - REPRESENTACOES AMS LTDA"."""
+    out = {}
+    try:
+        for d in base.iterdir():
+            m = re.match(r"\s*(\d+)\s*-", d.name)
+            if d.is_dir() and m:
+                out.setdefault(int(m.group(1)), d)
+    except OSError:
+        pass
+    return out
+
+
+def achar_extrato(pasta_empresa, ref: str):
+    """Extrato do PGDAS-D da competência: <empresa>/MM-AAAA/extrato_pgdas_*.pdf (o mais recente = retificadora)."""
+    if pasta_empresa is None:
+        return None
+    mm, aaaa = ref[5:], ref[:4]
+    candidatos = []
+    for nome in (f"{mm}-{aaaa}", f"{mm}.{aaaa}", f"{aaaa}-{mm}", f"{mm}{aaaa}"):
+        d = pasta_empresa / nome
+        if d.is_dir():
+            candidatos += [a for a in d.glob("*.pdf") if "pgdas" in a.name.lower() and "extrato" in a.name.lower()]
+    if not candidatos:   # nome do arquivo traz o período: extrato_pgdas_2026_10_01_2026_10_31.pdf
+        candidatos = [a for a in pasta_empresa.rglob(f"*pgdas*{aaaa}_{mm}_*.pdf")]
+    return max(candidatos, key=lambda a: a.stat().st_mtime) if candidatos else None
+
+
+def ler_extratos(db: Session, ref: str) -> dict:
+    """Lê RPA e RBT12 dos extratos do PGDAS-D salvos nas pastas das empresas (sem custo)."""
+    base = pasta_extratos(db)
+    if not base.is_dir():
+        raise ErroConferencia(f"Pasta dos extratos não encontrada: {base}")
+    pastas = _pastas_empresas(base)
+    lidos, sem = 0, []
+    for p in empresas(db):
+        try:
+            cod = int(re.sub(r"\D", "", p.codigo_interno or "") or 0)
+        except ValueError:
+            cod = 0
+        arq = achar_extrato(pastas.get(cod), ref)
+        r = registro(db, p, ref)
+        if arq is None:
+            if r.declarado is None or r.arquivo_extrato:
+                r.obs = "Extrato do PGDAS-D não encontrado na pasta da empresa."
+            sem.append(p.codigo_fmt)
+            continue
+        texto = texto_pdf(arq)
+        vals = ler_declaracao(texto)
+        basico = re.search(r"CNPJ B[áa]sico:\s*([\d.]+)", texto)
+        if basico and re.sub(r"\D", "", basico.group(1)) != p.cnpj[:8]:
+            r.obs = f"O extrato da pasta é de outro CNPJ ({basico.group(1)}). Confira a pasta."
+            sem.append(p.codigo_fmt)
+            continue
+        pa = re.search(r"Per[íi]odo de Apura[çc][ãa]o \(PA\):\s*(\d{2})/(\d{4})", texto)
+        if pa and f"{pa.group(2)}-{pa.group(1)}" != ref:
+            r.obs = f"O extrato encontrado é de {pa.group(1)}/{pa.group(2)}."
+            sem.append(p.codigo_fmt)
+            continue
+        r.declarado, r.rbt12 = vals["rpa"], vals["rbt12"]
+        r.arquivo_extrato, r.declarado_em, r.consulta_id = str(arq), datetime.now(), None
+        r.obs = "" if vals["rpa"] is not None else "Extrato encontrado, mas o valor não foi lido."
+        lidos += 1 if vals["rpa"] is not None else 0
+    db.commit()
+    return dict(lidos=lidos, sem=sem)
+
+
 def ler_declarado(db: Session, p: models.Prestador, ref: str, usuario: str, cli=None) -> str:
     """Consulta a última declaração do período (paga) e grava os valores. Devolve "" ou o motivo."""
     from .serpro import servico as sv
