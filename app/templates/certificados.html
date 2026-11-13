@@ -61,15 +61,21 @@
     <td>{% if p.usa_procuracao %}<span class="etiqueta producao" title="Sem certificado próprio válido">usa o do escritório</span>{% else %}da empresa{% endif %}</td>
     <td><input type="email" class="email-aviso" data-pid="{{ p.id }}" value="{{ p.email or '' }}" placeholder="sem e-mail" multiple>
       <small class="email-estado"></small></td>
-    <td><small>{{ x.avisos|replace(',', ', ') if x.avisos else '—' }}</small>
-      {% if c and x.dias is not none and 0 <= x.dias <= 30 %}<br>
-        <form method="post" action="/certificados/aviso/{{ p.id }}" class="em-linha" style="gap:.4rem" onsubmit="return confirm('Enviar agora o aviso de vencimento para ' + (this.closest('tr').querySelector('.email-aviso').value || 'a empresa') + '?')">
-          <button class="link" {{ 'disabled' if not smtp_ok }}>enviar aviso</button>
-          <a href="/certificados/modelo-email/{{ p.id }}" target="_blank"><small>ver e-mail</small></a></form>{% endif %}
-      {% if x.codigo in ('VENCIDO', 'SEM') %}{% if x.renovacao %}<br><small class="sutil">pedido enviado {{ x.renovacao|data }}</small>{% endif %}
-        <form method="post" action="/certificados/renovacao/{{ p.id }}" class="em-linha" style="gap:.4rem" onsubmit="return confirm('Enviar pedido de renovação para ' + (this.closest('tr').querySelector('.email-aviso').value || 'a empresa') + '?')">
-          <button class="link" {{ 'disabled' if not smtp_ok }}>{{ 'pedir renovação' if x.codigo == 'VENCIDO' else 'pedir certificado' }}</button>
-          <a href="/certificados/modelo-renovacao/{{ p.id }}" target="_blank"><small>ver e-mail</small></a></form>{% endif %}</td>
+    <td class="cel-avisos">
+      {% if x.codigo in ('VENCIDO', 'SEM') %}
+        <span class="sutil">{{ ('pedido enviado ' ~ x.renovacao.strftime('%d/%m/%Y')) if x.renovacao else 'nenhum pedido' }}</span>
+        <form method="post" action="/certificados/renovacao/{{ p.id }}" class="acoes-linha" onsubmit="return confirm('Enviar pedido de renovação para ' + (this.closest('tr').querySelector('.email-aviso').value || 'a empresa') + '?')">
+          <button class="link" {{ 'disabled' if not smtp_ok }}>{{ 'pedir renovação' if x.codigo == 'VENCIDO' else 'pedir certificado' }}</button> ·
+          <a href="/certificados/modelo-renovacao/{{ p.id }}" target="_blank">ver e-mail</a></form>
+      {% else %}
+        {% if x.ultimo_aviso %}<span title="Avisos enviados: {{ x.avisos|replace(',', ', ') }} dias">último aviso {{ x.ultimo_aviso.strftime('%d/%m/%Y') }}{% if x.ultimo_dias is not none %} <small class="sutil">(faltavam {{ x.ultimo_dias }} dia{{ 's' if x.ultimo_dias != 1 }})</small>{% endif %}</span>
+        {% elif x.avisos %}<span class="sutil" title="Avisos enviados antes do registro da data">avisos: {{ x.avisos|replace(',', ', ') }} dias</span>
+        {% else %}<span class="sutil">nenhum aviso enviado</span>{% endif %}
+        {% if c and x.dias is not none and 0 <= x.dias <= 30 %}
+        <form method="post" action="/certificados/aviso/{{ p.id }}" class="acoes-linha" onsubmit="return confirm('Enviar agora o aviso de vencimento para ' + (this.closest('tr').querySelector('.email-aviso').value || 'a empresa') + '?')">
+          <button class="link" {{ 'disabled' if not smtp_ok }}>enviar aviso agora</button> ·
+          <a href="/certificados/modelo-email/{{ p.id }}" target="_blank">ver e-mail</a></form>{% endif %}
+      {% endif %}</td>
     <td><button type="button" class="secundario mini abrir-cert" data-pid="{{ p.id }}" data-nome="{{ p.codigo_fmt }} · {{ p.razao_social }}">{{ 'Substituir' if c else 'Cadastrar' }}</button></td>
   </tr>
   {% else %}<tr><td colspan="9" class="sutil">Nenhuma empresa neste filtro.</td></tr>{% endfor %}

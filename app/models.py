@@ -268,6 +268,8 @@ class Certificado(Base):
     enviado_por: Mapped[str] = mapped_column(String(60), default="")
     # Avisos de vencimento já enviados por e-mail (dias, ex.: "15,12,9")
     avisos_enviados: Mapped[str] = mapped_column(String(60), default="")
+    ultimo_aviso_em: Mapped[datetime | None] = mapped_column(DateTime)
+    ultimo_aviso_dias: Mapped[int | None] = mapped_column(Integer)
     # Pedido de renovação enviado à empresa depois de vencido
     renovacao_pedida_em: Mapped[datetime | None] = mapped_column(DateTime)
 

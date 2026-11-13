@@ -428,3 +428,11 @@ table.notas.tabela-conf .nome-empresa { white-space:nowrap; overflow:visible; }
 table .nome-empresa { white-space:nowrap; }
 table.notas:has(.nome-empresa), .tabela-sitfis:has(.nome-empresa) { table-layout:auto; }
 table td:has(> .nome-empresa) { width:1%; }
+
+/* Código interno com o mesmo destaque do nome da empresa (célula logo antes do nome) */
+table td:has(+ td > .nome-empresa), table td.cod-empresa { font-weight:600; color:var(--texto); white-space:nowrap; }
+
+/* Certificados: coluna Avisos */
+.cel-avisos { font-size:.85rem; line-height:1.35; }
+.cel-avisos .acoes-linha { display:block; margin:.15rem 0 0; padding:0; border:0; font-size:.8rem; }
+.cel-avisos .acoes-linha button.link { padding:0; font-size:.8rem; }

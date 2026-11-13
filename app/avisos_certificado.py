@@ -77,6 +77,7 @@ def _registrar(c: models.Certificado) -> None:
     dias = c.dias_para_vencer
     feitos = _enviados(c) | {str(m) for m in MARCOS if m >= dias}
     c.avisos_enviados = ",".join(sorted(feitos, key=int, reverse=True))
+    c.ultimo_aviso_em, c.ultimo_aviso_dias = datetime.now(), dias
 
 
 # ---------------------------------------------------------------- texto do e-mail
@@ -326,6 +327,7 @@ def linhas_tela(db: Session) -> list[dict]:
         c = s["cert"]
         saida.append(dict(p=p, **s, em_uso="escritório (procuração)" if p.usa_procuracao else "da empresa",
                           avisos=(c.avisos_enviados if c else ""), pendente=aviso_pendente(c),
+                          ultimo_aviso=(c.ultimo_aviso_em if c else None), ultimo_dias=(c.ultimo_aviso_dias if c else None),
                           renovacao=p.certificado_pedido_em,
                           sem_email=not (p.email or "").strip(), hoje=hoje))
     return saida
