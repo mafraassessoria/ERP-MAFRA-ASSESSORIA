@@ -385,3 +385,28 @@ def conferencia_nfstock_acesso(db: Session = Depends(get_db), u=Depends(admin)):
             out.append(dict(codigo=p.codigo_fmt, nome=p.razao_social, cnpj=p.cnpj, regime=p.regime,
                             municipio=getattr(p, "municipio_nome", "") or "", status=st))
     return JSONResponse(out)
+
+
+@router.get("/conferencia-pgdas/diagnostico-tipos")
+def conferencia_diag_tipos(cnpj: str, ref: str = "", db: Session = Depends(get_db), u=Depends(admin)):
+    """Testa os endpoints de cada tipo de documento no NF-Stock (MS-Exportação)."""
+    import re as _re
+    import requests
+    from fastapi.responses import JSONResponse
+    from .. import conferencia as cf, nfstock
+    from .rotinas import mes_anterior
+    ref = ref or mes_anterior(date.today())
+    ini, fim = cf.periodo(ref)
+    tk = nfstock.token(db)
+    crm = (ler_config(db, nfstock.CHAVE_CRM) or "592534").zfill(6)
+    cnpj = _re.sub(r"\D", "", cnpj)
+    out = []
+    for doc in ("nfe", "nfce", "nfse", "cte", "cfe", "sat", "nfcom", "nf3e", "nfag", "documentos"):
+        for params in ({"Tipo": "Emitidas", "Status": "Autorizada"}, {}):
+            p = {"DataInicial": ini.isoformat(), "DataFinal": fim.isoformat(), "Tamanho": 3, "Pagina": 1, **params}
+            try:
+                r = requests.get(f"{cf.EXPORTACAO}/api/v1/{crm}/{cnpj}/{doc}", params=p, headers={"Authorization": f"Bearer {tk}"}, timeout=40)
+                out.append(dict(doc=doc, params=params, status=r.status_code, corpo=(r.text or "")[:900]))
+            except requests.RequestException as e:
+                out.append(dict(doc=doc, params=params, status=0, corpo=str(e)[:200]))
+    return JSONResponse(out)
