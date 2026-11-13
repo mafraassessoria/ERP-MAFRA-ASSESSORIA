@@ -352,3 +352,14 @@ def conferencia_extrato(rid: int, db: Session = Depends(get_db), u=Depends(usuar
     if not arq.exists():
         return _redir(f"/conferencia-pgdas?ref={r.referencia}")
     return FileResponse(arq, media_type="application/pdf", filename=arq.name, content_disposition_type="inline")
+
+
+@router.get("/conferencia-pgdas/diagnostico-nfstock")
+def conferencia_diag(cnpj: str, ref: str = "", db: Session = Depends(get_db), u=Depends(admin)):
+    """Mostra as respostas brutas do NF-Stock para cada formato de consulta (ajuste da integração)."""
+    import re as _re
+    from fastapi.responses import JSONResponse
+    from .. import conferencia as cf
+    from .rotinas import mes_anterior
+    ref = ref or mes_anterior(date.today())
+    return JSONResponse(cf.diagnostico(db, _re.sub(r"\D", "", cnpj), ref))

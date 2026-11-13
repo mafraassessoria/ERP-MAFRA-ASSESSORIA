@@ -88,10 +88,43 @@ def _params(v: dict, ini: date, fim: date, pagina: int) -> dict:
 
 
 def _texto(r) -> str:
+    """Resposta de erro resumida; no padrão ProblemDetails (ASP.NET) mostra os campos recusados."""
     try:
-        return (r.text or "")[:200].replace("\n", " ")
+        js = r.json()
+        if isinstance(js, dict) and js.get("errors"):
+            return "; ".join(f"{k}: {' '.join(map(str, v)) if isinstance(v, list) else v}" for k, v in js["errors"].items())[:300]
+        if isinstance(js, dict) and (js.get("detail") or js.get("title") or js.get("mensagem")):
+            return str(js.get("detail") or js.get("mensagem") or js.get("title"))[:300]
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        return (r.text or "")[:300].replace("\n", " ")
     except Exception:  # noqa: BLE001
         return ""
+
+
+def diagnostico(db: Session, cnpj: str, ref: str) -> list[dict]:
+    """Testa cada variante na NF-Stock e devolve a resposta completa (para ajustar o formato)."""
+    from .configuracoes import ler_config
+    from . import nfstock
+    tk = nfstock.token(db)
+    crm = (ler_config(db, nfstock.CHAVE_CRM) or "592534").zfill(6)
+    ini, fim = periodo(ref)
+    out = []
+    for i, v in enumerate(VARIANTES):
+        url = f"{EXPORTACAO}/api/v1/{crm}/{cnpj}/nfe"
+        try:
+            r = requests.get(url, params=_params(v, ini, fim, 1), headers={"Authorization": f"Bearer {tk}"}, timeout=60)
+            out.append(dict(variante=i, url=r.url, status=r.status_code, corpo=(r.text or "")[:2000]))
+        except requests.RequestException as e:
+            out.append(dict(variante=i, url=url, status=0, corpo=str(e)))
+    for extra in ("documentos/0/novos?Tamanho=5&Pagina=1",):
+        try:
+            r = requests.get(f"{EXPORTACAO}/api/v1/{crm}/{cnpj}/{extra}", headers={"Authorization": f"Bearer {tk}"}, timeout=60)
+            out.append(dict(variante=extra, url=r.url, status=r.status_code, corpo=(r.text or "")[:2000]))
+        except requests.RequestException as e:
+            out.append(dict(variante=extra, url=extra, status=0, corpo=str(e)))
+    return out
 
 
 def nfstock_emitidas(tk: str, crm: str, cnpj: str, tipo_doc: str, ref: str, sessao=None,
