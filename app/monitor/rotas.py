@@ -363,3 +363,25 @@ def conferencia_diag(cnpj: str, ref: str = "", db: Session = Depends(get_db), u=
     from .rotinas import mes_anterior
     ref = ref or mes_anterior(date.today())
     return JSONResponse(cf.diagnostico(db, _re.sub(r"\D", "", cnpj), ref))
+
+
+@router.get("/conferencia-pgdas/nfstock-acesso")
+def conferencia_nfstock_acesso(db: Session = Depends(get_db), u=Depends(admin)):
+    """Lista as empresas ativas do ERP que o NF-Stock não reconhece (403) — para cadastrar lá."""
+    import requests
+    from fastapi.responses import JSONResponse
+    from .. import conferencia as cf, nfstock
+    tk = nfstock.token(db)
+    crm = (ler_config(db, nfstock.CHAVE_CRM) or "592534").zfill(6)
+    out = []
+    for p in db.scalars(select(models.Prestador).where(models.Prestador.ativo.is_(True)).order_by(*models.ordem_prestador_sql())):
+        try:
+            r = requests.get(f"{cf.EXPORTACAO}/api/v1/{crm}/{p.cnpj}/documentos/0/novos", params={"Tamanho": 1, "Pagina": 1},
+                             headers={"Authorization": f"Bearer {tk}"}, timeout=30)
+            st = r.status_code
+        except requests.RequestException as e:
+            st = str(e)[:60]
+        if st != 200:
+            out.append(dict(codigo=p.codigo_fmt, nome=p.razao_social, cnpj=p.cnpj, regime=p.regime,
+                            municipio=getattr(p, "municipio_nome", "") or "", status=st))
+    return JSONResponse(out)
