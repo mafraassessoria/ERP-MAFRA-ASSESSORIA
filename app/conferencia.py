@@ -66,31 +66,67 @@ def nfse_do_mes(db: Session, p: models.Prestador, ref: str) -> tuple[Decimal, in
     return Decimal(str(v or 0)).quantize(Decimal("0.01")), int(n or 0)
 
 
-def nfstock_emitidas(tk: str, crm: str, cnpj: str, tipo_doc: str, ref: str, sessao=None) -> tuple[Decimal, int]:
-    """Soma as NF-e/NFC-e emitidas e autorizadas no mês (NF-Stock MS-Exportação)."""
+VARIANTES = (   # a documentação não fixa o formato; tenta e guarda a que o NF-Stock aceitar
+    {"data": "%Y-%m-%d", "tipo": "emitida", "status": "autorizada"},
+    {"data": "%Y-%m-%d", "tipo": "Emitida", "status": "Autorizada"},
+    {"data": "%Y-%m-%d", "tipo": "EMITIDA", "status": "AUTORIZADA"},
+    {"data": "%d/%m/%Y", "tipo": "emitida", "status": "autorizada"},
+    {"data": "%Y-%m-%dT00:00:00", "tipo": "emitida", "status": "autorizada"},
+    {"data": "%Y-%m-%d", "tipo": "emitida", "status": None},
+    {"data": "%Y-%m-%d", "tipo": None, "status": None},
+)
+CHAVE_VARIANTE = "conferencia_nfstock_variante"
+
+
+def _params(v: dict, ini: date, fim: date, pagina: int) -> dict:
+    p = {"DataInicial": ini.strftime(v["data"]), "DataFinal": fim.strftime(v["data"]), "Tamanho": 200, "Pagina": pagina}
+    if v["tipo"]:
+        p["Tipo"] = v["tipo"]
+    if v["status"]:
+        p["Status"] = v["status"]
+    return p
+
+
+def _texto(r) -> str:
+    try:
+        return (r.text or "")[:200].replace("\n", " ")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def nfstock_emitidas(tk: str, crm: str, cnpj: str, tipo_doc: str, ref: str, sessao=None,
+                     variante: int | None = None) -> tuple[Decimal, int, int]:
+    """Soma as NF-e/NFC-e emitidas e autorizadas no mês (NF-Stock MS-Exportação). Devolve (total, quantidade, variante)."""
     s = sessao or requests
     ini, fim = periodo(ref)
-    total, n, pagina = Decimal("0"), 0, 1
-    while True:
-        r = s.get(f"{EXPORTACAO}/api/v1/{crm}/{cnpj}/{tipo_doc}",
-                  params={"Tipo": "emitida", "DataInicial": ini.isoformat(), "DataFinal": fim.isoformat(),
-                          "Status": "autorizada", "Tamanho": 200, "Pagina": pagina},
-                  headers={"Authorization": f"Bearer {tk}", "Accept": "application/json"}, timeout=60)
-        if r.status_code == 404:
-            return total, n
-        if r.status_code in (401, 403):
-            raise ErroConferencia("NF-Stock recusou o token ou o código CRM (confira em Configurações → NF-Stock).")
-        if r.status_code >= 300:
-            raise ErroConferencia(f"NF-Stock respondeu {r.status_code} ({tipo_doc}).")
-        dados = r.json() or {}
-        for d in dados.get("documentos") or []:
-            if str(d.get("status", "autorizada")).lower().startswith("autoriz"):
-                total += Decimal(str(d.get("valor") or 0))
-                n += 1
-        paginas = int(dados.get("paginas") or 1)
-        if pagina >= paginas:
-            return total.quantize(Decimal("0.01")), n
-        pagina += 1
+    ordem = [variante] + [i for i in range(len(VARIANTES)) if i != variante] if variante is not None else range(len(VARIANTES))
+    ultimo = ""
+    for vi in ordem:
+        v = VARIANTES[vi]
+        total, n, pagina = Decimal("0"), 0, 1
+        while True:
+            r = s.get(f"{EXPORTACAO}/api/v1/{crm}/{cnpj}/{tipo_doc}", params=_params(v, ini, fim, pagina),
+                      headers={"Authorization": f"Bearer {tk}", "Accept": "application/json"}, timeout=60)
+            if r.status_code == 404:
+                return total, n, vi
+            if r.status_code == 400:
+                ultimo = _texto(r)
+                break          # formato não aceito: tenta a próxima variante
+            if r.status_code in (401, 403):
+                raise ErroConferencia(f"NF-Stock negou acesso a este CNPJ ({r.status_code}): {_texto(r) or 'empresa não vinculada à conta/CRM'}")
+            if r.status_code >= 300:
+                raise ErroConferencia(f"NF-Stock respondeu {r.status_code} ({tipo_doc}): {_texto(r)}")
+            dados = r.json() or {}
+            for d in dados.get("documentos") or []:
+                st = str(d.get("status") or "autorizada").lower()
+                emit = re.sub(r"\D", "", str(d.get("cpfcnpj_emitente") or cnpj))
+                if st.startswith("autoriz") and emit[:8] == cnpj[:8]:
+                    total += Decimal(str(d.get("valor") or 0))
+                    n += 1
+            if pagina >= int(dados.get("paginas") or 1):
+                return total.quantize(Decimal("0.01")), n, vi
+            pagina += 1
+    raise ErroConferencia(f"NF-Stock não aceitou a consulta de {tipo_doc} (400): {ultimo}")
 
 
 def atualizar_faturamento(db: Session, ref: str, sessao=None) -> dict:
@@ -99,6 +135,9 @@ def atualizar_faturamento(db: Session, ref: str, sessao=None) -> dict:
     from . import nfstock
     tk = nfstock.token(db)
     crm = (ler_config(db, nfstock.CHAVE_CRM) or "592534").zfill(6)
+    from .configuracoes import gravar_config
+    v = ler_config(db, CHAVE_VARIANTE)
+    variante = int(v) if v.isdigit() and int(v) < len(VARIANTES) else None
     feitas, erros = 0, []
     for p in empresas(db):
         r = registro(db, p, ref)
@@ -106,14 +145,12 @@ def atualizar_faturamento(db: Session, ref: str, sessao=None) -> dict:
         r.erro_nfstock = ""
         if tk:
             try:
-                r.nfe, r.qtd_nfe = nfstock_emitidas(tk, crm, p.cnpj, "nfe", ref, sessao)
-                r.nfce, r.qtd_nfce = nfstock_emitidas(tk, crm, p.cnpj, "nfce", ref, sessao)
+                r.nfe, r.qtd_nfe, variante = nfstock_emitidas(tk, crm, p.cnpj, "nfe", ref, sessao, variante)
+                r.nfce, r.qtd_nfce, variante = nfstock_emitidas(tk, crm, p.cnpj, "nfce", ref, sessao, variante)
+                gravar_config(db, CHAVE_VARIANTE, str(variante))
             except (ErroConferencia, requests.RequestException, ValueError) as e:
                 r.erro_nfstock = str(e)[:300]
-                erros.append(f"{p.nome_exibicao}: {e}")
-                if isinstance(e, ErroConferencia) and "token" in str(e):
-                    db.commit()
-                    raise
+                erros.append(f"{p.codigo_fmt}: {str(e)[:120]}")
         else:
             r.erro_nfstock = "token do NF-Stock não informado"
         r.faturamento_em = datetime.now()
@@ -167,9 +204,16 @@ PASTA_PADRAO = r"G:\Meu Drive\Rotinas Automáticas Fiscal"
 
 
 def pasta_extratos(db: Session):
+    """Pasta configurada; senão a cópia local (dados/extratos_pgdas, feita pela tarefa do usuário);
+    senão G:\\Meu Drive\\Rotinas Automáticas Fiscal (o servidor roda como SYSTEM e em geral não enxerga o G:)."""
     from pathlib import Path
+    from .config import DATA_DIR
     from .configuracoes import ler_config
-    return Path(ler_config(db, CHAVE_PASTA) or PASTA_PADRAO)
+    cfg = ler_config(db, CHAVE_PASTA)
+    if cfg:
+        return Path(cfg)
+    local = DATA_DIR / "extratos_pgdas"
+    return local if local.is_dir() else Path(PASTA_PADRAO)
 
 
 def _pastas_empresas(base) -> dict[int, object]:
@@ -204,7 +248,8 @@ def ler_extratos(db: Session, ref: str) -> dict:
     """Lê RPA e RBT12 dos extratos do PGDAS-D salvos nas pastas das empresas (sem custo)."""
     base = pasta_extratos(db)
     if not base.is_dir():
-        raise ErroConferencia(f"Pasta dos extratos não encontrada: {base}")
+        raise ErroConferencia(f"Pasta dos extratos não encontrada: {base}. Rode uma vez COPIAR_EXTRATOS_PGDAS.bat "
+                              "(com o seu usuário, no servidor) para copiar os extratos do Drive para o ERP.")
     pastas = _pastas_empresas(base)
     lidos, sem = 0, []
     for p in empresas(db):
