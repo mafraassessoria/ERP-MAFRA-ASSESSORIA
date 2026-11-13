@@ -238,8 +238,10 @@
   <section class="cartao">
     <h2>Valor aproximado dos tributos</h2>
     <label class="radio"><input type="radio" name="tot_trib_tipo" value="SN" {{ 'checked' if (n.tot_trib_tipo or 'SN') == 'SN' }}> Alíquota do Simples Nacional</label>
-    <div class="tot-SN sub-opcao">Percentual informado no cadastro da empresa: <b>{{ p.p_tot_trib_sn|moeda }}%</b>
-      {% if not p.p_tot_trib_sn %}<span class="etiqueta erro">não informado no cadastro</span>{% endif %}</div>
+    <div class="tot-SN sub-opcao">{% if aliq_mes|length > 1 %}Alíquota nominal do anexo do serviço (<a href="/aliquotas-simples" target="_blank">Alíquotas do Simples</a>):
+        {% for a in aliq_mes %}<b>Anexo {{ a.anexo }} {{ a.nominal|moeda }}%</b>{{ ' · ' if not loop.last }}{% endfor %}
+      {% else %}Alíquota nominal do Simples: <b>{{ p.p_tot_trib_sn|moeda }}%</b>{% if aliq_mes %} <small class="sutil">(Anexo {{ aliq_mes[0].anexo }}, {{ 'definitiva' if aliq_mes[0].origem == 'DEFINITIVA' else 'provisória' }})</small>{% endif %}
+      {% if not p.p_tot_trib_sn %}<span class="etiqueta erro">não informado no cadastro</span>{% endif %}{% endif %}</div>
     <label class="radio"><input type="radio" name="tot_trib_tipo" value="VALOR" {{ 'checked' if n.tot_trib_tipo == 'VALOR' }}> Valores monetários (R$) desta nota</label>
     <label class="radio"><input type="radio" name="tot_trib_tipo" value="PERCENTUAL" {{ 'checked' if n.tot_trib_tipo == 'PERCENTUAL' }}> Valores percentuais (%)</label>
     <div class="grade grade-4 tot-campos sub-opcao">

@@ -302,6 +302,11 @@ async def conferencia_faturamento(request: Request, db: Session = Depends(get_db
     except cf.ErroConferencia as e:
         erro = True
         msgs.append(str(e))
+    try:   # extrato novo = alíquota definitiva das notas do mês seguinte
+        from .. import aliquotas as al
+        al.atualizar(db, al.ref_mais(ref, 1))
+    except Exception:  # noqa: BLE001
+        pass
     flash(request, " ".join(msgs), "erro" if erro else "ok")
     return _redir(f"/conferencia-pgdas?ref={ref}")
 
@@ -426,3 +431,71 @@ def conferencia_empresa(pid: int, request: Request, ref: str = "", db: Session =
     prox = lista[i + 1] if 0 <= i < len(lista) - 1 else None
     return render(request, "conferencia_empresa.html", p=p, ref=ref, d=cf.detalhe_empresa(db, p, ref),
                   ROTULO=cf.ROTULO_MODELO, ant=ant, prox=prox, e_admin=getattr(u, "perfil", "") == "ADMIN")
+
+
+# ---------------------------------------------------------------- alíquotas do Simples (pTotTribSN)
+
+@router.get("/aliquotas-simples")
+def aliquotas_simples(request: Request, ref: str = "", db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from .. import aliquotas as al
+    hoje = date.today().strftime("%Y-%m")
+    ref = ref if len(ref) == 7 and ref[4] == "-" else hoje
+    refs = [al.ref_mais(hoje, -i) for i in range(0, 6)]
+    if ref not in refs:
+        refs.append(ref)
+    lista = al.linhas_tela(db, ref)
+    codigos = {}
+    for c in db.scalars(select(models.CodigoEmpresa).where(models.CodigoEmpresa.tipo == "CTRIBNAC")):
+        codigos.setdefault(c.prestador_id, []).append(c)
+    cont = dict(definitivas=sum(1 for x in lista if any(a.origem == "DEFINITIVA" for a in x["linhas"])),
+                provisorias=sum(1 for x in lista if x["linhas"] and all(a.origem != "DEFINITIVA" for a in x["linhas"])),
+                sem=sum(1 for x in lista if not x["linhas"]), mudaram=sum(1 for x in lista if x["mudou"]),
+                varios=sum(1 for x in lista if len([a for a in x["linhas"] if a.anexo in al.SERVICOS]) > 1))
+    return render(request, "aliquotas_simples.html", lista=lista, ref=ref, refs=refs, hoje=hoje, cont=cont,
+                  codigos=codigos, auto=al.auto_ligado(db), TABELAS=al.TABELAS, LIMITES=al.LIMITES, SERVICOS=al.SERVICOS,
+                  ultima=ler_config(db, "aliquotas_ultima") or "", e_admin=getattr(u, "perfil", "") == "ADMIN")
+
+
+@router.post("/aliquotas-simples/calcular")
+async def aliquotas_calcular(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    from .. import aliquotas as al
+    form = await request.form()
+    ref = form.get("ref", "") or date.today().strftime("%Y-%m")
+    aplicar = form.get("aplicar") == "1"
+    try:
+        r = al.atualizar(db, ref, aplicar=True if aplicar else None)
+    except Exception as e:  # noqa: BLE001
+        flash(request, f"Não foi possível calcular: {e}", "erro")
+        return _redir(f"/aliquotas-simples?ref={ref}")
+    gravar_config(db, "aliquotas_ultima", datetime.now().isoformat(timespec="seconds"))
+    auditar(db, request, u, "ALIQUOTAS_SIMPLES", "", None,
+            f"ref={ref} calculadas={r['calculadas']} aplicadas={r['aplicadas']} aplicar={aplicar}")
+    db.commit()
+    msg = f"Alíquotas calculadas para {r['calculadas']} empresa(s) ({r['definitivas']} definitiva(s))."
+    if r["aplicadas"]:
+        msg += f" Cadastro atualizado em {r['aplicadas']}."
+    if r["mudaram"]:
+        msg += f" {r['mudaram']} mudaram de faixa."
+    if r["sem"]:
+        msg += f" Sem extrato: {len(r['sem'])}."
+    flash(request, msg, "ok")
+    return _redir(f"/aliquotas-simples?ref={ref}")
+
+
+@router.post("/aliquotas-simples/automatico")
+async def aliquotas_automatico(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
+    from .. import aliquotas as al
+    form = await request.form()
+    gravar_config(db, al.CHAVE_AUTO, "1" if form.get("auto") else "0")
+    db.commit()
+    return _redir("/aliquotas-simples")
+
+
+@router.post("/aliquotas-simples/anexo-codigo")
+async def aliquotas_anexo_codigo(request: Request, db: Session = Depends(get_db), u=Depends(usuario_atual)):
+    form = await request.form()
+    c = db.get(models.CodigoEmpresa, int(form.get("id") or 0))
+    if c is not None and form.get("anexo", "") in ("", "III", "IV", "V"):
+        c.anexo_simples = form.get("anexo", "")
+        db.commit()
+    return _redir(f"/aliquotas-simples?ref={form.get('ref', '')}#al-{c.prestador_id if c else ''}")

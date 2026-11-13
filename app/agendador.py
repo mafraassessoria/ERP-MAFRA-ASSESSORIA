@@ -38,7 +38,33 @@ def verificar(agora: datetime | None = None) -> bool:
         avisos_certificado(agora)
     except Exception:  # noqa: BLE001
         log.exception("avisos de certificado")
+    try:
+        verificar_aliquotas(agora)
+    except Exception:  # noqa: BLE001
+        log.exception("alíquotas do Simples")
     return verificar_certidoes(agora)
+
+
+def verificar_aliquotas(agora: datetime | None = None) -> bool:
+    """A cada 3 h recalcula as alíquotas do mês (pega os extratos novos copiados do Drive)."""
+    from . import aliquotas as al
+    from .configuracoes import gravar_config, ler_config
+    from .db import SessionLocal
+    agora = agora or datetime.now()
+    db = SessionLocal()
+    try:
+        ult = ler_config(db, "aliquotas_ultima")
+        try:
+            if ult and datetime.fromisoformat(ult) > agora - timedelta(hours=3):
+                return False
+        except ValueError:
+            pass
+        al.atualizar(db, agora.strftime("%Y-%m"))
+        gravar_config(db, "aliquotas_ultima", agora.isoformat(timespec="seconds"))
+        db.commit()
+        return True
+    finally:
+        db.close()
 
 
 def verificar_certidoes(agora: datetime | None = None) -> bool:

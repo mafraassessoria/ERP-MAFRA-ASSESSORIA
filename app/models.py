@@ -348,6 +348,8 @@ class CodigoEmpresa(Base):
     prestador_id: Mapped[int] = mapped_column(ForeignKey("prestadores.id", ondelete="CASCADE"), index=True)
     tipo: Mapped[str] = mapped_column(String(10))  # CTRIBNAC | NBS
     codigo: Mapped[str] = mapped_column(String(9))
+    # Anexo do Simples do serviço (III, IV ou V) quando a empresa fatura em mais de um; vazio = automático
+    anexo_simples: Mapped[str] = mapped_column(String(3), default="")
 
 
 class Intermediario(Timestamps, Base):
@@ -799,3 +801,26 @@ class NFStockDoc(Base):
     numero: Mapped[str] = mapped_column(String(30), default="")
     valor: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
     erro: Mapped[str] = mapped_column(String(200), default="")
+
+
+class AliquotaSimples(Base):
+    """Alíquota NOMINAL do Simples por anexo para as notas de um mês (Lei da Transparência — pTotTribSN).
+    Calculada do extrato do PGDAS-D do mês anterior (definitiva) ou do penúltimo + faturamento conferido (provisória)."""
+    __tablename__ = "aliquotas_simples"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    prestador_id: Mapped[int] = mapped_column(ForeignKey("prestadores.id", ondelete="CASCADE"), index=True)
+    referencia: Mapped[str] = mapped_column(String(7), index=True)      # mês das notas: 2026-11
+    anexo: Mapped[str] = mapped_column(String(3))                       # I, II, III, IV, V
+    receita_anexo: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    rbt12: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    proporcional: Mapped[bool] = mapped_column(Boolean, default=False)   # início de atividade (RBT12p)
+    faixa: Mapped[int] = mapped_column(Integer, default=1)
+    nominal: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)
+    faixa_anterior: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    origem: Mapped[str] = mapped_column(String(12), default="PROVISORIA")   # PROVISORIA | DEFINITIVA
+    base_ref: Mapped[str] = mapped_column(String(7), default="")          # extrato usado
+    calculada_em: Mapped[datetime | None] = mapped_column(DateTime)
+    obs: Mapped[str] = mapped_column(String(300), default="")
+
+    prestador: Mapped["Prestador"] = relationship()

@@ -57,7 +57,7 @@
       <label>CST PIS/COFINS <input name="cst_piscofins" value="{{ p.cst_piscofins or '08' }}" maxlength="2"></label>
       <label>Regime especial (0 = nenhum) <input name="reg_esp_trib" value="{{ p.reg_esp_trib or 0 }}" maxlength="1"></label>
     </div>
-    <p class="sutil">O "% aproximado de tributos do Simples" (Lei da Transparência) é obrigatório para ME/EPP (E0712) e sai na nota. Use a alíquota efetiva do mês. MEI não informa.</p>
+    <p class="sutil">O "% aproximado de tributos do Simples" (Lei da Transparência) é obrigatório para ME/EPP (E0712) e sai na nota. Atualizado sozinho todo mês pela alíquota nominal do anexo (Integra Contador → Alíquotas do Simples). MEI não informa.</p>
     <label class="check"><input type="checkbox" class="interruptor" name="municipio_aderente" value="1" {{ 'checked' if p.municipio_aderente }}> Município confirmado como aderente ao Emissor Nacional</label>
     <label class="check"><input type="checkbox" class="interruptor" name="autorizacao_uso_certificado" value="1" {{ 'checked' if p.autorizacao_uso_certificado }}> Cliente autorizou formalmente o uso do certificado A1 pelo escritório</label>
     <label class="check"><input type="checkbox" class="interruptor" name="enviar_email_automatico" value="1" {{ 'checked' if p.enviar_email_automatico }}> Enviar a nota (PDF + XML) por e-mail ao tomador automaticamente após a autorização</label>

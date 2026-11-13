@@ -132,6 +132,20 @@ def _certificado_temporario(prestador: models.Prestador):
 
 # ---- Conversão do nosso cadastro para a configuração da biblioteca --------
 
+def p_tot_trib_sn(prestador: models.Prestador, nota: models.NotaFiscal) -> Decimal:
+    """Alíquota nominal do anexo do serviço no mês (tela Alíquotas do Simples); senão, a do cadastro."""
+    from sqlalchemy.orm import object_session
+    from ..aliquotas import aliquota_para_nota
+    db = object_session(prestador)
+    v = None
+    if db is not None:
+        try:
+            v = aliquota_para_nota(db, prestador, nota.codigo_tributacao_nacional or "")
+        except Exception:  # noqa: BLE001 — nunca impede a emissão
+            v = None
+    return Decimal(v if v is not None else (prestador.p_tot_trib_sn or 0))
+
+
 def _config(prestador: models.Prestador, nota: models.NotaFiscal, pfx: str, senha: str):
     from pynfsenacional.config import ClienteConfig
 
@@ -144,7 +158,7 @@ def _config(prestador: models.Prestador, nota: models.NotaFiscal, pfx: str, senh
     if nota.tipo_ret_piscofins:
         tributos["tpRetPisCofins"] = nota.tipo_ret_piscofins
     if op == 3:
-        tributos["pTotTribSN"] = f"{Decimal(prestador.p_tot_trib_sn or 0):.2f}"
+        tributos["pTotTribSN"] = f"{p_tot_trib_sn(prestador, nota):.2f}"
     else:
         tributos["indTotTrib"] = 0
     return ClienteConfig.from_dict({
@@ -216,7 +230,7 @@ def conferir(db: Session, nota: models.NotaFiscal) -> list[str]:
                          "Será incluído em uma próxima etapa.")
     if not p.codigo_municipio_ibge:
         problemas.append("Informe o código IBGE do município do prestador.")
-    if p.regime in ("SIMPLES", "SIMPLES_EXCESSO") and not p.p_tot_trib_sn and (nota.tot_trib_tipo or "SN") == "SN":
+    if p.regime in ("SIMPLES", "SIMPLES_EXCESSO") and not p_tot_trib_sn(p, nota) and (nota.tot_trib_tipo or "SN") == "SN":
         problemas.append("Informe no cadastro do prestador o % aproximado de tributos do Simples "
                          "(campo obrigatório para ME/EPP — E0712).")
     _dono, problema_cert = descricao_certificado(db, p)

@@ -221,6 +221,11 @@ def montar(db: Session, u: models.Usuario) -> dict:
             _linha("Versão", versao_sistema() or "—", ""),
         ]))
 
+    mudaram = db.scalar(select(func.count(func.distinct(models.AliquotaSimples.prestador_id))).where(
+        models.AliquotaSimples.referencia == hoje.strftime("%Y-%m"), models.AliquotaSimples.faixa_anterior.is_not(None),
+        models.AliquotaSimples.faixa_anterior != models.AliquotaSimples.faixa)) or 0
+    acao("aviso", mudaram, "empresa(s) mudaram de faixa do Simples neste mês", "/aliquotas-simples")
+
     ordem = {"erro": 0, "aviso": 1, "info": 2}
     acoes.sort(key=lambda a: ordem[a["nivel"]])
     return dict(acoes=acoes, cartoes=[c for c in cartoes if c['titulo'] != 'Sistema'],

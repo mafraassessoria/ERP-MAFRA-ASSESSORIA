@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titulo %}Alíquotas do Simples{% endblock %}
+{% block main_classe %}larga{% endblock %}
+{% block conteudo %}
+<div class="linha-titulo">
+  <div><h1>Alíquotas do Simples · notas de {{ ref[5:] }}/{{ ref[:4] }}</h1>
+    <p class="linha-pequena">"% aproximado dos tributos" das NFS-e (Lei da Transparência) pela <b>alíquota nominal</b> do anexo, na faixa do RBT12 do mês.
+      <b>Definitiva</b>: extrato do PGDAS-D do mês anterior. <b>Provisória</b> (até o extrato chegar): extrato de dois meses atrás + faturamento conferido. Empresa com mais de um anexo: cada nota usa o anexo do serviço.</p></div>
+  <form method="get" class="em-linha"><label>Notas de
+    <select name="ref" onchange="this.form.submit()">{% for r in refs %}<option value="{{ r }}" {{ 'selected' if r == ref }}>{{ r[5:] }}/{{ r[:4] }}</option>{% endfor %}</select></label></form>
+</div>
+
+<div class="em-linha" style="gap:.6rem;margin:.4rem 0 .8rem;flex-wrap:wrap;align-items:center">
+  <form method="post" action="/aliquotas-simples/calcular" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Calculando…'">
+    <input type="hidden" name="ref" value="{{ ref }}"><button class="secundario">Recalcular agora</button></form>
+  {% if ref == hoje and not auto %}<form method="post" action="/aliquotas-simples/calcular" onsubmit="return confirm('Gravar no cadastro de cada empresa a alíquota do anexo principal?')">
+    <input type="hidden" name="ref" value="{{ ref }}"><input type="hidden" name="aplicar" value="1"><button>Aplicar a todos</button></form>{% endif %}
+  {% if e_admin %}<form method="post" action="/aliquotas-simples/automatico" class="em-linha">
+    <label class="rf-radio"><input type="checkbox" class="interruptor" data-auto name="auto" value="1" {{ 'checked' if auto }}> Atualizar sozinho (cadastro e emissão)</label></form>{% endif %}
+  <span class="sutil" style="margin-left:auto">definitivas <b>{{ cont.definitivas }}</b> · provisórias <b>{{ cont.provisorias }}</b> · sem extrato <b>{{ cont.sem }}</b>
+    {% if cont.mudaram %} · <span class="erro-texto">mudaram de faixa <b>{{ cont.mudaram }}</b></span>{% endif %}
+    {% if cont.varios %} · mais de um anexo <b>{{ cont.varios }}</b>{% endif %}
+    {% if ultima %} · calculado {{ ultima[8:10] }}/{{ ultima[5:7] }} {{ ultima[11:16] }}{% endif %}</span>
+</div>
+
+<table class="notas tabela-conf tabela-aliq">
+  <thead><tr><th>Cód.</th><th>Empresa</th><th class="num">RBT12</th><th>Anexo</th><th>Faixa</th><th class="num">Nominal</th><th class="num">No cadastro</th><th>Situação</th></tr></thead>
+  <tbody>
+  {% for x in lista %}{% set p = x.p %}{% set n = x.linhas|length %}
+    {% if not n %}
+    <tr id="al-{{ p.id }}"><td>{{ p.codigo_fmt }}</td><td><a class="nome-empresa" href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a></td>
+      <td class="num">—</td><td>—</td><td>—</td><td class="num">—</td><td class="num">{{ x.cadastro|moeda }}%</td>
+      <td><span class="sutil">sem extrato do PGDAS-D</span></td></tr>
+    {% else %}
+    {% for a in x.linhas %}
+    <tr id="{{ 'al-' ~ p.id if loop.first }}" class="{{ 'sub-anexo' if not loop.first }}">
+      <td>{{ p.codigo_fmt if loop.first }}</td>
+      <td>{% if loop.first %}<a class="nome-empresa" href="/prestadores/{{ p.id }}">{{ p.razao_social }}</a>{% endif %}</td>
+      <td class="num">{% if loop.first %}{{ a.rbt12|moeda }}{% if a.proporcional %} <small class="sutil" title="Início de atividade: média mensal × 12 (RBT12p)">prop.</small>{% endif %}{% endif %}</td>
+      <td>{{ a.anexo }}{% if a.anexo == x.principal and n > 1 %} <small class="sutil" title="Anexo principal (maior receita de serviço): vai para o cadastro">principal</small>{% endif %}
+        {% if n > 1 %}<small class="sutil" title="Receita do anexo no extrato">· R$ {{ a.receita_anexo|moeda }}</small>{% endif %}</td>
+      <td>{{ a.faixa }}ª{% if a.faixa_anterior and a.faixa_anterior != a.faixa %} <span class="etiqueta aviso mini" title="Era a {{ a.faixa_anterior }}ª faixa no mês anterior">mudou</span>{% endif %}</td>
+      <td class="num"><b>{{ a.nominal|moeda }}%</b></td>
+      <td class="num">{% if loop.first %}<span class="{{ 'erro-texto' if x.difere }}" title="{{ 'Diferente da alíquota do anexo principal' if x.difere }}">{{ x.cadastro|moeda }}%</span>{% endif %}</td>
+      <td>{% if loop.first %}<span class="etiqueta {{ 'ok' if a.origem == 'DEFINITIVA' else 'aviso' }}" title="Extrato de {{ a.base_ref[5:] }}/{{ a.base_ref[:4] }}">{{ 'definitiva' if a.origem == 'DEFINITIVA' else 'provisória' }}</span>{% endif %}
+        {% if a.obs and loop.first %}<br><small class="sutil">{{ a.obs }}</small>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    {% set serv = x.linhas|selectattr('anexo', 'in', SERVICOS)|map(attribute='anexo')|list %}
+    {% if serv|length > 1 and codigos.get(p.id) %}
+    <tr class="sub-anexo"><td></td><td colspan="7"><small class="sutil">Anexo por código de serviço (vazio = automático: 7.02, 7.04, 7.05, 7.10, 7.11, 11.02 e 17.14 no IV; os demais no anexo principal):</small>
+      {% for c in codigos[p.id] %}<form method="post" action="/aliquotas-simples/anexo-codigo" class="em-linha cod-anexo"><input type="hidden" name="id" value="{{ c.id }}"><input type="hidden" name="ref" value="{{ ref }}">
+        <small>{{ c.codigo[:2] }}.{{ c.codigo[2:4] }}.{{ c.codigo[4:] }}</small>
+        <select name="anexo" onchange="this.form.submit()"><option value="">auto</option>{% for an in serv %}<option {{ 'selected' if c.anexo_simples == an }}>{{ an }}</option>{% endfor %}</select></form>{% endfor %}</td></tr>
+    {% endif %}
+    {% endif %}
+  {% else %}<tr><td colspan="8" class="sutil">Nenhuma empresa do Simples Nacional ativa.</td></tr>{% endfor %}
+  </tbody>
+</table>
+
+<details class="cartao recolhivel" style="margin-top:1rem"><summary><h2>Tabela das alíquotas nominais (LC 123/2006)</h2></summary>
+  <table class="compacta"><tr><th>Faixa</th><th>RBT12 até</th>{% for an in TABELAS %}<th class="num">Anexo {{ an }}</th>{% endfor %}</tr>
+  {% for i in range(6) %}<tr><td>{{ i + 1 }}ª</td><td>R$ {{ LIMITES[i]|moeda }}</td>{% for an, v in TABELAS.items() %}<td class="num">{{ v[i]|replace('.', ',') }}%</td>{% endfor %}</tr>{% endfor %}</table>
+</details>
+{% endblock %}

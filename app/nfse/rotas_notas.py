@@ -238,7 +238,11 @@ def _form_nota(request, db, p, n, mensagens=None, tomador_id: int = 0):
         "pTotTribSN": float(p.p_tot_trib_sn or 0),
         "mei": p.regime == "MEI",
     }
+    from datetime import date as _date
+    aliq_mes = list(db.scalars(select(models.AliquotaSimples).where(
+        models.AliquotaSimples.prestador_id == p.id, models.AliquotaSimples.referencia == _date.today().strftime("%Y-%m"))))
     return render(request, "nota_form.html", p=p, n=n, tomadores=tomadores, intermediarios=intermediarios, obras=obras,
+                  aliq_mes=[a for a in aliq_mes if a.anexo in ("III", "IV", "V")],
                   ctribnac=tabelas.lista_ctribnac(db, cod_ct), nbs=tabelas.lista_nbs(db, cod_nbs),
                   local_rotulo=tabelas.nome_municipio(local), local=local,
                   municipio_sede=tabelas.nome_municipio(p.codigo_municipio_ibge),

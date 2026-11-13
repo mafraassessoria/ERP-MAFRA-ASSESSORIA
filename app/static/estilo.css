@@ -458,3 +458,8 @@ table.tabela-cnd td.icones a { text-decoration:none; font-size:1.05rem; }
 table.tabela-cnd tr.grupo-empresa td { width:auto; }
 
 .icones-modulo span { margin-left:.25rem; cursor:help; font-size:.95rem; }
+
+table.tabela-aliq tr.sub-anexo td { border-top:none; padding-top:.1rem; }
+table.tabela-aliq tr.sub-anexo td:first-child, table.tabela-aliq tr.sub-anexo td:nth-child(2) { width:auto; }
+form.cod-anexo { display:inline-flex; gap:.25rem; align-items:center; margin:.15rem .6rem .15rem 0; }
+form.cod-anexo select { padding:.05rem .2rem; font-size:.82rem; }
