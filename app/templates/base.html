@@ -53,7 +53,7 @@
     {% if e.usa_receita %}<a href="{{ base_e }}/receita" class="{{ 'ativo' if atual.startswith(base_e ~ '/receita') }}">Integra Contador</a>{% endif %}
     <a href="{{ base_e }}?aba=config" class="{{ 'ativo' if aba_q == 'config' or (atual == base_e and aba_q == '' and not e.usa_nfse) }}">Dados</a>
   </nav>
-  <a class="botao secundario sair-empresa" href="/prestadores/sair">Sair da empresa</a>
+  <a class="botao secundario sair-empresa" href="/prestadores/sair" title="Voltar para a visão de todas as empresas">✕ Sair da empresa</a>
 </div>
 {% endif %}
 <main class="{% block main_classe %}{% endblock %}">

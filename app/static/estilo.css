@@ -173,10 +173,11 @@ input:disabled, select:disabled, textarea:disabled { background:#eef0f3; color:#
 .barra-empresa { display:flex; align-items:center; gap:1.5rem; padding:.55rem 2rem; background:#e8f0f8; border-bottom:1px solid var(--borda); }
 .barra-empresa .nome { font-size:1rem; }
 .barra-empresa .nome small { color:var(--sutil); margin-left:.4rem; }
-.barra-empresa nav { display:flex; gap:.3rem; flex:1; }
+.barra-empresa nav { display:flex; gap:.3rem; flex:0 1 auto; flex-wrap:wrap; }
 .barra-empresa nav a { padding:.3rem .75rem; border-radius:6px; text-decoration:none; }
 .barra-empresa nav a:hover { background:#d5e3f1; }
-.barra-empresa .sair-empresa { padding:.35rem .9rem; }
+.barra-empresa .sair-empresa { padding:.3rem .8rem; margin-left:.5rem; border-color:#c9d6e3; white-space:nowrap; }
+.barra-empresa .sair-empresa:hover { background:#fdecec; border-color:#e8b4b4; color:#8a1c1c; }
 .barra-sel { display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; margin-top:.8rem; position:sticky; bottom:0; }
 .barra-sel #qtd-sel-notas { margin-right:auto; }
 .filtros-notas.sem-empresa { grid-template-columns: repeat(2, minmax(130px,1fr)) minmax(150px,1fr) repeat(2, minmax(140px,1fr)) minmax(220px,2fr) auto; }
