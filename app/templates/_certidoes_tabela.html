@@ -1,5 +1,5 @@
 {# Espera: lista (linhas de certidoes.servico.linhas), mostrar_empresa, volta #}
-<table class="compacta tabela-cnd">
+<table class="compacta tabela-cnd{{ ' sem-ordenar' if mostrar_empresa }}">
   <thead><tr><th>Certidão</th><th>Emissão</th><th>Validade</th><th>Situação no Pack</th><th>Estado</th><th>O que fazer</th><th title="Abrir / baixar">Arquivo</th><th>Arquivador</th></tr></thead>
   <tbody>
   {% set ns = namespace(ult=None) %}

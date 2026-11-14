@@ -87,6 +87,9 @@ def versao_sistema() -> str:
 
 
 templates.env.globals["versao_sistema"] = versao_sistema
+# muda a cada reinício (cada atualização): força o navegador a buscar CSS/JS novos
+import time as _time
+templates.env.globals["v_est"] = str(int(_time.time()))
 
 
 def flash(request: Request, msg: str, tipo: str = "ok") -> None:

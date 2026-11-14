@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titulo %}Início{% endblock %} · ERP MAFRA ASSESSORIA</title>
-<link rel="stylesheet" href="/static/estilo.css">
+<link rel="stylesheet" href="/static/estilo.css?v={{ v_est }}">
 {% block head %}{% endblock %}
-<script src="/static/consulta.js" defer></script>
-<script src="/static/combo.js"></script>
-  <script src="/static/exportar.js"></script>
-  <script src="/static/ordenar.js" defer></script>
+<script src="/static/consulta.js?v={{ v_est }}" defer></script>
+<script src="/static/combo.js?v={{ v_est }}"></script>
+  <script src="/static/exportar.js?v={{ v_est }}"></script>
+  <script src="/static/ordenar.js?v={{ v_est }}" defer></script>
 </head>
 <body>
 {% if usuario %}

@@ -1,5 +1,5 @@
 {# Histórico de certidões substituídas. Espera: hist (certidoes.servico.historico), mostrar_empresa #}
-<table class="compacta historico-cert tabela-cnd">
+<table class="compacta historico-cert tabela-cnd{{ ' sem-ordenar' if mostrar_empresa }}">
   <thead><tr><th>Certidão</th><th>Emissão</th><th>Validade</th><th>Situação</th><th>Substituída em</th><th>Por</th><th>Cópia</th></tr></thead>
   <tbody>
   {% set ns = namespace(ult=None) %}
