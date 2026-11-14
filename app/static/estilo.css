@@ -507,3 +507,4 @@ details.envio-cert > summary::-webkit-details-marker { display:none; }
 table.tabela-hon tr.resolvido td { opacity:.55; }
 table.tabela-hon .situacao-hon .etiqueta { margin-right:.25rem; text-decoration:none; }
 .ok-texto { color:#2e8b4a; font-weight:700; }
+.barra-selecao[hidden] { display:none; }
