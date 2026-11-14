@@ -18,7 +18,7 @@
 
 <div class="rf-cartoes">
   <a class="cartao-num {{ 'ativo' if not estado }}" href="/certidoes"><b>{{ total }}</b><span>Atuais</span></a>
-  {% for k in ('VALIDA', 'VENCE_LOGO', 'VENCIDA', 'POSITIVA', 'IMPEDIMENTO', 'NAO_EMITIDA', 'INDISPONIVEL', 'SEM_VALIDADE') %}
+  {% for k in ('VALIDA', 'VENCE_LOGO', 'VENCIDA', 'POSITIVA', 'IMPEDIMENTO', 'NAO_EMITIDA', 'AGUARDANDO', 'INDISPONIVEL', 'SEM_VALIDADE') %}
   <a class="cartao-num {{ ESTADOS[k][1] }} {{ 'ativo' if estado == k }}" href="/certidoes?estado={{ k }}"><b>{{ contagem.get(k, 0) }}</b><span>{{ ESTADOS[k][0] }}</span></a>
   {% endfor %}
 </div>

@@ -93,7 +93,7 @@ def _colunas(lista) -> list[str]:
 
 ROTULO_FAMILIA = {"FEDERAL": "Federal", "ESTADUAL": "Estadual", "MUNICIPAL": "Municipal", "FGTS": "FGTS", "CNDT": "Trabalhista (TST)",
                   "CEAT": "Ações trab. (TRT)", "FALENCIA": "Falência", "": "Outras"}
-GRAVIDADE = {"VENCIDA": 0, "POSITIVA": 1, "IMPEDIMENTO": 1, "NAO_EMITIDA": 2, "INDISPONIVEL": 3, "SEM_VALIDADE": 3, "VENCE_LOGO": 4, "VALIDA": 5}
+GRAVIDADE = {"VENCIDA": 0, "POSITIVA": 1, "IMPEDIMENTO": 1, "NAO_EMITIDA": 2, "AGUARDANDO": 3, "INDISPONIVEL": 3, "SEM_VALIDADE": 3, "VENCE_LOGO": 4, "VALIDA": 5}
 
 
 def _matriz(lista, tipos) -> list[dict]:

@@ -37,6 +37,7 @@ DIAS_SEMANA = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "dom
 ESTADOS = {
     "VALIDA": ("Válida", "ok"), "VENCE_LOGO": ("Vence em breve", "aviso"), "VENCIDA": ("Vencida", "erro"),
     "POSITIVA": ("Positiva", "erro"), "IMPEDIMENTO": ("Com impedimento", "erro"), "NAO_EMITIDA": ("Não emitida", "aviso"),
+    "AGUARDANDO": ("Aguardando órgão", "aviso"),
     "INDISPONIVEL": ("Sem arquivo no Pack", "aviso"),
     "SEM_VALIDADE": ("Sem validade — conferir", "aviso"), "SUBSTITUIDA": ("Substituída por outra mais nova", ""),
 }
@@ -50,6 +51,8 @@ def o_que_fazer(estado_: str, tipo: str = "") -> str:
         if tipo.startswith("FALENCIA"):
             return "Emitir de novo no Pack ou no site do TJ"
         return "Emitir de novo no Pack ou no site do órgão"
+    if estado_ == "AGUARDANDO":
+        return "Aguardar o órgão emissor; o Pack atualiza na próxima consulta"
     if estado_ == "IMPEDIMENTO":
         return "Ver a pendência no FGTS (Caixa/FGTS Digital) e regularizar" if tipo == "FGTS" else "Ver o impedimento no órgão e regularizar"
     if estado_ == "POSITIVA":
@@ -118,6 +121,8 @@ def estado(c: models.Certidao, substituida: bool = False, hoje: date | None = No
             return "NAO_EMITIDA"
         if "impedimento" in sit:
             return "IMPEDIMENTO"
+        if any(x in sit for x in ("aguardando", "processamento", "em análise", "em analise", "solicitad", "pendente de emiss")):
+            return "AGUARDANDO"   # pedido feito ao órgão e ainda sem resposta: não é positiva
         return "POSITIVA"
     if not c.vencimento:
         return "SEM_VALIDADE"
