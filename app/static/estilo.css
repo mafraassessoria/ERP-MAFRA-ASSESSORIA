@@ -496,3 +496,14 @@ dl.dl-linhas dt { color:var(--sutil, #666); } dl.dl-linhas dd { margin:0; }
 details.envio-cert > summary { list-style:none; display:inline-block; cursor:pointer; }
 details.envio-cert > summary::-webkit-details-marker { display:none; }
 @media (max-width: 900px) { .grade-dados { grid-template-columns:1fr; } }
+
+/* Honorários */
+.hon-titulo { display:flex; align-items:center; gap:1rem; }
+.mes-nav { display:flex; align-items:center; gap:.3rem; }
+.mes-nav a { text-decoration:none; padding:.2rem .5rem; border-radius:6px; } .mes-nav a:hover { background:#e8f0f8; }
+.mes-nav input[type=month] { padding:.2rem .4rem; }
+.barra-selecao { position:sticky; top:.5rem; z-index:5; display:flex; justify-content:space-between; align-items:center;
+  background:#e3ecf6; border:1px solid #c9d8ea; border-radius:8px; padding:.45rem .8rem; margin-bottom:.6rem; }
+table.tabela-hon tr.resolvido td { opacity:.55; }
+table.tabela-hon .situacao-hon .etiqueta { margin-right:.25rem; text-decoration:none; }
+.ok-texto { color:#2e8b4a; font-weight:700; }

@@ -35,10 +35,14 @@ def honorarios(request: Request, mes: str = "", situacao: str = "", q: str = "",
     lista = db.scalars(select(models.Recebimento).where(models.Recebimento.pagamento >= ini, models.Recebimento.pagamento < fim)
                        .order_by(models.Recebimento.codigo_empresa)).all()
     lista = sorted(lista, key=lambda r: (int(r.codigo_empresa) if r.codigo_empresa.isdigit() else 99999, r.titulo))
-    if situacao == "sem_nota":
-        lista = [r for r in lista if not r.nota_id]
-    elif situacao == "com_nota":
-        lista = [r for r in lista if r.nota_id]
+    cont = dict(total=len(lista), valor=sum(r.recebido for r in lista),
+                sem_nota=sum(1 for r in lista if not r.nota_id and r.prestador_id),
+                sem_baixa=sum(1 for r in lista if not r.ec_baixado_em),
+                sem_cadastro=sum(1 for r in lista if not r.prestador_id))
+    filtros = {"sem_nota": lambda r: not r.nota_id and r.prestador_id, "com_nota": lambda r: r.nota_id,
+               "sem_baixa": lambda r: not r.ec_baixado_em, "sem_cadastro": lambda r: not r.prestador_id}
+    if situacao in filtros:
+        lista = [r for r in lista if filtros[situacao](r)]
     if q:
         t = q.strip().upper()
         lista = [r for r in lista if t in r.nome.upper() or t == r.codigo_empresa]
@@ -46,7 +50,14 @@ def honorarios(request: Request, mes: str = "", situacao: str = "", q: str = "",
     codigos = db.scalars(select(models.CodigoEmpresa).where(models.CodigoEmpresa.prestador_id == esc.id)).all() if esc else []
     emissoras = db.scalars(select(models.Prestador).where(models.Prestador.ativo.is_(True), models.Prestador.usa_nfse.is_(True),
                                                           models.Prestador.modo == "EMISSAO").order_by(*models.ordem_prestador_sql())).all()
+    from ..econtador import sessao as ec_sessao
+    mes_ant = (ini - timedelta(days=1)).strftime("%Y-%m")
+    mes_prox = fim.strftime("%Y-%m")
+    ult_imp = db.scalar(select(models.Recebimento.importado_em).order_by(models.Recebimento.importado_em.desc()))
+    MESES = ("jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez")
     return render(request, "honorarios.html", lista=lista, mes=mes, situacao=situacao, q=q, esc=esc, emissoras=emissoras,
+                  cont=cont, mes_ant=mes_ant, mes_prox=mes_prox, mes_rotulo=f"{MESES[ini.month - 1]}/{ini.year}",
+                  ult_imp=ult_imp, ec_ok=ec_sessao.estado(db)["tem"],
                   codigos=codigos, cfg={k: ler_config(db, k) for k in ("honorarios_ctribnac", "honorarios_nbs", "honorarios_descricao")},
                   descricao_padrao=hs.DESCRICAO_PADRAO, exemplo=hs.descricao(ini, ler_config(db, "honorarios_descricao")),
                   total=sum(r.recebido for r in lista), sem_nota=sum(1 for r in lista if not r.nota_id))

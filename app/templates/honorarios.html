@@ -2,61 +2,80 @@
 {% block titulo %}Honorários{% endblock %}
 {% block main_classe %}larga{% endblock %}
 {% block conteudo %}
+{% set qs_base = 'q=' ~ (q|urlencode) %}
 <div class="linha-titulo">
-  <div><h1>Honorários recebidos</h1>
-    <p class="sutil">Importe o relatório de títulos baixados do financeiro, marque os recebimentos e gere os rascunhos das NFS-e do escritório.
-      Cada recebimento gera no máximo uma nota.</p></div>
-  <form method="post" action="/honorarios/importar" enctype="multipart/form-data" class="em-linha">
-    <input type="file" name="arquivo" accept=".xls" required><button>Importar XLS</button></form>
+  <div class="hon-titulo"><h1>Honorários</h1>
+    <nav class="mes-nav"><a href="/honorarios?mes={{ mes_ant }}&situacao={{ situacao }}&{{ qs_base }}" title="Mês anterior">◀</a>
+      <form method="get" class="em-linha"><input type="hidden" name="situacao" value="{{ situacao }}"><input type="hidden" name="q" value="{{ q }}">
+        <input type="month" name="mes" value="{{ mes }}" onchange="this.form.submit()" title="Mês do pagamento"></form>
+      <a href="/honorarios?mes={{ mes_prox }}&situacao={{ situacao }}&{{ qs_base }}" title="Próximo mês">▶</a></nav></div>
+  <div class="acoes">
+    {% if ec_ok %}<span class="chip-cfg ok" title="Sessão do e-Contador guardada no ERP">e-Contador conectado</span>
+    {% else %}<a class="chip-cfg aviso" href="/econtador/conectar?volta=/honorarios">conectar e-Contador</a>{% endif %}
+    <form method="post" action="/honorarios/importar" enctype="multipart/form-data" id="form-importar">
+      <input type="file" name="arquivo" accept=".xls" required hidden onchange="this.form.submit()">
+      <button type="button" onclick="this.form.arquivo.click()" title="Relatório XLS de títulos baixados do financeiro">⬆ Importar relatório</button></form>
+  </div>
+</div>
+<p class="sutil" style="margin-top:-.4rem">Recebimentos pela data do pagamento. Marque e gere os rascunhos das NFS-e do escritório (no máximo uma nota por recebimento).
+  {% if ult_imp %}Última importação: {{ ult_imp|datahora }}.{% endif %}</p>
+
+{% if not esc %}<div class="cartao aviso">Defina em <a href="#config-honorarios" onclick="document.getElementById('config-honorarios').open=true">Notas de honorários</a> a empresa do escritório, que emite as notas.</div>{% endif %}
+
+<div class="rf-cartoes">
+  {% for k, rot, cls in (('', 'recebimentos', ''), ('sem_nota', 'sem nota', 'aviso'), ('sem_baixa', 'sem baixa no e-Contador', 'aviso'), ('sem_cadastro', 'sem cadastro', 'erro')) %}
+  <a class="cartao-num {{ cls if cont[k or 'total'] else '' }} {{ 'ativo' if situacao == k }}" href="/honorarios?mes={{ mes }}&situacao={{ k }}&{{ qs_base }}"><b>{{ cont[k or 'total'] }}</b><span>{{ rot }}</span></a>
+  {% if loop.first %}<div class="cartao-num"><b>R$ {{ cont.valor|moeda }}</b><span>recebido no mês</span></div>{% endif %}
+  {% endfor %}
 </div>
 
-{% if not esc %}<div class="cartao aviso">Defina abaixo a empresa do escritório, que emite as notas de honorários.</div>{% endif %}
-
-<form class="busca filtros" method="get">
-  <label>Mês do pagamento <input type="month" name="mes" value="{{ mes }}"></label>
-  <select name="situacao"><option value="">Todos</option><option value="sem_nota" {{ 'selected' if situacao == 'sem_nota' }}>Sem nota</option>
-    <option value="com_nota" {{ 'selected' if situacao == 'com_nota' }}>Com nota</option></select>
-  <input name="q" value="{{ q }}" placeholder="Cliente ou código">
-  <button>Filtrar</button>
-  <span class="sutil" style="margin-left:auto">{{ lista|length }} recebimento(s) · R$ {{ total|moeda }} · {{ sem_nota }} sem nota</span>
+<form class="busca filtros filtro-auto" method="get">
+  <input type="hidden" name="mes" value="{{ mes }}"><input type="hidden" name="situacao" value="{{ situacao }}">
+  <input name="q" value="{{ q }}" placeholder="Cliente ou código" data-filtra-tabela="tab-honorarios">
+  <span class="sutil" style="margin-left:auto">{{ lista|length }} na lista · R$ {{ total|moeda }}</span>
 </form>
 
 <form method="post" action="/honorarios/rascunhos" id="form-rascunhos">
 <input type="hidden" name="volta" value="/honorarios?mes={{ mes }}&situacao={{ situacao }}&q={{ q }}">
+<div class="barra-selecao" id="barra-sel" hidden>
+  <span><b id="sel-n">0</b> marcado(s) · R$ <b id="sel-v">0,00</b></span>
+  <span class="em-linha" style="gap:.5rem">
+    <button {{ 'disabled' if not esc }} onclick="return confirm('Gerar rascunho de NFS-e para ' + document.querySelectorAll('.rec-id:checked').length + ' recebimento(s)?')">Gerar rascunhos de NFS-e</button>
+    <button class="secundario" formaction="/honorarios/econtador/revisar" title="Confere cada cobrança no e-Contador antes; nada é gravado nesta etapa">Dar baixa no e-Contador…</button>
+  </span>
+</div>
 <section class="cartao">
-  <div class="em-linha" style="justify-content:space-between;margin-bottom:.5rem">
-    <span class="sutil">Descrição: <i>{{ exemplo }}</i> · competência = data do pagamento</span>
-    <button {{ 'disabled' if not esc }} onclick="return document.querySelectorAll('.rec-id:checked').length ? confirm('Gerar rascunho de NFS-e para ' + document.querySelectorAll('.rec-id:checked').length + ' recebimento(s)?') : (alert('Marque os recebimentos.'), false)">Gerar rascunhos de NFS-e</button>
-    <button class="secundario" formaction="/honorarios/econtador/revisar" onclick="return document.querySelectorAll('.rec-id:checked').length ? true : (alert('Marque os recebimentos.'), false)" title="Confere cada cobrança no e-Contador antes; nada é gravado nesta etapa">Dar baixa no e-Contador…</button> <a class="sutil" href="/econtador/conectar?volta=/honorarios" title="Entrar no e-Contador pelo ERP">conectar e-Contador</a>
-  </div>
-  <table class="compacta">
-    <thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.rec-id').forEach(c => c.checked = this.checked)"></th>
-      <th>Cliente</th><th>Título</th><th>Categoria</th><th>Período</th><th>Vencimento</th><th>Pagamento</th><th class="num">Recebido</th><th>NFS-e</th><th>e-Contador</th></tr></thead>
-    <tbody>{% for r in lista %}
-      <tr>
-        <td>{% if (not r.nota_id and r.prestador_id) or not r.ec_baixado_em %}<input type="checkbox" name="ids" value="{{ r.id }}" class="rec-id">{% endif %}</td>
-        <td><b>{{ r.codigo_empresa|cod5 }} · {{ r.nome }}</b>{% if not r.prestador_id %} <span class="etiqueta erro" title="Cadastre a empresa com este código interno">sem cadastro</span>{% endif %}</td>
-        <td>{{ r.titulo }}</td><td>{{ r.categoria }}</td>
-        <td>{{ r.periodo_inicio.strftime('%m/%Y') if r.periodo_inicio else '—' }}</td>
-        <td>{{ r.vencimento|data if r.vencimento else '—' }}</td>
+  <table class="compacta tabela-hon" id="tab-honorarios">
+    <thead><tr><th class="sem-ordem"><input type="checkbox" id="marcar-todos" title="Marcar todos os pendentes"></th>
+      <th>Cliente</th><th>Título · período</th><th>Pagamento</th><th class="num">Recebido</th><th>Situação</th></tr></thead>
+    <tbody>{% for r in lista %}{% set pend_nota = not r.nota_id and r.prestador_id %}{% set feito = r.nota_id and r.ec_baixado_em %}
+      <tr class="{{ 'resolvido' if feito }}">
+        <td>{% if pend_nota or not r.ec_baixado_em %}<input type="checkbox" name="ids" value="{{ r.id }}" class="rec-id" data-valor="{{ r.recebido }}">{% else %}<span class="ok-texto" title="Com nota e baixado">✓</span>{% endif %}</td>
+        <td><span class="nome-empresa">{{ r.codigo_empresa|cod5 }} · {{ r.nome }}</span></td>
+        <td title="Categoria: {{ r.categoria or '—' }} · vencimento {{ r.vencimento|data if r.vencimento else '—' }}">{{ r.titulo }}{% if r.periodo_inicio %} · <span class="sutil">{{ r.periodo_inicio.strftime('%m/%Y') }}</span>{% endif %}</td>
         <td>{{ r.pagamento|data if r.pagamento else '—' }}</td>
         <td class="num">{{ r.recebido|moeda }}{% if r.recebido != r.valor %}<br><small class="erro-texto">título {{ r.valor|moeda }}</small>{% endif %}</td>
-        <td>{% if r.nota %}<a href="/notas/{{ r.nota_id }}">{{ 'Rascunho' if r.nota.situacao == 'RASCUNHO' else r.nota.situacao|capitalize }}{% if r.nota.numero_nfse %} nº {{ r.nota.numero_nfse }}{% endif %}</a>{% else %}<span class="sutil">—</span>{% endif %}</td>
-        <td>{% if r.ec_baixado_em %}<span class="etiqueta ok" title="conferida em {{ r.ec_baixado_em|datahora }}">Baixado {{ r.ec_pago_em|data if r.ec_pago_em }}</span>
-          {% elif r.ec_erro %}<small class="erro-texto">{{ r.ec_erro[:100] }}</small>{% else %}<span class="sutil">—</span>{% endif %}</td>
+        <td class="situacao-hon">
+          {% if not r.prestador_id %}<span class="etiqueta erro" title="Cadastre a empresa com este código interno">sem cadastro</span>
+          {% elif r.nota %}<a class="etiqueta {{ 'ok' if r.nota.situacao == 'AUTORIZADA' else 'aviso' }}" href="/notas/{{ r.nota_id }}">{{ 'rascunho' if r.nota.situacao == 'RASCUNHO' else ('NFS-e' if r.nota.situacao == 'AUTORIZADA' else r.nota.situacao|lower) }}{% if r.nota.numero_nfse %} {{ r.nota.numero_nfse }}{% endif %}</a>
+          {% else %}<span class="etiqueta aviso">sem nota</span>{% endif %}
+          {% if r.ec_baixado_em %}<span class="etiqueta ok" title="conferida em {{ r.ec_baixado_em|datahora }}">baixado {{ r.ec_pago_em.strftime('%d/%m') if r.ec_pago_em }}</span>
+          {% elif r.ec_erro %}<span class="etiqueta erro" title="{{ r.ec_erro }}">erro na baixa</span>
+          {% else %}<span class="etiqueta aviso">sem baixa</span>{% endif %}</td>
       </tr>
-    {% else %}<tr><td colspan="10" class="sutil">Nenhum recebimento neste mês. Importe o relatório XLS.</td></tr>{% endfor %}</tbody>
+    {% else %}<tr><td colspan="6" class="sutil">Nenhum recebimento neste mês. Importe o relatório XLS.</td></tr>{% endfor %}</tbody>
   </table>
 </section>
 </form>
 
 {% if usuario.perfil == 'ADMIN' %}
-<section class="cartao">
-  <h2>Notas de honorários</h2>
+<details class="cartao recolhivel" id="config-honorarios" {{ 'open' if not esc }}>
+  <summary><h2>Notas de honorários</h2>
+    <small class="sutil">{% if esc %}emite pela {{ esc.nome_exibicao }}{% if cfg.honorarios_ctribnac %} · cód. {{ cfg.honorarios_ctribnac }}{% endif %}{% if cfg.honorarios_nbs %} · NBS {{ cfg.honorarios_nbs }}{% endif %} · "{{ exemplo[:70] }}{{ '…' if exemplo|length > 70 }}"{% else %}empresa emissora não definida{% endif %}</small></summary>
   <form method="post" action="/honorarios/config">
     <div class="tres-colunas">
       <label>Empresa do escritório (emite as notas)
-        <select name="honorarios_prestador_id"><option value="">— escolha —</option>
+        <select name="honorarios_prestador_id" class="combo" data-placeholder="Digite o nome ou o código"><option value="">— escolha —</option>
           {% for p in emissoras %}<option value="{{ p.id }}" {{ 'selected' if esc and esc.id == p.id }}>{{ p.nome_exibicao }}</option>{% endfor %}</select></label>
       <label>Código de tributação nacional
         <input name="honorarios_ctribnac" value="{{ cfg.honorarios_ctribnac }}" list="cods-trib" placeholder="padrão: 1º código da empresa"></label>
@@ -65,8 +84,27 @@
     <datalist id="cods-trib">{% for c in codigos if c.tipo == 'CTRIBNAC' %}<option value="{{ c.codigo }}">{% endfor %}</datalist>
     <datalist id="cods-nbs">{% for c in codigos if c.tipo == 'NBS' %}<option value="{{ c.codigo }}">{% endfor %}</datalist>
     <label>Descrição ({MES} e {ANO} = mês e ano do pagamento) <input name="honorarios_descricao" value="{{ cfg.honorarios_descricao or descricao_padrao }}"></label>
+    <p class="sutil">Exemplo: <i>{{ exemplo }}</i> · competência = data do pagamento.</p>
     <button>Salvar</button>
   </form>
-</section>
+</details>
 {% endif %}
+<script>
+(function () {
+  var barra = document.getElementById('barra-sel');
+  function atualizar() {
+    var m = [].slice.call(document.querySelectorAll('.rec-id:checked'));
+    var v = m.reduce(function (s, c) { return s + Number(c.dataset.valor || 0); }, 0);
+    document.getElementById('sel-n').textContent = m.length;
+    document.getElementById('sel-v').textContent = v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    barra.hidden = m.length === 0;
+  }
+  document.querySelectorAll('.rec-id').forEach(function (c) { c.addEventListener('change', atualizar); });
+  document.getElementById('marcar-todos').addEventListener('change', function () {
+    var t = this.checked;
+    document.querySelectorAll('.rec-id').forEach(function (c) { if (c.closest('tr').style.display !== 'none') c.checked = t; });
+    atualizar();
+  });
+})();
+</script>
 {% endblock %}
