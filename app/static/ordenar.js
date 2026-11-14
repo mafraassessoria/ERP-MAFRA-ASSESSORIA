@@ -56,7 +56,7 @@
           if (b.cab) pai.appendChild(b.cab);
           b.itens.forEach(item => item.forEach(tr => pai.appendChild(tr)));
         });
-        fixas.forEach(tr => pai.appendChild(tr));
+        fixas.forEach(tr => tr.classList.contains("linha-total-topo") ? pai.insertBefore(tr, pai.firstChild) : pai.appendChild(tr));
       });
     });
   });

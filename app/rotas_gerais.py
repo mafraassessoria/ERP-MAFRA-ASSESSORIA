@@ -3,7 +3,8 @@ import csv
 import io
 import zipfile
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+import re
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Request
@@ -200,10 +201,13 @@ def _periodo(competencia: str) -> tuple[date, date, str]:
     return ini, fim, ini.strftime("%Y-%m")
 
 
-def _notas_periodo(db: Session, ini: date, fim: date, prestador_id: int, homologacao: bool):
-    stmt = select(models.NotaFiscal).where(
-        models.NotaFiscal.competencia >= ini, models.NotaFiscal.competencia < fim,
-        models.NotaFiscal.situacao.in_(("AUTORIZADA", "CANCELADA")))
+def _notas_periodo(db: Session, ini: date, fim: date, prestador_id: int, homologacao: bool, base: str = "competencia"):
+    if base == "emissao":   # escrituração pela data de emissão
+        filtro = (models.NotaFiscal.data_emissao >= datetime.combine(ini, datetime.min.time()),
+                  models.NotaFiscal.data_emissao < datetime.combine(fim, datetime.min.time()))
+    else:
+        filtro = (models.NotaFiscal.competencia >= ini, models.NotaFiscal.competencia < fim)
+    stmt = select(models.NotaFiscal).where(*filtro, models.NotaFiscal.situacao.in_(("AUTORIZADA", "CANCELADA")))
     stmt = stmt.where(models.NotaFiscal.ambiente == "PRODUCAO")  # notas de teste não entram
     if prestador_id:
         stmt = stmt.where(models.NotaFiscal.prestador_id == prestador_id)
@@ -212,10 +216,11 @@ def _notas_periodo(db: Session, ini: date, fim: date, prestador_id: int, homolog
 
 
 @router.get("/relatorios")
-def relatorios(request: Request, competencia: str = "", prestador_id: int = 0, homologacao: int = 0,
+def relatorios(request: Request, competencia: str = "", prestador_id: int = 0, homologacao: int = 0, base: str = "competencia",
                db: Session = Depends(get_db), u=Depends(usuario_atual)):
     ini, fim, comp = _periodo(competencia)
-    notas = _notas_periodo(db, ini, fim, prestador_id, bool(homologacao))
+    base = "emissao" if base == "emissao" else "competencia"
+    notas = _notas_periodo(db, ini, fim, prestador_id, bool(homologacao), base)
     zero = Decimal("0")
     resumo = defaultdict(lambda: {"emitidas": 0, "valor_emitido": zero, "iss_emitido": zero, "iss_retido_prest": zero,
                                   "canceladas": 0, "valor_cancelado": zero,
@@ -237,13 +242,21 @@ def relatorios(request: Request, competencia: str = "", prestador_id: int = 0, h
             r["valor_tomado"] += n.valor_servicos
             if n.tipo_retencao_iss == 2:
                 r["iss_retido_tomado"] += n.valor_iss
-    linhas = sorted(resumo.items(), key=lambda kv: kv[0].razao_social)
+    def _cod(p):
+        c = re.sub(r"\D", "", p.codigo_interno or "")
+        return (int(c) if c else 99999, p.razao_social)
+    linhas = sorted(resumo.items(), key=lambda kv: _cod(kv[0]))
     total = {k: sum((v[k] for _, v in linhas), zero if not isinstance(v0, int) else 0)
              for k, v0 in (linhas[0][1].items() if linhas else [])}
     prestadores = db.scalars(select(models.Prestador).order_by(*models.ordem_prestador_sql())).all()
     controles = {c.prestador_id: c for c in db.scalars(select(models.ControleNSU)).all()}
+    MESES = ("jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez")
+    ult_geral = max((c.ultima_consulta for c in controles.values() if c.ultima_consulta), default=None)
     return render(request, "relatorios.html", linhas=linhas, total=total, comp=comp, prestadores=prestadores,
-                  f=dict(prestador_id=prestador_id, homologacao=homologacao), controles=controles)
+                  f=dict(prestador_id=prestador_id, homologacao=homologacao), controles=controles, base=base,
+                  comp_ant=(ini - timedelta(days=1)).strftime("%Y-%m"), comp_prox=fim.strftime("%Y-%m"),
+                  comp_rotulo=f"{MESES[ini.month - 1]}/{ini.year}", ult_geral=ult_geral,
+                  limite_adn=datetime.now() - timedelta(days=2))
 
 
 def _br(v) -> str:
@@ -251,7 +264,7 @@ def _br(v) -> str:
 
 
 @router.get("/relatorios/notas.csv")
-def relatorio_csv(competencia: str = "", prestador_id: int = 0, homologacao: int = 0,
+def relatorio_csv(competencia: str = "", prestador_id: int = 0, homologacao: int = 0, base: str = "competencia",
                   db: Session = Depends(get_db), u=Depends(usuario_atual)):
     ini, fim, comp = _periodo(competencia)
     buf = io.StringIO()
@@ -259,7 +272,7 @@ def relatorio_csv(competencia: str = "", prestador_id: int = 0, homologacao: int
     w.writerow(["Empresa CNPJ", "Empresa", "Papel", "Situação", "Ambiente", "Nº NFS-e", "Data emissão",
                 "Competência", "Prestador CPF/CNPJ", "Prestador", "Tomador CPF/CNPJ", "Tomador",
                 "Cód. tributação", "Valor serviço", "ISS", "ISS retido", "Valor ISS retido", "INSS retido", "Chave de acesso", "Origem"])
-    for n in _notas_periodo(db, ini, fim, prestador_id, bool(homologacao)):
+    for n in _notas_periodo(db, ini, fim, prestador_id, bool(homologacao), base):
         prest_doc = n.emitente_documento or n.prestador.cnpj
         prest_nome = n.emitente_nome or n.prestador.razao_social
         w.writerow([formatar_documento(n.prestador.cnpj), n.prestador.razao_social,
@@ -279,13 +292,13 @@ def relatorio_csv(competencia: str = "", prestador_id: int = 0, homologacao: int
 
 
 @router.get("/relatorios/xml.zip")
-def relatorio_zip(competencia: str = "", prestador_id: int = 0, homologacao: int = 0,
+def relatorio_zip(competencia: str = "", prestador_id: int = 0, homologacao: int = 0, base: str = "competencia",
                   db: Session = Depends(get_db), u=Depends(usuario_atual)):
     ini, fim, comp = _periodo(competencia)
     buf = io.BytesIO()
     qtd = 0
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for n in _notas_periodo(db, ini, fim, prestador_id, bool(homologacao)):
+        for n in _notas_periodo(db, ini, fim, prestador_id, bool(homologacao), base):
             pasta = f"{n.prestador.cnpj}/{'prestadas' if n.papel == 'PRESTADO' else 'tomadas'}"
             for campo in ("caminho_xml", "caminho_evento_xml"):
                 rel = getattr(n, campo)

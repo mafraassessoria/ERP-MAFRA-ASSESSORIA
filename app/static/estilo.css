@@ -508,3 +508,11 @@ table.tabela-hon tr.resolvido td { opacity:.55; }
 table.tabela-hon .situacao-hon .etiqueta { margin-right:.25rem; text-decoration:none; }
 .ok-texto { color:#2e8b4a; font-weight:700; }
 .barra-selecao[hidden] { display:none; }
+
+/* Relatórios */
+.seg-botoes { display:inline-flex; border:1px solid #c9d6e3; border-radius:6px; overflow:hidden; }
+.seg-botoes a { padding:.25rem .7rem; text-decoration:none; color:inherit; font-size:.9rem; }
+.seg-botoes a.ativo { background:#1f4e79; color:#fff; }
+table.tabela-rel .zero { color:#b8bfc7; }
+table.tabela-rel tr.linha-total-topo td { background:#eef3f9; font-weight:600; border-bottom:2px solid #c9d8ea; }
+.botao.mini, button.mini { padding:.2rem .6rem; font-size:.85rem; }

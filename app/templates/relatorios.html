@@ -1,43 +1,72 @@
 {% extends "base.html" %}
 {% block titulo %}Relatórios{% endblock %}
+{% block main_classe %}larga{% endblock %}
 {% block conteudo %}
+{% set qs = 'competencia=%s&prestador_id=%d&base=%s' % (comp, f.prestador_id, base) %}
 <div class="linha-titulo">
-  <h1>Relatório por competência</h1>
-  <form method="post" action="/importar-todos" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Importando... aguarde';">
-    <button class="secundario">Importar notas do ADN (todas as empresas)</button>
-  </form>
+  <div class="hon-titulo"><h1>Relatório</h1>
+    <nav class="mes-nav"><a href="/relatorios?competencia={{ comp_ant }}&prestador_id={{ f.prestador_id }}&base={{ base }}" title="Mês anterior">◀</a>
+      <form method="get" class="em-linha"><input type="hidden" name="prestador_id" value="{{ f.prestador_id }}"><input type="hidden" name="base" value="{{ base }}">
+        <input type="month" name="competencia" value="{{ comp }}" onchange="this.form.submit()"></form>
+      <a href="/relatorios?competencia={{ comp_prox }}&prestador_id={{ f.prestador_id }}&base={{ base }}" title="Próximo mês">▶</a></nav>
+    <div class="seg-botoes" title="Somar as notas pela competência ou pela data de emissão (escrituração)">
+      <a class="{{ 'ativo' if base == 'competencia' }}" href="/relatorios?competencia={{ comp }}&prestador_id={{ f.prestador_id }}&base=competencia">Competência</a>
+      <a class="{{ 'ativo' if base == 'emissao' }}" href="/relatorios?competencia={{ comp }}&prestador_id={{ f.prestador_id }}&base=emissao">Emissão</a></div></div>
+  <div class="acoes">
+    <a class="botao secundario mini" href="/relatorios/notas.csv?{{ qs }}" title="Uma linha por nota, abre no Excel">⬇ Planilha (CSV)</a>
+    <a class="botao secundario mini" href="/relatorios/xml.zip?{{ qs }}">⬇ XML (ZIP)</a>
+  </div>
 </div>
+
+<div class="rf-cartoes">
+  <div class="cartao-num"><b>{{ total.emitidas or 0 }} · R$ {{ (total.valor_emitido or 0)|moeda }}</b><span>serviços prestados</span></div>
+  <div class="cartao-num"><b>R$ {{ (total.iss_emitido or 0)|moeda }}</b><span>ISS · retido R$ {{ (total.iss_retido_prest or 0)|moeda }}</span></div>
+  <div class="cartao-num {{ 'aviso' if total.canceladas }}"><b>{{ total.canceladas or 0 }} · R$ {{ (total.valor_cancelado or 0)|moeda }}</b><span>canceladas</span></div>
+  <div class="cartao-num"><b>{{ total.tomadas or 0 }} · R$ {{ (total.valor_tomado or 0)|moeda }}</b><span>serviços tomados · ISS retido R$ {{ (total.iss_retido_tomado or 0)|moeda }}</span></div>
+</div>
+
 <form class="busca filtros" method="get">
-  <input type="month" name="competencia" value="{{ comp }}">
-  <select name="prestador_id">
+  <input type="hidden" name="competencia" value="{{ comp }}"><input type="hidden" name="base" value="{{ base }}">
+  <div class="filtro-empresa"><select name="prestador_id" class="combo" data-placeholder="Empresa: digite o nome ou o código (vazio = todas)" onchange="this.form.submit()">
     <option value="0">Todas as empresas</option>
     {% for p in prestadores %}<option value="{{ p.id }}" {{ 'selected' if f.prestador_id == p.id }}>{{ p.nome_exibicao }}</option>{% endfor %}
-  </select>
-  <button>Atualizar</button>
+  </select></div>
+  <span class="sutil" style="margin-left:auto">{{ linhas|length }} empresa(s) com notas</span>
 </form>
-{% set qs = 'competencia=%s&prestador_id=%d' % (comp, f.prestador_id) %}
-<p><a class="botao secundario" href="/relatorios/notas.csv?{{ qs }}">Baixar planilha (CSV)</a>
-   <a class="botao secundario" href="/relatorios/xml.zip?{{ qs }}">Baixar XML (ZIP)</a></p>
 
-<table>
-  <tr><th rowspan="2">Empresa</th><th colspan="4" style="text-align:center">Serviços prestados</th><th colspan="2" style="text-align:center">Canceladas</th><th colspan="3" style="text-align:center">Serviços tomados</th><th rowspan="2">Última importação</th></tr>
-  <tr><th>Qtd</th><th>Valor</th><th>ISS</th><th>ISS retido</th><th>Qtd</th><th>Valor</th><th>Qtd</th><th>Valor</th><th>ISS retido</th></tr>
-  {% for p, r in linhas %}
-  {% set c = controles.get(p.id) %}
+{% macro v(x, inteiro=False) %}{% if x %}{{ x if inteiro else x|moeda }}{% else %}<span class="zero">—</span>{% endif %}{% endmacro %}
+<section class="cartao">
+<table class="notas tabela-rel">
+  <thead><tr><th>Empresa</th><th class="num">Qtd</th><th class="num">Prestado</th><th class="num">ISS</th>
+    <th class="num">Canc.</th><th class="num">Valor canc.</th><th class="num">Tomadas</th><th class="num">Tomado</th><th class="sem-ordem" title="Última importação pelo ADN">ADN</th></tr></thead>
+  <tbody>
+  {% if linhas|length > 1 %}
+  <tr class="total linha-total-topo"><td>Total</td><td class="num">{{ total.emitidas }}</td><td class="num">{{ total.valor_emitido|moeda }}</td><td class="num">{{ total.iss_emitido|moeda }}</td>
+    <td class="num">{{ total.canceladas }}</td><td class="num">{{ total.valor_cancelado|moeda }}</td><td class="num">{{ total.tomadas }}</td><td class="num">{{ total.valor_tomado|moeda }}</td><td></td></tr>
+  {% endif %}
+  {% for p, r in linhas %}{% set c = controles.get(p.id) %}
   <tr>
-    <td><a class="nome-empresa" href="/notas?prestador_id={{ p.id }}&competencia={{ comp }}">{{ p.nome_exibicao }}</a><br><small class="sutil">{{ p.cnpj|doc }}</small></td>
-    <td>{{ r.emitidas }}</td><td class="num">{{ r.valor_emitido|moeda }}</td><td class="num">{{ r.iss_emitido|moeda }}</td><td class="num">{{ r.iss_retido_prest|moeda }}</td>
-    <td>{{ r.canceladas }}</td><td class="num">{{ r.valor_cancelado|moeda }}</td>
-    <td>{{ r.tomadas }}</td><td class="num">{{ r.valor_tomado|moeda }}</td><td class="num">{{ r.iss_retido_tomado|moeda }}</td>
-    <td><small>{{ c.ultima_consulta|datahora if c else '—' }}</small></td>
+    <td title="{{ p.cnpj|doc }}"><a class="nome-empresa" href="/notas?prestador_id={{ p.id }}&competencia={{ comp }}">{{ p.nome_exibicao }}</a></td>
+    <td class="num">{{ v(r.emitidas, True) }}</td><td class="num">{{ v(r.valor_emitido) }}</td>
+    <td class="num" {% if r.iss_retido_prest %}title="ISS retido pelos tomadores: R$ {{ r.iss_retido_prest|moeda }}"{% endif %}>{{ v(r.iss_emitido) }}{% if r.iss_retido_prest %}<small class="sutil"> ret.</small>{% endif %}</td>
+    <td class="num">{{ v(r.canceladas, True) }}</td><td class="num">{{ v(r.valor_cancelado) }}</td>
+    <td class="num">{{ v(r.tomadas, True) }}</td>
+    <td class="num" {% if r.iss_retido_tomado %}title="ISS retido nas tomadas: R$ {{ r.iss_retido_tomado|moeda }}"{% endif %}>{{ v(r.valor_tomado) }}</td>
+    <td>{% if c and c.ultima_consulta %}{% if c.ultima_consulta >= limite_adn %}<span class="ok-texto" title="Última importação {{ c.ultima_consulta|datahora }}">✓</span>
+        {% else %}<span class="etiqueta aviso mini" title="Última importação {{ c.ultima_consulta|datahora }}">{{ c.ultima_consulta|data }}</span>{% endif %}
+      {% else %}<span class="zero" title="Nunca importada">—</span>{% endif %}</td>
   </tr>
   {% else %}
-  <tr><td colspan="11" class="sutil">Nenhuma nota autorizada ou cancelada nesta competência.</td></tr>
+  <tr><td colspan="9" class="sutil">Nenhuma nota autorizada ou cancelada neste mês ({{ 'emissão' if base == 'emissao' else 'competência' }}).</td></tr>
   {% endfor %}
-  {% if linhas|length > 1 %}
-  <tr class="total"><td>Total</td><td>{{ total.emitidas }}</td><td class="num">{{ total.valor_emitido|moeda }}</td><td class="num">{{ total.iss_emitido|moeda }}</td><td class="num">{{ total.iss_retido_prest|moeda }}</td>
-    <td>{{ total.canceladas }}</td><td class="num">{{ total.valor_cancelado|moeda }}</td><td>{{ total.tomadas }}</td><td class="num">{{ total.valor_tomado|moeda }}</td><td class="num">{{ total.iss_retido_tomado|moeda }}</td><td></td></tr>
-  {% endif %}
+  </tbody>
 </table>
-<p class="sutil">Considera a competência da nota. Valores das notas importadas vêm do XML oficial. ISS retido = notas com retenção pelo tomador.</p>
+</section>
+<div class="rodape-sistema" style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+  <span>Soma pela <b>{{ 'data de emissão' if base == 'emissao' else 'competência' }}</b> da nota · valores das importadas vêm do XML oficial · notas de teste não entram.</span>
+  <form method="post" action="/importar-todos" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Importando... aguarde';" class="em-linha">
+    {% if ult_geral %}<small class="sutil">última importação {{ ult_geral|datahora }}</small>{% endif %}
+    <button class="secundario mini">Importar notas do ADN (todas as empresas)</button>
+  </form>
+</div>
 {% endblock %}
