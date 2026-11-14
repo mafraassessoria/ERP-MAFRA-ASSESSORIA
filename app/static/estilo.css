@@ -480,3 +480,19 @@ form.cod-anexo select { padding:.05rem .2rem; font-size:.82rem; }
 .cfg-secao .cartao { margin-bottom:.9rem; }
 .teste-email { gap:.5rem; align-items:flex-end; }
 @media (max-width: 800px) { .cfg-layout { grid-template-columns:1fr; } .cfg-menu { position:static; flex-direction:row; flex-wrap:wrap; } }
+
+/* Aba Dados da empresa */
+.faixa-situacao { display:flex; gap:.5rem; flex-wrap:wrap; margin:-.2rem 0 .9rem; }
+a.chip-cfg { text-decoration:none; }
+.grade-dados { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1rem; max-width:1200px; }
+.grade-dados .cartao { margin:0; }
+.grade-dados .largura-toda { grid-column:1 / -1; }
+.cab-cartao { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:.4rem; }
+.cab-cartao h2 { margin:0; font-size:1.05rem; } .cab-cartao a { font-size:.85rem; }
+dl.dl-linhas { display:grid; grid-template-columns:150px 1fr; gap:.3rem .8rem; margin:0 0 .6rem; }
+dl.dl-linhas dt { color:var(--sutil, #666); } dl.dl-linhas dd { margin:0; }
+.modulos-logos span { display:inline-flex; align-items:center; gap:.25rem; margin-right:.8rem; }
+.modulos-logos img { width:16px; height:16px; }
+details.envio-cert > summary { list-style:none; display:inline-block; cursor:pointer; }
+details.envio-cert > summary::-webkit-details-marker { display:none; }
+@media (max-width: 900px) { .grade-dados { grid-template-columns:1fr; } }

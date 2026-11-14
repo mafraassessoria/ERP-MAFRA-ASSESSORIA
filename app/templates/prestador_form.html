@@ -12,7 +12,7 @@
 <form class="cartao" method="post" action="/prestadores/salvar">
   <input type="hidden" name="id" value="{{ p.id or '' }}">
   <div class="aviso-consulta" style="display:none"></div>
-  <fieldset><legend>Identificação</legend>
+  <fieldset id="identificacao"><legend>Identificação</legend>
     <div class="grade">
       <label>Código interno <input name="codigo_interno" value="{{ p.codigo_interno or '' }}" placeholder="nº da empresa no escritório"></label>
       <label class="larga">CNPJ * <span class="com-botao"><input name="cnpj" data-doc value="{{ p.cnpj|doc if p.cnpj else '' }}" required>
@@ -23,7 +23,7 @@
     </div>
   </fieldset>
 
-  <fieldset><legend>Módulos e integrações</legend>
+  <fieldset id="modulos"><legend>Módulos e integrações</legend>
     <input type="hidden" name="form_modulos" value="1">
     <p class="sutil">Marque o que o escritório usa para esta empresa. O que estiver desmarcado não aparece na tela da empresa nem entra nas rotinas automáticas.</p>
     <div class="modulos-empresa">
@@ -41,7 +41,7 @@
   </fieldset>
 
   <div id="bloco-nfse">
-  <fieldset><legend>Tributação e uso do sistema</legend>
+  <fieldset id="tributacao"><legend>Tributação e uso do sistema</legend>
     <div class="grade">
       <label>Regime
         <select name="regime">{% for k, v in REGIMES.items() %}<option value="{{ k }}" {{ 'selected' if p.regime == k }}>{{ v }}</option>{% endfor %}</select></label>
@@ -64,14 +64,14 @@
     <label class="check"><input type="checkbox" class="interruptor" name="usa_lote" value="1" {{ 'checked' if p.usa_lote }}> Emissão em lote (planilha) — só para as empresas que usam</label>
   </fieldset>
 
-  <fieldset><legend>Importação de notas pelo ADN</legend>
+  <fieldset id="importacao-adn"><legend>Importação de notas pelo ADN</legend>
     <label class="check"><input type="checkbox" class="interruptor" name="importar_automaticamente" value="1" {{ 'checked' if p.importar_automaticamente }}> Importar automaticamente (rotina diária) as notas emitidas e recebidas</label>
     <p class="sutil">Certificado: automático — com certificado próprio válido usa o da empresa; vencido ou sem certificado, usa o do escritório (procuração eletrônica).</p>
   </fieldset>
 
   </div>
 
-  <fieldset><legend>Endereço e contato</legend>
+  <fieldset id="contato"><legend>Endereço e contato</legend>
     <div class="grade">
       <label>CEP <input name="cep" value="{{ p.cep or '' }}"></label>
       <label class="larga">Logradouro <input name="logradouro" value="{{ p.logradouro or '' }}"></label>

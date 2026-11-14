@@ -92,7 +92,7 @@ async def api_cep(cep: str, u=Depends(usuario_atual)):
 
 # ---- Prestadores ------------------------------------------------------------
 
-MODULOS_EMPRESA = {"usa_nfse": "NFS-e", "usa_receita": "Receita Federal", "usa_econtador": "e-Contador", "usa_cnd": "Certidões"}
+MODULOS_EMPRESA = {"usa_nfse": "NFS-e", "usa_receita": "Integra Contador", "usa_econtador": "e-Contador", "usa_cnd": "Certidões"}
 
 
 @router.get("/prestadores/sair")
@@ -145,8 +145,8 @@ async def prestadores_lote(request: Request, db: Session = Depends(get_db), u=De
         "modo_importacao": ("modo", "IMPORTACAO", "modo: somente importação"),
         "modo_emissao": ("modo", "EMISSAO", "modo: emissão pelo escritório"),
         "nfse_sim": ("usa_nfse", True, "módulo NFS-e ligado"), "nfse_nao": ("usa_nfse", False, "módulo NFS-e desligado"),
-        "receita_sim": ("usa_receita", True, "módulo Receita Federal ligado"),
-        "receita_nao": ("usa_receita", False, "módulo Receita Federal desligado"),
+        "receita_sim": ("usa_receita", True, "módulo Integra Contador ligado"),
+        "receita_nao": ("usa_receita", False, "módulo Integra Contador desligado"),
         "econtador_sim": ("usa_econtador", True, "integração e-Contador ligada"),
         "econtador_nao": ("usa_econtador", False, "integração e-Contador desligada"),
         "cnd_sim": ("usa_cnd", True, "certidões ligadas"), "cnd_nao": ("usa_cnd", False, "certidões desligadas"),
@@ -374,6 +374,13 @@ def prestador_detalhe(pid: int, request: Request, aba: str = "notas", competenci
         from .nfse.emissao import descricao_certificado
         ctx["ctrl"] = db.scalar(select(models.ControleNSU).where(models.ControleNSU.prestador_id == pid))
         ctx["dono_cert"], ctx["problema_cert"] = descricao_certificado(db, p) if p.usa_procuracao else (None, "")
+        from datetime import date as _d
+        from . import aliquotas as _al
+        als = list(db.scalars(select(models.AliquotaSimples).where(
+            models.AliquotaSimples.prestador_id == pid, models.AliquotaSimples.referencia == _d.today().strftime("%Y-%m"))))
+        princ = _al.anexo_principal(als) if als else None
+        ctx["aliq"] = next((a for a in als if a.anexo == princ), None)
+        ctx["aliq_todas"] = als
     return render(request, "prestador_detalhe.html", **ctx)
 
 
