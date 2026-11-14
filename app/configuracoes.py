@@ -71,7 +71,8 @@ def smtp_configurado(db: Session) -> bool:
 
 
 def enviar_email(db: Session, para: list[str], assunto: str, corpo: str,
-                 anexos: list[Path] | None = None, sem_copia: bool = False, html: str = "") -> None:
+                 anexos: list[Path] | None = None, sem_copia: bool = False, html: str = "",
+                 imagens: dict[str, Path] | None = None) -> None:
     if not smtp_configurado(db):
         raise ErroEmail("E-mail não configurado. Um administrador deve preencher em Configurações.")
     host = ler_config(db, "smtp_host")
@@ -89,6 +90,13 @@ def enviar_email(db: Session, para: list[str], assunto: str, corpo: str,
     msg.set_content(corpo)
     if html:
         msg.add_alternative(html, subtype="html")
+        parte_html = msg.get_payload()[-1]
+        for cid, arq in (imagens or {}).items():   # imagens embutidas (src="cid:...")
+            try:
+                parte_html.add_related(Path(arq).read_bytes(), maintype="image", subtype=Path(arq).suffix.lstrip(".") or "png",
+                                       cid=f"<{cid}>", filename=Path(arq).name, disposition="inline")
+            except OSError:
+                pass
     for a in anexos or []:
         tipo = ("application", "pdf") if a.suffix.lower() == ".pdf" else ("application", "xml")
         msg.add_attachment(a.read_bytes(), maintype=tipo[0], subtype=tipo[1], filename=a.name)

@@ -82,162 +82,135 @@ def _registrar(c: models.Certificado) -> None:
 
 # ---------------------------------------------------------------- texto do e-mail
 
-def montar_email(db: Session, p: models.Prestador, c: models.Certificado) -> tuple[str, str, str]:
-    """(assunto, texto, html) do aviso de vencimento."""
+LOGO_CID = "logo-mafra"
+COR = "#584C57"          # cor da marca MAFRA
+NOME_ESC = "MAFRA ASSESSORIA CONTÁBIL"
+
+
+def logo_arquivo():
+    from pathlib import Path
+    return Path(__file__).parent / "static" / "img" / "logo_mafra.png"
+
+
+def _contato(db: Session) -> str:
     esc = escritorio(db)
-    nome_esc = "MAFRA ASSESSORIA CONTÁBIL"
-    tel = (esc.telefone if esc else "") or ""
-    mail = (esc.email if esc else "") or ""
+    return " · ".join(x for x in ((esc.telefone if esc else ""), (esc.email if esc else "")) if x)
+
+
+def _layout(destaque: str, cor_destaque: str, fundo_destaque: str, corpo: str, contato: str, logo_src: str) -> str:
+    """Moldura comum dos e-mails de certificado: logo do escritório, um destaque suave e o rodapé."""
+    e = _html.escape
+    return f"""<!doctype html><html><body style="margin:0;background:#f4f3f4;font-family:Segoe UI,Arial,sans-serif;color:#2d2a2e">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f3f4;padding:24px 0"><tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e0e4">
+<tr><td align="center" style="padding:26px 28px 18px;border-bottom:3px solid {COR}">
+  <img src="{logo_src}" width="200" alt="MAFRA Assessoria Contábil" style="display:block;width:200px;max-width:60%;height:auto;border:0"></td></tr>
+<tr><td style="padding:24px 28px 8px">
+  <div style="background:{fundo_destaque};border-left:4px solid {cor_destaque};border-radius:8px;padding:12px 16px;font-size:15px;color:#2d2a2e">{destaque}</div></td></tr>
+<tr><td style="padding:12px 28px 22px;font-size:15px;line-height:1.6">{corpo}</td></tr>
+<tr><td style="padding:14px 28px;background:#f8f7f8;border-top:1px solid #ece8ec;font-size:12.5px;color:#7a727a">
+  🔒 Para sua segurança: nunca pedimos senhas por links, SMS ou números desconhecidos.
+  Na dúvida, fale direto com a gente{(': ' + e(contato)) if contato else ''}.</td></tr>
+<tr><td style="padding:16px 28px 22px;font-size:13px;color:#7a727a">Um abraço,<br><b style="color:{COR}">Equipe Mafra Assessoria Contábil</b>{('<br>' + e(contato)) if contato else ''}</td></tr>
+</table></td></tr></table></body></html>"""
+
+
+def _botoes() -> str:
+    cd = CERTIFICADORA
+    return f"""<table role="presentation" cellpadding="0" cellspacing="0" style="margin:10px 0 4px"><tr>
+    <td style="padding-right:10px"><a href="{cd['link_whatsapp']}" style="display:inline-block;background:#1f8a4c;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:22px;font-weight:600;font-size:14px">Falar no WhatsApp</a></td>
+    <td><a href="{cd['site']}" style="display:inline-block;background:#ffffff;color:{COR};text-decoration:none;padding:9px 18px;border-radius:22px;font-weight:600;font-size:14px;border:1px solid {COR}">Visitar o site</a></td>
+  </tr></table>
+  <p style="margin:2px 0 0;font-size:12.5px;color:#7a727a">InfoPUB · WhatsApp {_html.escape(cd['whatsapp'])}</p>"""
+
+
+def _passos(e) -> str:
+    return f"""<p style="margin:18px 0 6px;font-weight:600;color:{COR}">É simples:</p>
+  <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:15px;line-height:1.55">
+   <tr><td valign="top" style="padding:3px 10px 3px 0;color:{COR};font-weight:700">1</td><td style="padding:3px 0">Emita o <b>e-CNPJ A1</b> com a certificadora de sua preferência. Se quiser uma indicação, a <b>InfoPUB Certificação Digital</b> atende rapidinho e online:</td></tr>
+   <tr><td></td><td style="padding:0 0 6px">{_botoes()}</td></tr>
+   <tr><td valign="top" style="padding:3px 10px 3px 0;color:{COR};font-weight:700">2</td><td style="padding:3px 0">Envie o novo certificado (<b>.pfx</b> ou <b>.p12</b>) e a senha para nós, pelo canal de sempre do escritório.</td></tr>
+   <tr><td valign="top" style="padding:3px 10px 3px 0;color:{COR};font-weight:700">3</td><td style="padding:3px 0">Pronto! Atualizamos tudo aqui no mesmo dia.</td></tr>
+  </table>"""
+
+
+def _texto(saudacao: str, paragrafo: str, contato: str) -> str:
+    cd = CERTIFICADORA
+    return f"""{saudacao}
+
+{paragrafo}
+
+É simples:
+1. Emita o e-CNPJ A1 com a certificadora de sua preferência. Se quiser uma indicação,
+   a InfoPUB Certificação Digital atende online: WhatsApp {cd['whatsapp']}
+   ({cd['link_whatsapp']}) – {cd['site']}
+2. Envie o novo certificado (.pfx ou .p12) e a senha para nós, pelo canal de sempre do escritório.
+3. Pronto! Atualizamos tudo aqui no mesmo dia.
+
+Se você já renovou e nos enviou, pode desconsiderar este lembrete. Obrigado!
+
+Para sua segurança: nunca pedimos senhas por links, SMS ou números desconhecidos.
+Na dúvida, fale direto com a gente{(': ' + contato) if contato else ''}.
+
+Um abraço,
+Equipe Mafra Assessoria Contábil
+{contato}
+"""
+
+
+def montar_email(db: Session, p: models.Prestador, c: models.Certificado, logo_src: str = f"cid:{LOGO_CID}") -> tuple[str, str, str]:
+    """(assunto, texto, html) do lembrete de vencimento."""
+    e = _html.escape
+    contato = _contato(db)
     dias = c.dias_para_vencer
     venc = f"{c.validade_fim:%d/%m/%Y}"
     empresa = p.razao_social
     if dias <= 0:
-        quando, quando_curto = f"vence HOJE ({venc})", "vence HOJE"
+        quando = "vence hoje"
     elif dias == 1:
-        quando, quando_curto = f"vence AMANHÃ ({venc})", "vence AMANHÃ"
+        quando = "vence amanhã"
     else:
-        quando, quando_curto = f"vence em {dias} dias ({venc})", f"vence em {dias} dias"
-    assunto = f"⚠️ Certificado digital {quando_curto} – {empresa}"
-    contato = " · ".join(x for x in (tel, mail) if x)
-
-    texto = f"""Olá, {empresa}!
-
-O CERTIFICADO DIGITAL A1 da sua empresa {quando}.
-
-Por que isso é importante?
-Sem certificado válido, a emissão de notas fiscais e serviços como e-CAC, eSocial e
-DCTFWeb podem ficar bloqueados, gerando atrasos, multas e transtornos.
-
-O que fazer:
-1. Renove o certificado e-CNPJ A1 com a certificadora de sua preferência.
-   Sugestão: InfoPUB Certificação Digital – WhatsApp (33) 98876-2499
-   ({CERTIFICADORA['link_whatsapp']}) – {CERTIFICADORA['site']}
-2. Envie o novo certificado (.pfx ou .p12) e a senha para o seu contador
-   (MAFRA ASSESSORIA CONTÁBIL) pelo canal habitual do escritório.
-3. Pronto! Atualizamos o cadastro no mesmo dia e você não precisa fazer mais nada.
-
-Já renovou e nos enviou? Desconsidere este aviso.
-
-Segurança: a MAFRA ASSESSORIA nunca pede senhas por links, SMS ou mensagens de números
-desconhecidos. Na dúvida, fale direto com o escritório{(': ' + contato) if contato else ''}.
-
-Atenciosamente,
-{nome_esc}
-{contato}
-"""
-    e = _html.escape
-    html = f"""<!doctype html><html><body style="margin:0;background:#f2f4f7;font-family:Segoe UI,Arial,sans-serif;color:#1d2733">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f7;padding:24px 0"><tr><td align="center">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #d6dce3">
-<tr><td style="background:#1f4e79;color:#ffffff;padding:16px 28px;font-size:15px"><b>{e(nome_esc)}</b></td></tr>
-<tr><td style="background:{'#b42318' if dias <= 3 else '#d97706'};color:#ffffff;padding:10px 28px;text-align:center">
-  <div style="font-size:11px;letter-spacing:.5px;opacity:.9">⚠️ AVISO IMPORTANTE</div>
-  <div style="font-size:16px;font-weight:700;margin-top:2px">Seu certificado digital {e(quando_curto)}</div>
-  <div style="font-size:13px;margin-top:1px">Validade: <b>{venc}</b></div></td></tr>
-<tr><td style="padding:24px 28px;font-size:15px;line-height:1.55">
-  <p style="margin:0 0 14px">Olá, <b>{e(empresa)}</b>!</p>
-  <p style="margin:0 0 14px">Sem o certificado digital A1 válido, a <b>emissão de notas fiscais</b> e serviços como
-    <b>e-CAC, eSocial e DCTFWeb</b> podem ficar bloqueados, gerando atrasos, multas e transtornos.</p>
-  <p style="margin:18px 0 8px;font-weight:700;color:#1f4e79">O que fazer</p>
-  <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:15px">
-   <tr><td valign="top" style="padding:4px 10px 4px 0;font-weight:700;color:#1f4e79">1.</td><td style="padding:4px 0">Renove o certificado <b>e-CNPJ A1</b> com a certificadora de sua preferência. Sugestão: <b>InfoPUB Certificação Digital</b> — <a href="{CERTIFICADORA['link_whatsapp']}" style="color:#1a7f37;font-weight:700">WhatsApp {CERTIFICADORA['whatsapp']}</a> · <a href="{CERTIFICADORA['site']}" style="color:#1f4e79">site</a>.</td></tr>
-   <tr><td valign="top" style="padding:4px 10px 4px 0;font-weight:700;color:#1f4e79">2.</td><td style="padding:4px 0">Envie o novo certificado (<b>.pfx</b> ou <b>.p12</b>) e a senha para o seu contador (<b>MAFRA ASSESSORIA CONTÁBIL</b>) pelo canal habitual do escritório.</td></tr>
-   <tr><td valign="top" style="padding:4px 10px 4px 0;font-weight:700;color:#1f4e79">3.</td><td style="padding:4px 0">Pronto! Atualizamos o cadastro no mesmo dia.</td></tr>
-  </table>
-  <p style="margin:18px 0 0;color:#66727f;font-size:14px">Já renovou e nos enviou? Desconsidere este aviso.</p>
-</td></tr>
-<tr><td style="padding:14px 28px;background:#f7f9fb;border-top:1px solid #e3e8ee;font-size:13px;color:#66727f">
-  🔒 <b>Segurança:</b> a MAFRA ASSESSORIA nunca pede senhas por links, SMS ou mensagens de números desconhecidos.
-  Na dúvida, fale direto com o escritório{(': ' + e(contato)) if contato else ''}.</td></tr>
-<tr><td style="padding:14px 28px;font-size:13px;color:#66727f">Atenciosamente,<br><b>{e(nome_esc)}</b>{('<br>' + e(contato)) if contato else ''}</td></tr>
-</table></td></tr></table></body></html>"""
+        quando = f"vence em {dias} dias"
+    assunto = f"Lembrete: certificado digital {quando} – {empresa}"
+    paragrafo = (f"Passando para lembrar que o certificado digital (e-CNPJ A1) da sua empresa {quando}, em {venc}. "
+                 "Ele é usado para emitir notas fiscais e acessar e-CAC, eSocial e DCTFWeb — renovando antes, "
+                 "tudo continua funcionando sem interrupção.")
+    texto = _texto(f"Olá, {empresa}! Tudo bem?", paragrafo, contato)
+    destaque = f"📅 O certificado digital da sua empresa <b>{e(quando)}</b> — validade até <b>{venc}</b>."
+    corpo = f"""<p style="margin:0 0 12px">Olá, <b>{e(empresa)}</b>! Tudo bem?</p>
+  <p style="margin:0 0 12px">{e(paragrafo)}</p>
+  {_passos(e)}
+  <p style="margin:18px 0 0;color:#7a727a;font-size:14px">Se você já renovou e nos enviou, pode desconsiderar este lembrete. Obrigado!</p>"""
+    html = _layout(destaque, "#c9a227" if dias > 3 else "#d0703c", "#fbf7ea" if dias > 3 else "#fcf1ea", corpo, contato, logo_src)
     return assunto, texto, html
 
 
 # ---------------------------------------------------------------- pedido de renovação (vencido)
 
-
-
-def montar_email_renovacao(db: Session, p: models.Prestador, c: models.Certificado | None) -> tuple[str, str, str]:
+def montar_email_renovacao(db: Session, p: models.Prestador, c: models.Certificado | None,
+                           logo_src: str = f"cid:{LOGO_CID}") -> tuple[str, str, str]:
     """(assunto, texto, html) do pedido de renovação: certificado vencido (c) ou empresa sem certificado (c=None)."""
-    esc = escritorio(db)
-    nome_esc = "MAFRA ASSESSORIA CONTÁBIL"
-    tel = (esc.telefone if esc else "") or ""
-    mail = (esc.email if esc else "") or ""
-    contato = " · ".join(x for x in (tel, mail) if x)
-    venc = f"{c.validade_fim:%d/%m/%Y}" if c else ""
-    empresa = p.razao_social
-    cd = CERTIFICADORA
-    if c:
-        assunto = f"🔴 Certificado digital VENCIDO – renove agora – {empresa}"
-        frase = f"O CERTIFICADO DIGITAL A1 (e-CNPJ) da sua empresa VENCEU em {venc}."
-        faixa, faixa2 = "Seu certificado digital VENCEU", f"Venceu em <b>{venc}</b>"
-        enquanto = "Enquanto ele não for renovado"
-    else:
-        assunto = f"🔴 Sua empresa está sem certificado digital – {empresa}"
-        frase = "Não temos cadastrado um CERTIFICADO DIGITAL A1 (e-CNPJ) válido da sua empresa."
-        faixa, faixa2 = "Sua empresa está sem certificado digital", "Providencie o e-CNPJ A1"
-        enquanto = "Sem ele"
-    texto = f"""Olá, {empresa}!
-
-{frase}
-
-{enquanto}, a empresa fica sujeita a bloqueios na emissão de notas
-fiscais e no acesso a serviços como e-CAC, eSocial e DCTFWeb. Para não deixar sua empresa
-parada, estamos usando provisoriamente a procuração do escritório no que é possível,
-mas a renovação é indispensável.
-
-Como resolver (rápido e online):
-Emita o certificado e-CNPJ A1 (validade de 1 ano) com a certificadora de sua preferência.
-Sugestão: {cd['nome']}
-  • WhatsApp: {cd['whatsapp']} – {cd['link_whatsapp']}
-  • Site: {cd['site']}
-
-Depois de emitir:
-Envie o novo certificado (.pfx ou .p12) e a senha para o seu contador
-(MAFRA ASSESSORIA CONTÁBIL) pelo canal habitual do escritório. Atualizamos o cadastro
-no mesmo dia.
-
-Já renovou e nos enviou? Desconsidere este aviso.
-
-Segurança: a MAFRA ASSESSORIA nunca pede senhas por links, SMS ou mensagens de números
-desconhecidos. Na dúvida, fale direto com o escritório{(': ' + contato) if contato else ''}.
-
-Atenciosamente,
-{nome_esc}
-{contato}
-"""
     e = _html.escape
-    html = f"""<!doctype html><html><body style="margin:0;background:#f2f4f7;font-family:Segoe UI,Arial,sans-serif;color:#1d2733">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f7;padding:24px 0"><tr><td align="center">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #d6dce3">
-<tr><td style="background:#1f4e79;color:#ffffff;padding:16px 28px;font-size:15px"><b>{e(nome_esc)}</b></td></tr>
-<tr><td style="background:#b42318;color:#ffffff;padding:10px 28px;text-align:center">
-  <div style="font-size:11px;letter-spacing:.5px;opacity:.9">🔴 ATENÇÃO</div>
-  <div style="font-size:16px;font-weight:700;margin-top:2px">{faixa}</div>
-  <div style="font-size:13px;margin-top:1px">{faixa2}</div></td></tr>
-<tr><td style="padding:24px 28px;font-size:15px;line-height:1.55">
-  <p style="margin:0 0 14px">Olá, <b>{e(empresa)}</b>!</p>
-  <p style="margin:0 0 14px">{e(frase)} {enquanto}, a empresa fica sujeita a bloqueios na
-    <b>emissão de notas fiscais</b> e no acesso a <b>e-CAC, eSocial e DCTFWeb</b>. Estamos usando provisoriamente a procuração
-    do escritório no que é possível, mas a renovação é indispensável.</p>
-  <p style="margin:18px 0 8px;font-weight:700;color:#1f4e79">Como resolver (rápido e online)</p>
-  <p style="margin:0 0 12px">Emita o <b>e-CNPJ A1</b> (validade de 1 ano) com a certificadora de sua preferência. Sugestão: <b>{e(cd['nome'])}</b>.</p>
-  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 4px"><tr>
-    <td style="padding-right:10px"><a href="{cd['link_whatsapp']}" style="display:inline-block;background:#1a7f37;color:#ffffff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:700">Falar no WhatsApp</a></td>
-    <td><a href="{cd['site']}" style="display:inline-block;background:#1f4e79;color:#ffffff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:700">Acessar o site</a></td>
-  </tr></table>
-  <p style="margin:4px 0 0;font-size:13px;color:#66727f">InfoPUB: WhatsApp {e(cd['whatsapp'])}.</p>
-  <p style="margin:18px 0 8px;font-weight:700;color:#1f4e79">Depois de emitir</p>
-  <p style="margin:0">Envie o novo certificado (<b>.pfx</b> ou <b>.p12</b>) e a senha para o seu contador (<b>MAFRA ASSESSORIA CONTÁBIL</b>)
-    pelo canal habitual do escritório. Atualizamos o cadastro no mesmo dia.</p>
-  <p style="margin:18px 0 0;color:#66727f;font-size:14px">Já renovou e nos enviou? Desconsidere este aviso.</p>
-</td></tr>
-<tr><td style="padding:14px 28px;background:#f7f9fb;border-top:1px solid #e3e8ee;font-size:13px;color:#66727f">
-  🔒 <b>Segurança:</b> a MAFRA ASSESSORIA nunca pede senhas por links, SMS ou mensagens de números desconhecidos.
-  Na dúvida, fale direto com o escritório{(': ' + e(contato)) if contato else ''}.</td></tr>
-<tr><td style="padding:14px 28px;font-size:13px;color:#66727f">Atenciosamente,<br><b>{e(nome_esc)}</b>{('<br>' + e(contato)) if contato else ''}</td></tr>
-</table></td></tr></table></body></html>"""
+    contato = _contato(db)
+    empresa = p.razao_social
+    if c:
+        venc = f"{c.validade_fim:%d/%m/%Y}"
+        assunto = f"Certificado digital vencido – vamos renovar? – {empresa}"
+        destaque = f"O certificado digital da sua empresa <b>venceu em {venc}</b>. Vamos renovar?"
+        inicio = f"Notamos que o certificado digital (e-CNPJ A1) da sua empresa venceu em {venc}."
+    else:
+        assunto = f"Certificado digital da sua empresa – {empresa}"
+        destaque = "Ainda não temos o <b>certificado digital</b> da sua empresa cadastrado."
+        inicio = "Notamos que ainda não temos cadastrado um certificado digital (e-CNPJ A1) válido da sua empresa."
+    paragrafo = (f"{inicio} Por enquanto seguimos usando a procuração do escritório no que é possível, mas alguns serviços "
+                 "— como a emissão de notas fiscais e o acesso a e-CAC, eSocial e DCTFWeb — dependem do certificado "
+                 "da própria empresa. O e-CNPJ A1 vale por 1 ano e a emissão é rápida e online.")
+    texto = _texto(f"Olá, {empresa}! Tudo bem?", paragrafo, contato)
+    corpo = f"""<p style="margin:0 0 12px">Olá, <b>{e(empresa)}</b>! Tudo bem?</p>
+  <p style="margin:0 0 12px">{e(paragrafo)}</p>
+  {_passos(e)}
+  <p style="margin:18px 0 0;color:#7a727a;font-size:14px">Se você já renovou e nos enviou, pode desconsiderar esta mensagem. Obrigado!</p>"""
+    html = _layout("🔑 " + destaque, "#c0605a", "#fbefee", corpo, contato, logo_src)
     return assunto, texto, html
 
 
@@ -252,7 +225,7 @@ def pedir_renovacao(db: Session, p: models.Prestador, usuario: str) -> str:
         return "empresa sem e-mail no cadastro"
     assunto, texto, html = montar_email_renovacao(db, p, c)
     try:
-        enviar_email(db, para, assunto, texto, html=html)
+        enviar_email(db, para, assunto, texto, html=html, imagens={LOGO_CID: logo_arquivo()})
     except ErroEmail as e:
         return str(e)
     p.certificado_pedido_em = datetime.now()
@@ -276,7 +249,7 @@ def enviar_aviso(db: Session, p: models.Prestador, usuario: str = "agendador") -
         return "empresa sem e-mail no cadastro"
     assunto, texto, html = montar_email(db, p, c)
     try:
-        enviar_email(db, para, assunto, texto, html=html)
+        enviar_email(db, para, assunto, texto, html=html, imagens={LOGO_CID: logo_arquivo()})
     except ErroEmail as e:
         return str(e)
     _registrar(c)

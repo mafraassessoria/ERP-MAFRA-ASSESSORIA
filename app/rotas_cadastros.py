@@ -852,7 +852,7 @@ def certificado_modelo_renovacao(pid: int, db: Session = Depends(get_db), u=Depe
     p = db.get(models.Prestador, pid)
     if p is None:
         return HTMLResponse("<p>Empresa não encontrada.</p>")
-    assunto, _texto, html = av.montar_email_renovacao(db, p, p.certificado_ativo)
+    assunto, _texto, html = av.montar_email_renovacao(db, p, p.certificado_ativo, logo_src='/static/img/logo_mafra.png')
     return HTMLResponse(f"<p style='font-family:sans-serif'><b>Assunto:</b> {_h.escape(assunto)}</p>" + html)
 
 
@@ -864,6 +864,6 @@ def certificado_modelo_email(pid: int, db: Session = Depends(get_db), u=Depends(
     c = p.certificado_ativo if p else None
     if c is None:
         return HTMLResponse("<p>Empresa sem certificado ativo.</p>")
-    assunto, _texto, html = av.montar_email(db, p, c)
+    assunto, _texto, html = av.montar_email(db, p, c, logo_src='/static/img/logo_mafra.png')
     import html as _h
     return HTMLResponse(f"<p style='font-family:sans-serif'><b>Assunto:</b> {_h.escape(assunto)}</p>" + html)
