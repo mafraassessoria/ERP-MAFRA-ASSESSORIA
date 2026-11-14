@@ -34,12 +34,28 @@
         ths.forEach(x => { delete x.dataset.dir; x.classList.remove("asc", "desc"); });
         th.dataset.dir = asc ? "asc" : "desc";
         th.classList.add(asc ? "asc" : "desc");
-        const linhas = [...tabela.querySelectorAll("tr")].slice(1).filter(tr => !tr.classList.contains("total") && tr.children.length === ths.length);
-        const fixas = [...tabela.querySelectorAll("tr.total")];
-        linhas.sort((a, b) => { const r = comparar(valor(a.children[i]), valor(b.children[i])); return asc ? r : -r; });
-        const pai = linhas.length ? linhas[0].parentNode : null;
+        // Linhas de grupo (tr.grupo-empresa) ficam no lugar e a ordenação acontece dentro de cada grupo;
+        // linhas complementares (tr.sub-anexo) acompanham a linha principal de cima.
+        const todas = [...tabela.querySelectorAll("tr")].slice(1);
+        const pai = todas.length ? todas[0].parentNode : null;
         if (!pai) return;
-        linhas.forEach(tr => pai.appendChild(tr));
+        const fixas = todas.filter(tr => tr.classList.contains("total"));
+        const blocos = [];   // [{cab: tr|null, itens: [[principal, ...anexas]]}]
+        let bloco = { cab: null, itens: [] };
+        todas.forEach(function (tr) {
+          if (tr.classList.contains("total")) return;
+          if (tr.classList.contains("grupo-empresa")) { blocos.push(bloco); bloco = { cab: tr, itens: [] }; return; }
+          if ((tr.classList.contains("sub-anexo") || tr.children.length !== ths.length) && bloco.itens.length) {
+            bloco.itens[bloco.itens.length - 1].push(tr); return;
+          }
+          bloco.itens.push([tr]);
+        });
+        blocos.push(bloco);
+        blocos.forEach(function (b) {
+          b.itens.sort((a, c) => { const r = comparar(valor(a[0].children[i]), valor(c[0].children[i])); return asc ? r : -r; });
+          if (b.cab) pai.appendChild(b.cab);
+          b.itens.forEach(item => item.forEach(tr => pai.appendChild(tr)));
+        });
         fixas.forEach(tr => pai.appendChild(tr));
       });
     });
