@@ -137,7 +137,7 @@
     {% if p.certificados|length > 1 %}
       <details><summary>Certificados anteriores</summary>
         <table>{% for x in p.certificados if not x.ativo %}
-          <tr><td>{{ x.titular }}</td><td>até {{ x.validade_fim|data }}</td>
+          <tr><td>{{ x.titular }}</td><td>val. {{ x.validade_fim|data }}</td>
           <td><form method="post" action="/certificados/{{ x.id }}/excluir" onsubmit="return confirm('Excluir este certificado?')"><button class="link">excluir</button></form></td></tr>
         {% endfor %}</table>
       </details>

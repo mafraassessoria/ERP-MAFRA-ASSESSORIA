@@ -14,7 +14,7 @@
 
 {% if escritorio %}
 <div class="msg {{ 'erro' if esc_sit.codigo in ('SEM', 'VENCIDO') or (esc_sit.dias is not none and esc_sit.dias <= 15) else '' }}">
-  Certificado do escritório (procuração) — <b>{{ escritorio.nome_exibicao }}</b>: {{ esc_sit.rotulo }}{% if esc_sit.cert %} · até {{ esc_sit.cert.validade_fim|data }}{% endif %}.
+  Certificado do escritório (procuração) — <b>{{ escritorio.nome_exibicao }}</b>: {{ esc_sit.rotulo }}{% if esc_sit.cert %} · val. {{ esc_sit.cert.validade_fim|data }}{% endif %}.
   {% if esc_sit.codigo in ('SEM', 'VENCIDO') %}Sem ele, as empresas sem certificado próprio não conseguem emitir nem importar.{% endif %}
 </div>
 {% else %}
