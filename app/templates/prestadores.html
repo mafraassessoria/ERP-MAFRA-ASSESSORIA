@@ -68,7 +68,7 @@
     <td class="linha">{{ p.cnpj|doc }}</td>
     <td class="linha" title="{{ REGIMES[p.regime] }}">{{ REGIMES_CURTO[p.regime] }}</td>
     <td class="linha" title="{{ p.modulos|join(', ') }}">{% if p.usa_nfse %}{{ 'Emissão' if p.modo == 'EMISSAO' else 'Importação' }}{% else %}<span class="sutil">sem NFS-e</span>{% endif %}
-      <span class="icones-modulo">{% if p.usa_receita %}<span title="Integra Contador">🏛️</span>{% endif %}{% if p.usa_econtador %}<span title="e-Contador">📂</span>{% endif %}{% if p.usa_cnd %}<span title="Certidões">📜</span>{% endif %}</span></td>
+      <span class="icones-modulo">{% if p.usa_receita %}<img src="/static/img/integra.png" alt="Integra Contador" title="Integra Contador">{% endif %}{% if p.usa_econtador %}<img src="/static/img/econtador.png" alt="e-Contador" title="e-Contador">{% endif %}{% if p.usa_cnd %}<span title="Certidões">📜</span>{% endif %}</span></td>
     {% if not p.usa_nfse %}<td class="linha sutil">—</td>{% else %}
     <td class="linha">{% if p.usa_procuracao %}<span class="etiqueta producao" title="Sem certificado próprio válido: usa o certificado do escritório">Procuração</span>
           {% if c and c.dias_para_vencer < 0 %} <small class="sutil">venceu {{ c.validade_fim|data }}</small>{% endif %}
