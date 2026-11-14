@@ -464,3 +464,18 @@ table.tabela-aliq tr.sub-anexo td:first-child, table.tabela-aliq tr.sub-anexo td
 form.cod-anexo { display:inline-flex; gap:.25rem; align-items:center; margin:.15rem .6rem .15rem 0; }
 form.cod-anexo select { padding:.05rem .2rem; font-size:.82rem; }
 .icones-modulo img { width:16px; height:16px; vertical-align:-3px; margin-left:.3rem; cursor:help; }
+
+/* Configurações: menu lateral por seção */
+.cfg-resumo { display:flex; gap:.5rem; flex-wrap:wrap; margin:-.3rem 0 .9rem; }
+.chip-cfg { font-size:.82rem; padding:.15rem .6rem; border-radius:999px; border:1px solid #dde3ea; background:#fff; color:#555; }
+.chip-cfg.ok { border-color:#bfe3c8; color:#1e6b34; } .chip-cfg.aviso { border-color:#f3dc9c; color:#7a5600; background:#fffaf0; }
+.chip-cfg.erro { border-color:#f5c2c2; color:#8a1c1c; background:#fdf3f3; }
+.cfg-layout { display:grid; grid-template-columns:190px minmax(0,1fr); gap:1.2rem; align-items:start; }
+.cfg-menu { position:sticky; top:1rem; display:flex; flex-direction:column; gap:.15rem; }
+.cfg-menu a { display:flex; justify-content:space-between; padding:.45rem .7rem; border-radius:6px; color:inherit; text-decoration:none; }
+.cfg-menu a:hover { background:#f0f4f8; } .cfg-menu a.ativo { background:#e3ecf6; color:#1d4f7c; font-weight:600; }
+.cfg-menu .st { font-weight:700; } .cfg-menu .st.ok { color:#2e8b4a; } .cfg-menu .st.aviso { color:#c08a00; } .cfg-menu .st.erro { color:#c0392b; } .cfg-menu .st.off { color:#aaa; }
+.cfg-titulo { margin:0 0 .6rem; font-size:1.25rem; }
+.cfg-secao .cartao { margin-bottom:.9rem; }
+.teste-email { gap:.5rem; align-items:flex-end; }
+@media (max-width: 800px) { .cfg-layout { grid-template-columns:1fr; } .cfg-menu { position:static; flex-direction:row; flex-wrap:wrap; } }

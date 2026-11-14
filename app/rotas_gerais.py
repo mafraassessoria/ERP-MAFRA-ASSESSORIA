@@ -58,27 +58,46 @@ def configuracoes(request: Request, db: Session = Depends(get_db), u=Depends(adm
     nfs = dict(tem_token=bool(nfstock.token(db)), ligado=ler_config(db, nfstock.CHAVE_LIGADO) == "1",
                desde=nfstock.desde(db), importadas=ler_config(db, nfstock.CHAVE_IMPORTADAS) == "1",
                ultimo=ler_config(db, nfstock.CHAVE_ULTIMO), crm=ler_config(db, nfstock.CHAVE_CRM) or "592534", **nfstock.resumo(db))
-    return render(request, "configuracoes.html", cfg=cfg, prestadores=prestadores, tab=tab, atualizacao=atualizacao, **contexto_config(db), **ctx_cert(db),
-                  ec_web=ec_sessao.estado(db), nfs=nfs)
+    from decimal import Decimal, InvalidOperation
+    from . import aliquotas, conferencia
+    ctx_s = contexto_config(db)
+    try:
+        lim = Decimal(str(ctx_s["serpro"]["limite"]).replace(".", "").replace(",", "."))
+        pct = int(Decimal(ctx_s["serpro"]["gasto"]) / lim * 100) if lim else 0
+    except (InvalidOperation, KeyError, TypeError):
+        pct = 0
+    pastas = dict(extratos=ler_config(db, conferencia.CHAVE_PASTA) or "", extratos_efetiva=str(conferencia.pasta_extratos(db)))
+    return render(request, "configuracoes.html", cfg=cfg, prestadores=prestadores, tab=tab, atualizacao=atualizacao, **ctx_s, **ctx_cert(db),
+                  ec_web=ec_sessao.estado(db), nfs=nfs, serpro_pct=pct, pastas=pastas, aliq_auto=aliquotas.auto_ligado(db))
 
 
 @router.post("/configuracoes")
 async def configuracoes_salvar(request: Request, db: Session = Depends(get_db), u=Depends(admin)):
     form = await request.form()
+    # Cada seção da tela tem o próprio formulário: grava só os campos que vieram.
     for c in CAMPOS_SMTP:
-        gravar_config(db, c, texto(form, c, 300))
+        if c in form:
+            gravar_config(db, c, texto(form, c, 300))
     if form.get("smtp_senha"):
         gravar_senha_smtp(db, form.get("smtp_senha"))
-    gravar_config(db, "pasta_copia_xml", texto(form, "pasta_copia_xml", 300))
-    gravar_config(db, "prestador_procurador_id", texto(form, "prestador_procurador_id", 10))
-    import re as _re
-    subs = sorted({_re.sub(r"\D", "", x)[:4] for x in (form.get("obra_subitens") or "").split(",") if len(_re.sub(r"\D", "", x)) >= 4})
-    gravar_config(db, "obra_subitens", ",".join(subs) or models.OBRA_SUBITENS_PADRAO)
+    for c in ("pasta_copia_xml", "prestador_procurador_id"):
+        if c in form:
+            gravar_config(db, c, texto(form, c, 300 if c.startswith("pasta") else 10))
+    if "pasta_extratos" in form:
+        from .conferencia import CHAVE_PASTA
+        gravar_config(db, CHAVE_PASTA, texto(form, "pasta_extratos", 300))
+    if "obra_subitens" in form:
+        import re as _re
+        subs = sorted({_re.sub(r"\D", "", x)[:4] for x in (form.get("obra_subitens") or "").split(",") if len(_re.sub(r"\D", "", x)) >= 4})
+        gravar_config(db, "obra_subitens", ",".join(subs) or models.OBRA_SUBITENS_PADRAO)
+    if form.get("secao") == "sistema":
+        from .aliquotas import CHAVE_AUTO
+        gravar_config(db, CHAVE_AUTO, "1" if form.get("aliq_auto") else "0")
     auditar(db, request, u, "SALVAR_CONFIGURACOES", "configuracao", None,
-            "smtp/pasta/procurador" + (" + nova senha SMTP" if form.get("smtp_senha") else ""))
+            (form.get("secao") or "geral") + (" + nova senha SMTP" if form.get("smtp_senha") else ""))
     db.commit()
     flash(request, "Configurações salvas.")
-    return _redir("/configuracoes")
+    return _redir("/configuracoes#" + (form.get("secao") or "email"))
 
 
 @router.post("/configuracoes/empresas/importar")
@@ -140,7 +159,7 @@ async def configuracoes_teste_email(request: Request, db: Session = Depends(get_
         flash(request, f"E-mail de teste enviado para {para}.")
     except ErroEmail as e:
         flash(request, str(e), "erro")
-    return _redir("/configuracoes")
+    return _redir("/configuracoes#email")
 
 
 # ---- Importação ADN --------------------------------------------------------
